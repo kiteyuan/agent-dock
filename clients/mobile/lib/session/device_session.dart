@@ -22,6 +22,11 @@ class DeviceSession {
   WebSocketChannel? _ws;
   StreamSubscription? _sub;
   Timer? _heartbeat;
+  Timer? _reconnectTimer;
+  /// User/app wants a live session (auto-reconnect until disconnect/dispose).
+  bool _wantConnected = false;
+  bool _connecting = false;
+  bool _intentionalClose = false;
 
   final WavRecorder recorder = WavRecorder();
   final TtsPlayer player = TtsPlayer();
@@ -35,11 +40,13 @@ class DeviceSession {
 
   String url = 'ws://192.168.1.1:8765';
   String token = '';
-  String ttsId = 'haibara';
-  String petId = 'monthly-salary-cat';
+  /// Filled from Runtime session.accept / catalog push — not client config.
+  String ttsId = '';
+  String petId = '';
   /// From Runtime `tts.list.result` — empty until connected.
   List<Map<String, dynamic>> ttsProviders = const [];
   String? ttsDefaultId;
+  String? petDefaultId;
   /// Bumps when pets catalog is refreshed from Runtime.
   int petsEpoch = 0;
 
@@ -129,21 +136,31 @@ class DeviceSession {
   }
 
   Future<void> connect() async {
-    await disconnect(silent: true);
+    _wantConnected = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    if (_connecting) return;
+    _connecting = true;
+    await disconnect(silent: true, clearWant: false);
     lastError = null;
     _setState(ClientState.connecting, status: url);
     try {
-      _ws = IOWebSocketChannel.connect(Uri.parse(url));
+      _ws = IOWebSocketChannel.connect(
+        Uri.parse(url),
+        pingInterval: const Duration(seconds: 20),
+      );
       _sub = _ws!.stream.listen(
         _onData,
         onError: (Object e) {
           lastError = e.toString();
           _setState(ClientState.error, status: lastError);
+          if (!_intentionalClose) _scheduleReconnect();
         },
         onDone: () {
           sessionId = null;
           _heartbeat?.cancel();
           _setState(ClientState.offline, status: '未连接');
+          if (!_intentionalClose) _scheduleReconnect();
         },
         cancelOnError: false,
       );
@@ -151,11 +168,14 @@ class DeviceSession {
         deviceId: deviceId,
         deviceType: deviceType,
         token: token.isEmpty ? null : token,
-        ttsId: ttsId.isEmpty ? null : ttsId,
       ));
-      _heartbeat = Timer.periodic(const Duration(seconds: 25), (_) {
+      _heartbeat = Timer.periodic(const Duration(seconds: 20), (_) {
         if (_ws != null && sessionId != null) {
-          _ws!.sink.add(proto.ping());
+          try {
+            _ws!.sink.add(proto.ping());
+          } catch (_) {
+            _scheduleReconnect();
+          }
         }
       });
       player.onCaption = (t) {
@@ -176,12 +196,49 @@ class DeviceSession {
     } catch (e) {
       lastError = e.toString();
       _setState(ClientState.error, status: lastError);
+      _scheduleReconnect();
+    } finally {
+      _connecting = false;
     }
   }
 
-  Future<void> disconnect({bool silent = false}) async {
+  /// Call when app returns to foreground — recover from OS-killed sockets.
+  Future<void> onAppResumed() async {
+    if (!_wantConnected) return;
+    if (sessionId == null ||
+        state == ClientState.offline ||
+        state == ClientState.error) {
+      await connect();
+      return;
+    }
+    try {
+      _ws?.sink.add(proto.ping());
+    } catch (_) {
+      await connect();
+    }
+  }
+
+  void _scheduleReconnect() {
+    if (!_wantConnected || _connecting) return;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(seconds: 1), () {
+      if (!_wantConnected) return;
+      if (sessionId != null &&
+          state != ClientState.offline &&
+          state != ClientState.error) {
+        return;
+      }
+      unawaited(connect());
+    });
+  }
+
+  Future<void> disconnect({bool silent = false, bool clearWant = true}) async {
+    if (clearWant) _wantConnected = false;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _heartbeat?.cancel();
     _heartbeat = null;
+    _intentionalClose = true;
     await _sub?.cancel();
     _sub = null;
     try {
@@ -189,6 +246,7 @@ class DeviceSession {
     } catch (_) {}
     _ws = null;
     sessionId = null;
+    _intentionalClose = false;
     player.clear();
     await recorder.cancel();
     if (!silent) {
@@ -266,12 +324,14 @@ class DeviceSession {
     switch (type) {
       case 'session.accept':
         sessionId = payload['session_id'] as String?;
+        final acceptTts = (payload['tts_id'] as String?)?.trim() ?? '';
+        final acceptPet = (payload['pet_id'] as String?)?.trim() ?? '';
+        if (acceptTts.isNotEmpty) ttsId = acceptTts;
+        if (acceptPet.isNotEmpty) petId = acceptPet;
         _setState(ClientState.idle, status: '点按角色通话');
+        // Catalogs are pushed by Runtime after accept; keep optional pull for older hosts.
         _ws?.sink.add(proto.ttsList());
         _ws?.sink.add(proto.petsList());
-        if (ttsId.isNotEmpty && sessionId != null) {
-          _ws?.sink.add(proto.ttsSelect(sessionId!, ttsId));
-        }
         break;
       case 'tts.list.result':
         final providers = payload['providers'];
@@ -284,7 +344,7 @@ class DeviceSession {
           ttsProviders = const [];
         }
         ttsDefaultId = payload['default'] as String?;
-        if (ttsId.isEmpty && (ttsDefaultId ?? '').isNotEmpty) {
+        if ((ttsDefaultId ?? '').isNotEmpty) {
           ttsId = ttsDefaultId!;
         }
         _notify();
@@ -389,7 +449,8 @@ class DeviceSession {
 
   Future<void> _applyPets(Map<String, dynamic> payload) async {
     await PetCatalog.applyRemoteCatalog(payload, wsUrl: url);
-    petId = PetCatalog.resolveId(petId);
+    petDefaultId = payload['default'] as String?;
+    petId = PetCatalog.resolveId(petDefaultId ?? petId);
     petsEpoch++;
     _notify();
   }

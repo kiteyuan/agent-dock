@@ -60,8 +60,6 @@ class _HomePageState extends State<HomePage> {
     final p = await SharedPreferences.getInstance();
     s.url = p.getString('url') ?? s.url;
     s.token = p.getString('token') ?? '';
-    s.ttsId = p.getString('tts') ?? 'haibara';
-    s.petId = PetCatalog.resolveId(p.getString('pet'));
     final last = p.getString('reply') ?? '';
     if (last.isNotEmpty && s.replyText.isEmpty) s.replyText = last;
     _url.text = s.url;
@@ -73,8 +71,6 @@ class _HomePageState extends State<HomePage> {
     final p = await SharedPreferences.getInstance();
     await p.setString('url', s.url);
     await p.setString('token', s.token);
-    await p.setString('tts', s.ttsId);
-    await p.setString('pet', s.petId);
     await p.setString('reply', s.replyText);
   }
 
@@ -85,165 +81,107 @@ class _HomePageState extends State<HomePage> {
       context: context,
       barrierColor: Colors.black54,
       builder: (ctx) {
-        String pet = PetCatalog.resolveId(s.petId);
-        String tts = s.ttsId;
-        final ttsItems = <DropdownMenuItem<String>>[
-          for (final p in s.ttsProviders)
-            if ((p['id'] as String? ?? '').isNotEmpty)
-              DropdownMenuItem(
-                value: p['id'] as String,
-                child: Text(
-                  p['name'] != null ? '${p['name']} (${p['id']})' : '${p['id']}',
+        final ttsLabel = s.ttsId.isEmpty ? (s.ttsDefaultId ?? '—') : s.ttsId;
+        final petLabel = s.petId.isEmpty
+            ? (PetCatalog.defaultId.isEmpty ? '—' : PetCatalog.defaultId)
+            : (PetCatalog.pets[s.petId]?.label ?? s.petId);
+        return Dialog(
+          backgroundColor: WebUiTheme.panel,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.zero,
+            side: BorderSide(color: WebUiTheme.line, width: 2),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('连接', style: TextStyle(color: WebUiTheme.text, fontSize: 16)),
+                const SizedBox(height: 10),
+                _label('Runtime WS'),
+                TextField(
+                  controller: _url,
+                  style: const TextStyle(color: WebUiTheme.text, fontSize: 13),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'ws://192.168.x.x:8765',
+                    hintStyle: TextStyle(color: WebUiTheme.muted),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                      borderSide: BorderSide(color: WebUiTheme.line),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                      borderSide: BorderSide(color: WebUiTheme.line),
+                    ),
+                  ),
                 ),
-              ),
-        ];
-        if (ttsItems.isEmpty) {
-          ttsItems.add(DropdownMenuItem(value: tts.isEmpty ? 'haibara' : tts, child: Text(tts.isEmpty ? 'haibara' : tts)));
-        }
-        if (!ttsItems.any((e) => e.value == tts)) {
-          tts = ttsItems.first.value ?? tts;
-        }
-        return StatefulBuilder(
-          builder: (ctx, setLocal) {
-            return Dialog(
-              backgroundColor: WebUiTheme.panel,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.zero,
-                side: BorderSide(color: WebUiTheme.line, width: 2),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                const SizedBox(height: 8),
+                _label('Token（可选）'),
+                TextField(
+                  controller: _token,
+                  obscureText: true,
+                  style: const TextStyle(color: WebUiTheme.text, fontSize: 13),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                      borderSide: BorderSide(color: WebUiTheme.line),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                      borderSide: BorderSide(color: WebUiTheme.line),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _label('由 Runtime 下发（只读）'),
+                Text('TTS：$ttsLabel', style: const TextStyle(color: WebUiTheme.muted, fontSize: 13)),
+                const SizedBox(height: 4),
+                Text('角色：$petLabel', style: const TextStyle(color: WebUiTheme.muted, fontSize: 13)),
+                const SizedBox(height: 6),
+                const Text(
+                  '在主机 Admin / config.yaml 修改默认 TTS 与人物',
+                  style: TextStyle(color: WebUiTheme.muted, fontSize: 11),
+                ),
+                const SizedBox(height: 14),
+                Row(
                   children: [
-                    const Text('连接', style: TextStyle(color: WebUiTheme.text, fontSize: 16)),
-                    const SizedBox(height: 10),
-                    _label('Runtime WS'),
-                    TextField(
-                      controller: _url,
-                      style: const TextStyle(color: WebUiTheme.text, fontSize: 13),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        hintText: 'ws://192.168.x.x:8765',
-                        hintStyle: TextStyle(color: WebUiTheme.muted),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.zero,
-                          borderSide: BorderSide(color: WebUiTheme.line),
+                    Expanded(
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          backgroundColor: WebUiTheme.accent,
+                          foregroundColor: const Color(0xFF04140C),
+                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.zero,
-                          borderSide: BorderSide(color: WebUiTheme.line),
-                        ),
+                        onPressed: () async {
+                          s.url = _url.text.trim();
+                          s.token = _token.text;
+                          await _savePrefs();
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          await s.connect();
+                        },
+                        child: const Text('保存并连接'),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    _label('Token（可选）'),
-                    TextField(
-                      controller: _token,
-                      obscureText: true,
-                      style: const TextStyle(color: WebUiTheme.text, fontSize: 13),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.zero,
-                          borderSide: BorderSide(color: WebUiTheme.line),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          backgroundColor: const Color(0xFF2A3340),
+                          foregroundColor: WebUiTheme.text,
+                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.zero,
-                          borderSide: BorderSide(color: WebUiTheme.line),
-                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('关闭'),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    _label('TTS（主机 voices/ + config）'),
-                    DropdownButtonFormField<String>(
-                      value: tts,
-                      dropdownColor: WebUiTheme.panel,
-                      style: const TextStyle(color: WebUiTheme.text, fontSize: 13),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.zero,
-                          borderSide: BorderSide(color: WebUiTheme.line),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.zero,
-                          borderSide: BorderSide(color: WebUiTheme.line),
-                        ),
-                      ),
-                      items: ttsItems,
-                      onChanged: (v) {
-                        if (v == null) return;
-                        setLocal(() => tts = v);
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    _label('角色（主机 pets/ → 本机缓存）'),
-                    DropdownButtonFormField<String>(
-                      value: pet,
-                      dropdownColor: WebUiTheme.panel,
-                      style: const TextStyle(color: WebUiTheme.text, fontSize: 13),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.zero,
-                          borderSide: BorderSide(color: WebUiTheme.line),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.zero,
-                          borderSide: BorderSide(color: WebUiTheme.line),
-                        ),
-                      ),
-                      items: PetCatalog.pets.entries
-                          .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value.label)))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v == null) return;
-                        setLocal(() => pet = v);
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              backgroundColor: WebUiTheme.accent,
-                              foregroundColor: const Color(0xFF04140C),
-                              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                            ),
-                            onPressed: () async {
-                              s.url = _url.text.trim();
-                              s.token = _token.text;
-                              s.ttsId = tts.trim().isEmpty ? (s.ttsDefaultId ?? 'haibara') : tts.trim();
-                              s.petId = PetCatalog.resolveId(pet);
-                              await _savePrefs();
-                              if (ctx.mounted) Navigator.pop(ctx);
-                              await s.connect();
-                            },
-                            child: const Text('保存并连接'),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              backgroundColor: const Color(0xFF2A3340),
-                              foregroundColor: WebUiTheme.text,
-                              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                            ),
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('关闭'),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
-              ),
-            );
-          },
+              ],
+            ),
+          ),
         );
       },
     );

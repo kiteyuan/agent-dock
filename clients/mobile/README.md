@@ -18,7 +18,7 @@ flutter run
 交互与 Web 一致：
 
 - **点按角色**：开始 / 结束录音
-- **长按角色**：打开设置（Runtime / Token / TTS / 角色）
+- **长按角色**：打开设置（仅 Runtime URL / Token；TTS/人物由主机下发）
 - **下方三行回复**：按句字幕；空闲时可点回复重播
 
 ## Android 权限
