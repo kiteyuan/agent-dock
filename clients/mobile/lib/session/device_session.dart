@@ -153,6 +153,7 @@ class DeviceSession {
         _onData,
         onError: (Object e) {
           lastError = e.toString();
+          replyText = lastError!;
           _setState(ClientState.error, status: lastError);
           if (!_intentionalClose) _scheduleReconnect();
         },
@@ -287,28 +288,63 @@ class DeviceSession {
       replyText = '';
       _setState(ClientState.listening, status: '正在录音…');
     } catch (e) {
-      lastError = e.toString();
-      _setState(ClientState.error, status: lastError);
+      _failTurn(e.toString());
     }
   }
 
   Future<void> _stopAndSend() async {
-    final bytes = await recorder.stop();
+    Uint8List? bytes;
+    try {
+      bytes = await recorder.stop();
+    } catch (e) {
+      _failTurn(e.toString());
+      return;
+    }
     if (bytes == null || bytes.isEmpty || _ws == null || sessionId == null) {
       _setState(ClientState.idle, status: '空录音');
       return;
     }
     _setState(ClientState.busy, status: '识别中…');
-    _ws!.sink.add(proto.audioStart(sessionId!));
-    const chunk = 4096;
-    for (var i = 0; i < bytes.length; i += chunk) {
-      final end = (i + chunk < bytes.length) ? i + chunk : bytes.length;
-      _ws!.sink.add(bytes.sublist(i, end));
+    try {
+      _ws!.sink.add(proto.audioStart(sessionId!));
+      const chunk = 4096;
+      for (var i = 0; i < bytes.length; i += chunk) {
+        final end = (i + chunk < bytes.length) ? i + chunk : bytes.length;
+        _ws!.sink.add(bytes.sublist(i, end));
+      }
+      _ws!.sink.add(proto.audioEnd(sessionId!));
+    } catch (e) {
+      _failTurn(e.toString());
     }
-    _ws!.sink.add(proto.audioEnd(sessionId!));
+  }
+
+  /// Turn failures stay recoverable: keep the session and let the next tap record.
+  void _failTurn(String detail) {
+    final text = detail.trim().isEmpty ? '出错了' : detail.trim();
+    lastError = text;
+    replyText = text;
+    _ttsBuf.clear();
+    _awaitingIdle = false;
+    captionMode = false;
+    _captionLive = false;
+    _resetThinking();
+    if (sessionId != null && _ws != null) {
+      _setState(ClientState.idle, status: text);
+      return;
+    }
+    _setState(ClientState.error, status: text);
+    _scheduleReconnect();
   }
 
   void _onData(dynamic data) {
+    try {
+      _onMessage(data);
+    } catch (e) {
+      _failTurn(e.toString());
+    }
+  }
+
+  void _onMessage(dynamic data) {
     if (data is List<int>) {
       _ttsBuf.addAll(data);
       return;
@@ -354,8 +390,10 @@ class DeviceSession {
         _applyPets(payload);
         break;
       case 'error':
-        lastError = '${payload['detail'] ?? payload['message'] ?? 'error'}';
-        _setState(ClientState.error, status: lastError);
+      case 'agent.error':
+        _failTurn(
+          '${payload['detail'] ?? payload['message'] ?? payload['content'] ?? payload['text'] ?? '出错了'}',
+        );
         break;
       case 'stt.final':
         _resetThinking();
@@ -416,6 +454,14 @@ class DeviceSession {
         break;
       case 'agent.done':
         _flushThinking(finalFlush: true);
+        if (_ttsBuf.isNotEmpty) {
+          player.enqueue(TtsSegment(
+            bytes: Uint8List.fromList(_ttsBuf),
+            text: _ttsPendingText,
+          ));
+          _ttsBuf.clear();
+          _ttsPendingText = '';
+        }
         _awaitingIdle = true;
         _maybeIdle();
         break;
@@ -441,7 +487,9 @@ class DeviceSession {
       player.commitTurn();
       captionMode = false;
       _captionLive = false;
-      if (state == ClientState.busy || state == ClientState.speaking) {
+      if (state == ClientState.busy ||
+          state == ClientState.speaking ||
+          state == ClientState.error) {
         _setState(ClientState.idle, status: '点按角色通话');
       }
     }

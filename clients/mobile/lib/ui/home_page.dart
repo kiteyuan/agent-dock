@@ -223,6 +223,10 @@ class _HomePageState extends State<HomePage> {
       _holdOpenedSettings = false;
       return;
     }
+    if (s.state == ClientState.error || s.state == ClientState.offline) {
+      await s.connect();
+      return;
+    }
     if (!s.canToggleTalk) return;
     await _onTalk();
   }
@@ -287,7 +291,20 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
+                    Text(
+                      s.statusLine,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: s.state == ClientState.error
+                            ? const Color(0xFFE56B73)
+                            : WebUiTheme.muted,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     SizedBox(
                       height: replyH,
                       width: double.infinity,

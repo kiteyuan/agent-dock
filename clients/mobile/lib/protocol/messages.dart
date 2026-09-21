@@ -23,9 +23,11 @@ String encode(String type, [Map<String, dynamic>? payload]) {
 }
 
 Map<String, dynamic>? decodeJson(String raw) {
-  final obj = jsonDecode(raw);
-  if (obj is Map<String, dynamic>) return obj;
-  if (obj is Map) return Map<String, dynamic>.from(obj);
+  try {
+    final obj = jsonDecode(raw);
+    if (obj is Map<String, dynamic>) return obj;
+    if (obj is Map) return Map<String, dynamic>.from(obj);
+  } catch (_) {}
   return null;
 }
 
