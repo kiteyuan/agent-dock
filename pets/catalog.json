@@ -12,6 +12,12 @@
       "label": "Arona",
       "sheet": "arona-v1/spritesheet.webp",
       "url": "https://codex-pets.net/#/pets/arona-v1"
+    },
+    {
+      "id": "miku",
+      "label": "miku",
+      "sheet": "miku/spritesheet.webp",
+      "url": ""
     }
   ]
 }

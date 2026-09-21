@@ -278,13 +278,15 @@
   function fillPetSelect(selectEl, selectedId) {
     return loadCatalog().then(({ pets, defaultId }) => {
       const cur = selectedId && pets[selectedId] ? selectedId : defaultId;
-      selectEl.innerHTML = "";
-      for (const id of Object.keys(pets)) {
-        const opt = document.createElement("option");
-        opt.value = id;
-        opt.textContent = pets[id].label;
-        if (id === cur) opt.selected = true;
-        selectEl.appendChild(opt);
+      if (selectEl) {
+        selectEl.innerHTML = "";
+        for (const id of Object.keys(pets)) {
+          const opt = document.createElement("option");
+          opt.value = id;
+          opt.textContent = pets[id].label;
+          if (id === cur) opt.selected = true;
+          selectEl.appendChild(opt);
+        }
       }
       return cur;
     });

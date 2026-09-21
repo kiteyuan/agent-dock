@@ -15,10 +15,11 @@ class DeviceMessageType(str, Enum):
     DEVICE_HELLO = "device.hello"
     USER_MESSAGE = "user.message"
     AUDIO_START = "audio.start"
+    # Deprecated: audio frames are raw WebSocket binary between audio.start/end.
     AUDIO_CHUNK = "audio.chunk"
     AUDIO_END = "audio.end"
     SESSION_CANCEL = "session.cancel"
-    DEVICE_STATUS = "device.status"
+    DEVICE_STATUS = "device.status"  # reserved; Runtime does not emit/consume
     AGENTS_LIST = "agents.list"
     TTS_LIST = "tts.list"
     TTS_SELECT = "tts.select"
@@ -32,12 +33,14 @@ class DeviceMessageType(str, Enum):
     TTS_SELECTED = "tts.selected"
     PETS_LIST_RESULT = "pets.list.result"
     PONG = "device.pong"
-    STT_PARTIAL = "stt.partial"
+    STT_PARTIAL = "stt.partial"  # reserved; Runtime emits stt.final only
     STT_FINAL = "stt.final"
     TTS_START = "tts.start"
+    # Deprecated: TTS payload is raw WebSocket binary between tts.start/end.
     TTS_AUDIO = "tts.audio"
     TTS_END = "tts.end"
     ERROR = "error"
+    # Agent events (agent.*) are published via AgentEvent.to_wire(), not this enum.
 
 
 class DeviceMessage(BaseModel):
@@ -88,14 +91,21 @@ def session_accept(
     *,
     advertise_url: str | None = None,
     tts_id: str | None = None,
+    pet_id: str | None = None,
+    agent_id: str | None = None,
     assets_port: int | None = None,
     assets_base_url: str | None = None,
 ) -> DeviceMessage:
+    """Runtime-owned session defaults — clients are shells and should not configure these."""
     payload: dict[str, Any] = {"session_id": session_id, "device_id": device_id}
     if advertise_url:
         payload["advertise_url"] = advertise_url
     if tts_id:
         payload["tts_id"] = tts_id
+    if pet_id:
+        payload["pet_id"] = pet_id
+    if agent_id:
+        payload["agent_id"] = agent_id
     if assets_port is not None:
         payload["assets_port"] = int(assets_port)
     if assets_base_url:

@@ -9,15 +9,27 @@ device_type: "pi"
 runtime_url: "ws://127.0.0.1:8765"   # use Tailscale IP when remote
 token: null
 
-tts_id: "haibara"
-tts_model: null
-agent_id: null
+# TTS / Agent / 人物一律由 Runtime（config.yaml + Admin）决定；本机只做接收壳。
 
 audio:
   sample_rate: 16000
   channels: 1
   record_seconds: 5
   chunk_ms: 100
+  device: null                # sounddevice index or ALSA name, e.g. "plughw:1,0"
+  playback_device: null       # 播放设备；蓝牙耳机填 PulseAudio/PipeWire sink 名
+
+# Always-on wake → record → silence stop (default). Use mode: button for Enter/GPIO PTT.
+listen:
+  mode: "wake"                # wake | button
+  model: "models/hey_xiaoai.onnx"  # hey 小哀；builtin: hey_jarvis / alexa / hey_mycroft
+  threshold: 0.65
+  silence_ms: 1500            # webrtcvad: stop after this much quiet
+  min_speech_ms: 400
+  max_seconds: 30
+  vad_aggressiveness: 2       # 0–3
+  cooldown_ms: 1500           # ignore wake right after TTS / previous hit
+  pre_roll_ms: 300
 
 button:
   # BCM GPIO pin for push-to-talk (null = console Enter key)
@@ -26,12 +38,15 @@ button:
 
 display:
   enabled: true
-  # ssd1306 | console
-  driver: "console"
+  # ssd1306 | sh1106 | console
+  driver: "sh1106"
   i2c_port: 1
-  i2c_address: 0x3C
+  i2c_address: 0x3C          # 常见 0x3C，也有 0x3D，看屏背面丝印
   width: 128
   height: 64
+  font: null                 # 留空自动找 CJK；豆腐块时: sudo apt install -y fonts-wqy-microhei
+  font_size: 13
+  rotate: 0                  # 方向/镜像不对时改 2
 
 heartbeat_seconds: 0          # 0 = WebSocket protocol ping only (lighter on Zero 2 W)
 ws_ping_interval: 30

@@ -1,0 +1,371 @@
+schema_version: 2
+
+sidecars:
+  pi:
+    name: Pi Coding Gateway
+    port: 9001
+    spawn:
+      executable: "{python}"
+      args: ["agents/pi-coding/gateway.py"]
+      cwd: "."
+      env: {PI_GATEWAY_PORT: "{port}"}
+    health: {kind: http, url: "http://127.0.0.1:9001/v1/agent"}
+  codex:
+    name: Codex Gateway
+    port: 9002
+    spawn:
+      executable: "{python}"
+      args: ["agents/codex/gateway.py"]
+      cwd: "."
+      env: {CODEX_GATEWAY_PORT: "{port}"}
+    health: {kind: http, url: "http://127.0.0.1:9002/v1/agent"}
+  claude:
+    name: Claude Gateway
+    port: 9003
+    spawn:
+      executable: "{python}"
+      args: ["agents/claude-code/gateway.py"]
+      cwd: "."
+      env: {CLAUDE_GATEWAY_PORT: "{port}"}
+    health: {kind: http, url: "http://127.0.0.1:9003/v1/agent"}
+  opencode:
+    name: OpenCode Gateway
+    port: 9004
+    spawn: &generic_agent
+      executable: "{python}"
+      args: ["agents/gateway.py", "--driver", "opencode", "--port", "{port}"]
+      cwd: "."
+      env: {AGENTDOCK_MODULE_BIN: "{module_bin}"}
+    health: {kind: http, url: "http://127.0.0.1:9004/v1/agent"}
+  cline:
+    name: Cline Gateway
+    port: 9005
+    spawn:
+      <<: *generic_agent
+      args: ["agents/gateway.py", "--driver", "cline", "--port", "{port}"]
+    health: {kind: http, url: "http://127.0.0.1:9005/v1/agent"}
+  openhands:
+    name: OpenHands Gateway
+    port: 9006
+    spawn:
+      <<: *generic_agent
+      args: ["agents/gateway.py", "--driver", "openhands", "--port", "{port}"]
+    health: {kind: http, url: "http://127.0.0.1:9006/v1/agent"}
+  goose:
+    name: Goose Gateway
+    port: 9007
+    spawn:
+      <<: *generic_agent
+      args: ["agents/gateway.py", "--driver", "goose", "--port", "{port}"]
+    health: {kind: http, url: "http://127.0.0.1:9007/v1/agent"}
+  aider:
+    name: Aider Gateway
+    port: 9008
+    spawn:
+      <<: *generic_agent
+      args: ["agents/gateway.py", "--driver", "aider", "--port", "{port}"]
+    health: {kind: http, url: "http://127.0.0.1:9008/v1/agent"}
+  qwen-code:
+    name: Qwen Code Gateway
+    port: 9009
+    spawn:
+      <<: *generic_agent
+      args: ["agents/gateway.py", "--driver", "qwen-code", "--port", "{port}"]
+    health: {kind: http, url: "http://127.0.0.1:9009/v1/agent"}
+  kimi-code:
+    name: Kimi Code Gateway
+    port: 9010
+    spawn:
+      <<: *generic_agent
+      args: ["agents/gateway.py", "--driver", "kimi-code", "--port", "{port}"]
+    health: {kind: http, url: "http://127.0.0.1:9010/v1/agent"}
+  codebuddy:
+    name: CodeBuddy Gateway
+    port: 9011
+    spawn:
+      <<: *generic_agent
+      args: ["agents/gateway.py", "--driver", "codebuddy", "--port", "{port}"]
+    health: {kind: http, url: "http://127.0.0.1:9011/v1/agent"}
+  qoder:
+    name: Qoder Gateway
+    port: 9012
+    spawn:
+      <<: *generic_agent
+      args: ["agents/gateway.py", "--driver", "qoder", "--port", "{port}"]
+    health: {kind: http, url: "http://127.0.0.1:9012/v1/agent"}
+  hermes:
+    name: Hermes Gateway
+    port: 9013
+    spawn:
+      <<: *generic_agent
+      args: ["agents/gateway.py", "--driver", "hermes", "--port", "{port}"]
+    health: {kind: http, url: "http://127.0.0.1:9013/v1/agent"}
+
+modules:
+  - id: pi
+    name: Pi Coding
+    kind: agent
+    registry_id: pi
+    sidecar_id: pi
+    version: repository
+    homepage: https://pi.dev/
+    dependencies: [node, npm]
+    health: {kind: command, command: pi}
+    local_marker: agents/pi-coding/node_modules
+    licenses:
+      - {id: mit, name: MIT, url: "https://opensource.org/license/mit"}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://pi.dev/docs/latest", requires_acceptance: true, redistributable: false}
+    capabilities: {streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://pi.dev/
+      providers:
+        - {id: anthropic, name: Anthropic, credential_env: ANTHROPIC_API_KEY, model_env: PI_MODEL, extra_env: {PI_PROVIDER: anthropic}}
+        # Native DeepSeek provider (openai-completions). Do NOT map DeepSeek through
+        # generic openai — Pi then uses openai-responses and times out against api.deepseek.com.
+        - {id: deepseek, name: DeepSeek, credential_env: DEEPSEEK_API_KEY, model_env: PI_MODEL, default_base_url: "https://api.deepseek.com", default_model: deepseek-flash, extra_env: {PI_PROVIDER: deepseek}}
+        - {id: openai, name: OpenAI 兼容服务, credential_env: OPENAI_API_KEY, base_url_env: OPENAI_BASE_URL, model_env: PI_MODEL, extra_env: {PI_PROVIDER: openai}}
+    description: 精简、可扩展的本地编码 Agent
+  - id: codex
+    name: OpenAI Codex
+    kind: agent
+    registry_id: codex
+    sidecar_id: codex
+    version: external
+    homepage: https://developers.openai.com/codex/cli
+    dependencies: [codex-cli]
+    health: {kind: command, command: codex}
+    licenses:
+      - {id: apache-2.0, name: Apache-2.0, url: "https://www.apache.org/licenses/LICENSE-2.0"}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://developers.openai.com/codex/config-advanced", requires_acceptance: true, redistributable: false}
+    capabilities: {streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://developers.openai.com/codex/cli
+      providers:
+        - {id: openai, name: OpenAI 账号或 API, credential_label: API Key（可留空使用已登录账号）, credential_env: OPENAI_API_KEY, credential_required: false, model_env: CODEX_MODEL, model_required: false}
+    description: OpenAI 官方沙箱编码 Agent
+  - id: claude
+    name: Claude Code
+    kind: agent
+    registry_id: claude
+    sidecar_id: claude
+    version: external
+    homepage: https://code.claude.com/docs/en/setup
+    dependencies: [claude-cli]
+    health: {kind: command, command: claude}
+    licenses:
+      - {id: anthropic-commercial, name: Anthropic Commercial Terms, url: "https://www.anthropic.com/legal/commercial-terms", requires_acceptance: true, redistributable: false}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://docs.anthropic.com/en/docs/claude-code/security", requires_acceptance: true, redistributable: false}
+    capabilities: {streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://code.claude.com/docs
+      providers:
+        - {id: anthropic, name: Anthropic 账号或 API, credential_label: API Key（可留空使用已登录账号）, credential_env: ANTHROPIC_API_KEY, credential_required: false, base_url_env: ANTHROPIC_BASE_URL, model_env: CLAUDE_MODEL, model_required: false}
+    description: Anthropic 官方编码 Agent
+  - id: opencode
+    name: OpenCode
+    kind: agent
+    registry_id: opencode
+    sidecar_id: opencode
+    version: 1.18.31
+    homepage: https://opencode.ai/download
+    dependencies: [node, npm]
+    health: {kind: command, command: opencode}
+    licenses:
+      - {id: mit, name: MIT, url: "https://opensource.org/license/mit"}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://opencode.ai/docs/permissions/", requires_acceptance: true, redistributable: false}
+    capabilities: {streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://opencode.ai/docs/providers/
+      providers:
+        - {id: openai, name: OpenAI 兼容服务, credential_env: OPENAI_API_KEY, base_url_env: OPENAI_BASE_URL}
+        - {id: anthropic, name: Anthropic, credential_env: ANTHROPIC_API_KEY, base_url_env: ANTHROPIC_BASE_URL}
+        - {id: openrouter, name: OpenRouter, credential_env: OPENROUTER_API_KEY, default_base_url: "https://openrouter.ai/api/v1"}
+    description: 多模型、多 Provider 的开源终端 Agent
+  - id: cline
+    name: Cline
+    kind: agent
+    registry_id: cline
+    sidecar_id: cline
+    version: 3.0.62
+    homepage: https://docs.cline.bot/getting-started/installing-cline
+    dependencies: [node, npm]
+    health: {kind: command, command: cline}
+    licenses:
+      - {id: apache-2.0, name: Apache-2.0, url: "https://www.apache.org/licenses/LICENSE-2.0"}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://docs.cline.bot/features/auto-approve", requires_acceptance: true, redistributable: false}
+    capabilities: {streaming: true, local: true, cpu: true}
+    configuration: {mode: account, help_url: "https://docs.cline.bot/getting-started/selecting-your-model"}
+    description: 支持 CLI、IDE 和 SDK 的通用编码 Agent
+  - id: openhands
+    name: OpenHands
+    kind: agent
+    registry_id: openhands
+    sidecar_id: openhands
+    version: 1.16.0
+    homepage: https://docs.openhands.dev/openhands/usage/cli/installation
+    dependencies: [python-3.12]
+    health: {kind: command, command: openhands}
+    licenses:
+      - {id: mit, name: MIT, url: "https://opensource.org/license/mit"}
+      - {id: workspace-execution, name: Headless Workspace Execution, url: "https://docs.openhands.dev/openhands/usage/cli/headless", requires_acceptance: true, redistributable: false}
+    hardware: {platforms: [linux, darwin], min_ram_gb: 8, min_disk_gb: 3}
+    capabilities: {streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://docs.openhands.dev/usage/llms
+      providers:
+        - {id: openai, name: OpenAI 兼容服务, credential_env: LLM_API_KEY, base_url_env: LLM_BASE_URL, model_env: LLM_MODEL}
+        - {id: anthropic, name: Anthropic, credential_env: ANTHROPIC_API_KEY, base_url_env: ANTHROPIC_BASE_URL, model_env: LLM_MODEL}
+    description: 适合自主任务与沙箱执行；Windows 请在 WSL 内部署 gateway
+  - id: goose
+    name: Goose
+    kind: agent
+    registry_id: goose
+    sidecar_id: goose
+    version: 1.50.1
+    homepage: https://goose-docs.ai/docs/getting-started/installation/
+    dependencies: []
+    health: {kind: command, command: goose}
+    licenses:
+      - {id: apache-2.0, name: Apache-2.0, url: "https://www.apache.org/licenses/LICENSE-2.0"}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://goose-docs.ai/docs/guides/running-tasks", requires_acceptance: true, redistributable: false}
+    capabilities: {streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://goose-docs.ai/docs/getting-started/providers
+      providers:
+        - {id: openai, name: OpenAI, credential_env: OPENAI_API_KEY, model_env: GOOSE_MODEL, extra_env: {GOOSE_PROVIDER: openai}}
+        - {id: anthropic, name: Anthropic, credential_env: ANTHROPIC_API_KEY, model_env: GOOSE_MODEL, extra_env: {GOOSE_PROVIDER: anthropic}}
+    description: MCP 驱动的通用自动化 Agent
+  - id: aider
+    name: Aider
+    kind: agent
+    registry_id: aider
+    sidecar_id: aider
+    version: 0.86.2
+    homepage: https://aider.chat/docs/install.html
+    dependencies: [python]
+    health: {kind: command, command: aider}
+    licenses:
+      - {id: apache-2.0, name: Apache-2.0, url: "https://www.apache.org/licenses/LICENSE-2.0"}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://aider.chat/docs/usage.html", requires_acceptance: true, redistributable: false}
+    capabilities: {streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://aider.chat/docs/llms.html
+      providers:
+        - {id: openai, name: OpenAI 兼容服务, credential_env: OPENAI_API_KEY, base_url_env: OPENAI_API_BASE}
+        - {id: anthropic, name: Anthropic, credential_env: ANTHROPIC_API_KEY}
+        - {id: openrouter, name: OpenRouter, credential_env: OPENROUTER_API_KEY, default_base_url: "https://openrouter.ai/api/v1"}
+    description: Git 原生的终端结对编程 Agent
+  - id: qwen-code
+    name: Qwen Code
+    kind: agent
+    region: cn
+    registry_id: qwen-code
+    sidecar_id: qwen-code
+    version: 0.24.0
+    homepage: https://qwen.ai/qwencode
+    dependencies: [node, npm]
+    health: {kind: command, command: qwen}
+    licenses:
+      - {id: apache-2.0, name: Apache-2.0, url: "https://www.apache.org/licenses/LICENSE-2.0"}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://qwen.ai/qwencode", requires_acceptance: true, redistributable: false}
+    capabilities: {languages: [zh, en], streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://qwen.ai/qwencode
+      providers:
+        - {id: dashscope, name: 阿里云百炼, credential_env: OPENAI_API_KEY, base_url_env: OPENAI_BASE_URL, model_env: OPENAI_MODEL, default_base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1", default_model: qwen3-coder-plus}
+        - {id: openai, name: OpenAI 兼容服务, credential_env: OPENAI_API_KEY, base_url_env: OPENAI_BASE_URL, model_env: OPENAI_MODEL}
+        - {id: modelscope, name: 魔搭社区, credential_env: OPENAI_API_KEY, base_url_env: OPENAI_BASE_URL, model_env: OPENAI_MODEL, default_base_url: "https://api-inference.modelscope.cn/v1", default_model: Qwen/Qwen3-Coder-480B-A35B-Instruct}
+    description: 阿里通义千问官方开源编码 Agent，中文与国内网络体验友好
+  - id: kimi-code
+    name: Kimi Code
+    kind: agent
+    region: cn
+    registry_id: kimi-code
+    sidecar_id: kimi-code
+    version: 2.0.0
+    homepage: https://www.kimi.com/code/docs/en/kimi-code-cli/guides/getting-started
+    dependencies: [node, npm, git]
+    health: {kind: command, command: kimi}
+    licenses:
+      - {id: mit, name: MIT, url: "https://opensource.org/license/mit"}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://www.kimi.com/code/docs/en/kimi-code-cli/", requires_acceptance: true, redistributable: false}
+    capabilities: {languages: [zh, en], streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://www.kimi.com/code/docs/en/kimi-code-cli/configuration/providers
+      providers:
+        - {id: kimi-code, name: Kimi Code, credential_env: KIMI_MODEL_API_KEY, base_url_env: KIMI_MODEL_BASE_URL, model_env: KIMI_MODEL_NAME, default_base_url: "https://api.kimi.com/coding/v1", default_model: kimi-for-coding, models_from: moonshot, extra_env: {KIMI_MODEL_PROVIDER_TYPE: kimi}}
+        - {id: moonshot, name: Moonshot 开放平台, credential_env: KIMI_MODEL_API_KEY, base_url_env: KIMI_MODEL_BASE_URL, model_env: KIMI_MODEL_NAME, default_base_url: "https://api.moonshot.cn/v1", default_model: kimi-k2.5, extra_env: {KIMI_MODEL_PROVIDER_TYPE: kimi}}
+        - {id: openai, name: OpenAI 兼容服务, credential_env: KIMI_MODEL_API_KEY, base_url_env: KIMI_MODEL_BASE_URL, model_env: KIMI_MODEL_NAME, extra_env: {KIMI_MODEL_PROVIDER_TYPE: openai}}
+    description: 月之暗面官方终端编码 Agent，支持 Kimi 与兼容模型
+  - id: codebuddy
+    name: CodeBuddy Code
+    kind: agent
+    region: cn
+    registry_id: codebuddy
+    sidecar_id: codebuddy
+    version: 2.151.0
+    homepage: https://www.codebuddy.ai/docs/cli/installation
+    dependencies: [node, npm]
+    health: {kind: command, command: codebuddy}
+    licenses:
+      - {id: codebuddy-terms, name: CodeBuddy 服务条款, url: "https://www.codebuddy.ai/terms", requires_acceptance: true, redistributable: false}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://www.codebuddy.ai/docs/cli/headless", requires_acceptance: true, redistributable: false}
+    capabilities: {languages: [zh, en], streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://www.codebuddy.ai/docs/cli/iam
+      providers:
+        - {id: codebuddy-cn, name: 腾讯云国内账号, credential_label: API Key（可留空使用登录账号）, credential_env: CODEBUDDY_API_KEY, credential_required: false, model_env: CODEBUDDY_MODEL, model_required: false, extra_env: {CODEBUDDY_INTERNET_ENVIRONMENT: internal}}
+        - {id: compatible, name: 第三方兼容模型, credential_env: CODEBUDDY_API_KEY, base_url_env: CODEBUDDY_BASE_URL, model_env: CODEBUDDY_MODEL}
+    description: 腾讯云官方终端编码 Agent，支持国内账号和无头执行
+  - id: qoder
+    name: Qoder CLI
+    kind: agent
+    region: cn
+    registry_id: qoder
+    sidecar_id: qoder
+    version: 1.1.54
+    homepage: https://docs.qoder.com/cli/installation
+    dependencies: [node, npm]
+    health: {kind: command, command: qoder}
+    licenses:
+      - {id: qoder-terms, name: Qoder 服务条款, url: "https://qoder.com/terms", requires_acceptance: true, redistributable: false}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://docs.qoder.com/cli/run-in-scripts", requires_acceptance: true, redistributable: false}
+    capabilities: {languages: [zh, en], streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://docs.qoder.com/cli/authentication
+      providers:
+        - {id: qoder, name: Qoder 账号, credential_label: 个人访问令牌（可留空使用登录账号）, credential_env: QODER_PERSONAL_ACCESS_TOKEN, credential_required: false, model_env: QODER_MODEL, model_required: false}
+    description: 阿里 Qoder 官方终端 Agent，支持脚本模式和国内账号
+  - id: hermes
+    name: Hermes Agent
+    kind: agent
+    registry_id: hermes
+    sidecar_id: hermes
+    version: external
+    homepage: https://hermes-agent.nousresearch.com/docs/getting-started/installation
+    dependencies: []
+    health: {kind: command, command: hermes}
+    licenses:
+      - {id: mit, name: MIT, url: "https://opensource.org/license/mit"}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://hermes-agent.nousresearch.com/docs/user-guide/security", requires_acceptance: true, redistributable: false}
+    capabilities: {streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://hermes-agent.nousresearch.com/docs/integrations/providers
+      providers:
+        - {id: deepseek, name: DeepSeek, credential_env: DEEPSEEK_API_KEY, base_url_env: DEEPSEEK_BASE_URL, model_env: HERMES_MODEL, default_base_url: "https://api.deepseek.com", default_model: deepseek-v4-pro, extra_env: {HERMES_PROVIDER: deepseek}}
+        - {id: openai, name: OpenAI 兼容服务, credential_env: OPENAI_API_KEY, base_url_env: OPENAI_BASE_URL, model_env: HERMES_MODEL, extra_env: {HERMES_PROVIDER: openai-api}}
+        - {id: anthropic, name: Anthropic, credential_env: ANTHROPIC_API_KEY, base_url_env: ANTHROPIC_BASE_URL, extra_env: {HERMES_PROVIDER: anthropic}}
+        - {id: openrouter, name: OpenRouter, credential_env: OPENROUTER_API_KEY, default_base_url: "https://openrouter.ai/api/v1", extra_env: {HERMES_PROVIDER: openrouter}}
+    description: Nous Research 官方终端 Agent，DeepSeek 文档收录的集成方式；支持无头一次性任务

@@ -3,7 +3,7 @@
 目录名 `agents/pi-coding`（避免与树莓派客户端 `clients/rpi` 混淆）。  
 `config.yaml` 里的 agent id 仍为 **`pi`**。
 
-安装的是 [@earendil-works/pi-coding-agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)。  
+安装的是 [@earendil-works/pi-coding-agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)，同一次 `npm install` 会带上 [pi-mcp-adapter](https://www.npmjs.com/package/pi-mcp-adapter)。网关启动 Pi 时加载这个扩展，用来读取工作目录里的 `.mcp.json`。  
 Pi 原生是 stdio RPC/JSON，本目录的 `gateway.py` 把它转成 Agent Protocol。
 
 ## 安装

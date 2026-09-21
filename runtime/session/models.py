@@ -9,13 +9,6 @@ from typing import Any
 
 
 @dataclass
-class Turn:
-    role: str
-    text: str
-    ts: float = field(default_factory=time.time)
-
-
-@dataclass
 class Session:
     session_id: str
     device_id: str

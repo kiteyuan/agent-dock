@@ -1,0 +1,63 @@
+# AgentDock — Runtime + Pi in Docker; pets/voices/workspace bind-mounted from host.
+# GPT-SoVITS stays on the host (:9880). Mobile/Web clients stay outside.
+#
+#   docker compose up --build -d
+#   docker compose logs -f runtime
+#   docker compose down
+#
+# Prereq on host: SoVITS listening on 127.0.0.1:9880 (e.g. .\scripts\start.ps1 -NoPi
+# with only TTS, or your usual api_v2.py). Pi needs provider auth (see docs/DOCKER.md).
+
+name: agentdock
+
+services:
+  pi:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.pi
+    container_name: agentdock-pi
+    environment:
+      PI_GATEWAY_HOST: "0.0.0.0"
+      PI_GATEWAY_PORT: "9001"
+      PI_CWD: "/workspace"
+      PI_SESSION_DIR: "/data/sessions"
+      # Optional overrides:
+      # PI_PROVIDER: "..."
+      # PI_MODEL: "..."
+    # Reachable as http://pi:9001 on the compose network only.
+    # The gateway has no device token, so 9001 is not published on the host.
+    volumes:
+      - ./workspace:/workspace
+      - pi_sessions:/data/sessions
+      # Uncomment if Pi stores API keys under ~/.pi on the host:
+      # - ${USERPROFILE}/.pi:/root/.pi
+      # - ${HOME}/.pi:/root/.pi
+    restart: unless-stopped
+
+  runtime:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.runtime
+    container_name: agentdock-runtime
+    depends_on:
+      - pi
+    environment:
+      PYTHONUNBUFFERED: "1"
+      HF_HOME: "/cache/huggingface"
+      HF_HUB_OFFLINE: "0"
+    volumes:
+      - ./config.docker.yaml:/app/config.yaml:ro
+      - ./pets:/app/pets:ro
+      - ./voices:/app/voices:ro
+      - ./workspace:/app/workspace
+      - hf_cache:/cache/huggingface
+    ports:
+      - "8765:8765"
+      - "8766:8766"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  hf_cache:
+  pi_sessions:

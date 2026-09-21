@@ -23,6 +23,7 @@ def device_hello(
     token: str | None = None,
     tts_id: str | None = None,
 ) -> str:
+    """Hello. Prefer omitting tts_id — Runtime owns TTS/pet defaults."""
     payload: dict[str, Any] = {
         "device_id": device_id,
         "device_type": device_type,

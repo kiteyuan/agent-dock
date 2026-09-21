@@ -37,7 +37,7 @@ let lastThinkingFlush = 0;
 const THINKING_MIN_MS = 400;
 const PROCESS_MAX_LEN = 72;
 
-const PREFS = { url: "ad_url", token: "ad_token", tts: "ad_tts", pet: "ad_pet", reply: "ad_last_reply", device: "ad_device_id" };
+const PREFS = { url: "ad_url", token: "ad_token", reply: "ad_last_reply", device: "ad_device_id" };
 
 function stableDeviceId() {
   let id = localStorage.getItem(PREFS.device) || "";
@@ -55,7 +55,8 @@ function setMood(mood) {
 
 function syncBotEnabled() {
   const online = !!sessionId;
-  const canClick = online && (recording || !turnLocked);
+  // Idle / listening start-stop; busy / speaking tap cancels the turn.
+  const canClick = online && !starting;
   $("bot").classList.toggle("locked", !canClick);
   syncReplayHint();
 }
@@ -332,32 +333,19 @@ function defaultWsUrl() {
 
 function fillTtsSelect(providers, defaultId) {
   const sel = $("ttsId");
-  const prev = (sel.value || localStorage.getItem(PREFS.tts) || "").trim();
   const list = Array.isArray(providers) ? providers : [];
-  sel.innerHTML = "";
-  if (!list.length) {
-    const opt = document.createElement("option");
-    opt.value = prev || "haibara";
-    opt.textContent = opt.value;
-    sel.appendChild(opt);
-    return;
+  let pick = defaultId || "";
+  if (!pick && list.length) pick = list[0].id || list[0].name || "";
+  if (sel) sel.value = pick || "";
+}
+
+function applyPetFromRuntime(defaultId) {
+  const id = defaultId || "";
+  if ($("petId")) $("petId").value = id;
+  if (window.pixelBot && id) {
+    window.pixelBot.setPet(id);
+    window.pixelBot.reload();
   }
-  let pick = null;
-  for (const p of list) {
-    const id = p.id || p.name;
-    if (!id) continue;
-    const opt = document.createElement("option");
-    opt.value = id;
-    opt.textContent = p.name ? `${p.name} (${id})` : id;
-    sel.appendChild(opt);
-    if (id === prev) pick = id;
-  }
-  if (!pick) {
-    pick = (defaultId && [...sel.options].some((o) => o.value === defaultId))
-      ? defaultId
-      : sel.options[0]?.value;
-  }
-  if (pick) sel.value = pick;
 }
 
 function loadPrefs() {
@@ -369,27 +357,20 @@ function loadPrefs() {
   }
   $("url").value = url;
   $("token").value = localStorage.getItem(PREFS.token) || "";
-  const tts = localStorage.getItem(PREFS.tts) || "haibara";
-  if (![...$("ttsId").options].some((o) => o.value === tts)) {
-    const opt = document.createElement("option");
-    opt.value = tts;
-    opt.textContent = tts;
-    $("ttsId").appendChild(opt);
-  }
-  $("ttsId").value = tts;
-  $("petId").value = localStorage.getItem(PREFS.pet) || "monthly-salary-cat";
+  if ($("ttsId")) $("ttsId").value = "";
+  if ($("petId")) $("petId").value = "";
 }
 
 function savePrefs() {
   localStorage.setItem(PREFS.url, $("url").value.trim());
   localStorage.setItem(PREFS.token, $("token").value);
-  localStorage.setItem(PREFS.tts, $("ttsId").value.trim() || "haibara");
-  localStorage.setItem(PREFS.pet, $("petId").value || "monthly-salary-cat");
 }
 
 function onEvent(type, payload = {}) {
   if (type === "stt.final") {
     resetThinkingBuf();
+    const t = String(payload.text || payload.content || "").trim();
+    if (t) showLiveReply(t);
     enterBusy();
   } else if (type === "agent.start") {
     flushThinking(true);
@@ -440,18 +421,7 @@ function onEvent(type, payload = {}) {
   } else if (type === "agent.done" || type === "agent.cancel") {
     flushThinking(true);
     if (type === "agent.cancel") {
-      resetThinkingBuf();
-      ttsPlayQueue = [];
-      ttsChunks = [];
-      turnTtsSegments = [];
-      turnAwaitingIdle = false;
-      resetCaptionState();
-      if (audioEl) {
-        try { audioEl.pause(); } catch (_) {}
-      }
-      ttsPlaying = false;
-      enterIdle();
-      syncReplayHint();
+      applyLocalCancel();
     } else {
       // No audio this turn → still show the speak text
       if (!ttsPlaying && !ttsPlayQueue.length && !ttsChunks.length) {
@@ -482,8 +452,6 @@ function connect() {
     };
     const token = $("token").value;
     if (token) payload.token = token;
-    const tts = $("ttsId").value.trim();
-    if (tts) payload.tts_id = tts;
     ws.send(msg("device.hello", payload));
   };
 
@@ -496,34 +464,22 @@ function connect() {
     const p = m.payload || {};
     if (m.type === "session.accept") {
       sessionId = p.session_id;
+      if (p.tts_id && $("ttsId")) $("ttsId").value = p.tts_id;
+      if (p.pet_id) applyPetFromRuntime(p.pet_id);
       enterIdle();
-      // Keep last reply across reconnect / refresh
+      // Optional pull for older Runtimes; new hosts already push catalogs.
       ws.send(msg("tts.list"));
       ws.send(msg("pets.list"));
-      const tts = $("ttsId").value.trim();
-      if (tts) {
-        ws.send(msg("tts.select", { session_id: sessionId, tts_id: tts }));
-      }
       return;
     }
     if (m.type === "tts.list.result") {
       fillTtsSelect(p.providers || [], p.default);
-      savePrefs();
       return;
     }
     if (m.type === "pets.list.result") {
       const applied = window.PixelBot.applyRemoteCatalog(p, $("url").value.trim());
       if (applied) {
-        const cur = window.PixelBot.refreshPetSelect(
-          $("petId"),
-          localStorage.getItem(PREFS.pet) || $("petId").value
-        );
-        $("petId").value = cur;
-        if (window.pixelBot) {
-          window.pixelBot.setPet(cur);
-          window.pixelBot.reload();
-        }
-        savePrefs();
+        applyPetFromRuntime(p.default || applied.defaultId);
       }
       return;
     }
@@ -651,8 +607,39 @@ async function toggleTalk() {
     await stopTalk();
     return;
   }
-  if (turnLocked) return;
+  if (turnLocked) {
+    cancelTurn();
+    return;
+  }
   await startTalk();
+}
+
+/** User abort while STT / agent / TTS is in flight. */
+function cancelTurn() {
+  if (!ws || !sessionId || starting) return;
+  try {
+    ws.send(msg("session.cancel", { session_id: sessionId }));
+  } catch (_) {}
+  applyLocalCancel();
+}
+
+function applyLocalCancel() {
+  recording = false;
+  starting = false;
+  resetThinkingBuf();
+  ttsPlayQueue = [];
+  ttsChunks = [];
+  turnTtsSegments = [];
+  turnAwaitingIdle = false;
+  resetCaptionState();
+  if (audioEl) {
+    try {
+      audioEl.pause();
+    } catch (_) {}
+  }
+  ttsPlaying = false;
+  enterIdle();
+  syncReplayHint();
 }
 
 function maybeIdleAfterTts() {
@@ -793,7 +780,6 @@ $("btnClose").onclick = () => $("settings").close();
 $("btnSave").onclick = (e) => {
   e.preventDefault();
   $("settings").close();
-  if (window.pixelBot) window.pixelBot.setPet($("petId").value);
   if (ws) ws.close();
   connect();
 };
@@ -801,9 +787,8 @@ $("btnSave").onclick = (e) => {
 loadPrefs();
 
 (async () => {
-  const savedPet = localStorage.getItem(PREFS.pet) || "";
-  const petId = await window.PixelBot.fillPetSelect($("petId"), savedPet);
-  $("petId").value = petId;
+  // Offline fallback sprite until Runtime pushes catalog + default pet.
+  const petId = await window.PixelBot.fillPetSelect(null, "");
   window.pixelBot = window.PixelBot.createPixelBot($("sprite"), petId);
   await window.pixelBot.ready;
   window.pixelBot.start();

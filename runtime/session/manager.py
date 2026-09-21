@@ -16,6 +16,9 @@ class SessionManager:
         self.max_context = max_context
 
     def create(self, device_id: str, device_type: str = "unknown") -> Session:
+        old_sid = self._by_device.get(device_id)
+        if old_sid:
+            self.remove(old_sid)
         sid = uuid.uuid4().hex[:12]
         session = Session(
             session_id=sid,
@@ -39,6 +42,27 @@ class SessionManager:
         session = self._sessions.pop(session_id, None)
         if session and self._by_device.get(session.device_id) == session_id:
             self._by_device.pop(session.device_id, None)
+
+    def list(self) -> list[Session]:
+        return list(self._sessions.values())
+
+    def list_dicts(self) -> list[dict]:
+        out = []
+        for s in self._sessions.values():
+            out.append(
+                {
+                    "session_id": s.session_id,
+                    "device_id": s.device_id,
+                    "device_type": s.device_type,
+                    "agent_id": s.agent_id,
+                    "tts_id": s.tts_id,
+                    "tts_model": s.tts_model,
+                    "created_at": s.created_at,
+                    "context_turns": len(s.context),
+                    "cancel_pending": s.cancel_event.is_set(),
+                }
+            )
+        return out
 
     @property
     def active_count(self) -> int:

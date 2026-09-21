@@ -1,0 +1,27 @@
+# Build context = repo root. Keeps images small; data dirs are bind-mounted at runtime.
+.git
+.github
+.pytest_cache
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.egg-info
+**/.agentdock-sessions
+workspace/**
+clients/mobile
+clients/web
+clients/cli
+clients/rpi
+docs
+examples
+tests
+*.wav
+*.log
+tmp_*
+voices/**/models
+**/*.ckpt
+**/*.pth
+**/*.safetensors
+agents/codex
+agents/claude-code
+agents/demo

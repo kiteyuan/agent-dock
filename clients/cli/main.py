@@ -6,7 +6,7 @@ Primary UI (all platforms):
   python main.py --ui
 
 CLI (script / debug):
-  python main.py --chat [--agent pi] [--tts haibara]
+  python main.py --chat [--agent pi] [--tts edge]
   python main.py --text "..."
   python main.py --record 5
   python main.py --wav path/to/audio.wav
@@ -75,6 +75,29 @@ async def connect_with_retry(url: str, *, retries: int = 5, base_delay: float = 
     raise RuntimeError(f"failed to connect to {url}: {last_err}")
 
 
+async def _drain_hello_extras(ws) -> None:
+    """Runtime may push tts/pets catalogs right after session.accept."""
+    while True:
+        try:
+            raw = await asyncio.wait_for(ws.recv(), timeout=0.25)
+        except asyncio.TimeoutError:
+            return
+        if isinstance(raw, (bytes, bytearray)):
+            continue
+        try:
+            msg = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        mtype = msg.get("type")
+        if mtype in ("tts.list.result", "pets.list.result", "agents.list.result", "device.pong"):
+            if mtype == "tts.list.result":
+                print(f"[tts] providers={[p.get('id') for p in (msg.get('payload') or {}).get('providers') or []]} default={(msg.get('payload') or {}).get('default')}")
+            elif mtype == "pets.list.result":
+                print(f"[pets] default={(msg.get('payload') or {}).get('default')}")
+            continue
+        print(f"[warn] unexpected after accept: {mtype}")
+
+
 async def run(
     *,
     url: str,
@@ -97,7 +120,8 @@ async def run(
     ws = await connect_with_retry(url)
     view = TurnView()
     try:
-        await ws.send(device_hello(device_id, "voice_client", token=token, tts_id=tts_id))
+        # Thin client: do not configure TTS via hello; Runtime pushes defaults.
+        await ws.send(device_hello(device_id, "voice_client", token=token))
         resp = json.loads(await ws.recv())
         if resp["type"] == "error":
             print("auth/error:", resp)
@@ -109,6 +133,9 @@ async def run(
             print(f"[advertise] {resp['payload']['advertise_url']}")
         if resp["payload"].get("tts_id"):
             print(f"[tts] session default={resp['payload']['tts_id']}")
+        if resp["payload"].get("pet_id"):
+            print(f"[pet] session default={resp['payload']['pet_id']}")
+        await _drain_hello_extras(ws)
 
         hb_task = asyncio.create_task(_heartbeat(ws)) if heartbeat else None
 
@@ -123,6 +150,7 @@ async def run(
             return
 
         if tts_id:
+            # Optional CLI override only — normal clients never select TTS.
             await ws.send(tts_select(session_id, tts_id, tts_model))
             msg = json.loads(await ws.recv())
             if msg.get("type") == "tts.selected":

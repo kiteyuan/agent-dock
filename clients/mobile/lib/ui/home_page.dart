@@ -227,6 +227,11 @@ class _HomePageState extends State<HomePage> {
       await s.connect();
       return;
     }
+    // Cancel does not need the microphone.
+    if (s.state == ClientState.busy || s.state == ClientState.speaking) {
+      await s.toggleTalk();
+      return;
+    }
     if (!s.canToggleTalk) return;
     await _onTalk();
   }
@@ -291,20 +296,9 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      s.statusLine,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: s.state == ClientState.error
-                            ? const Color(0xFFE56B73)
-                            : WebUiTheme.muted,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    // Match clients/web: mood is the pet animation only — no
+                    // second status line that duplicates the reply box.
+                    const SizedBox(height: 12),
                     SizedBox(
                       height: replyH,
                       width: double.infinity,

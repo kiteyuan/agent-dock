@@ -12,6 +12,23 @@ from loguru import logger
 SAMPLE_RATE = 16000
 
 
+def input_kwargs(
+    *,
+    sample_rate: int,
+    device: int | str | None = None,
+    blocksize: int = 1024,
+) -> dict:
+    kw: dict = {
+        "samplerate": sample_rate,
+        "channels": 1,
+        "dtype": "int16",
+        "blocksize": blocksize,
+    }
+    if device is not None and device != "":
+        kw["device"] = device
+    return kw
+
+
 def record_wav(seconds: float, sample_rate: int = SAMPLE_RATE) -> bytes:
     import sounddevice as sd
 
@@ -27,6 +44,7 @@ def record_until_stop(
     *,
     max_seconds: float = 60.0,
     blocksize: int = 1024,
+    device: int | str | None = None,
 ) -> bytes:
     """Record until stop_event is set (or max_seconds). Same click-toggle UX as Web."""
     import sounddevice as sd
@@ -43,13 +61,7 @@ def record_until_stop(
         buf.extend(indata[:frames].tobytes())
         got += frames
 
-    with sd.InputStream(
-        samplerate=sample_rate,
-        channels=1,
-        dtype="int16",
-        blocksize=blocksize,
-        callback=_callback,
-    ):
+    with sd.InputStream(**input_kwargs(sample_rate=sample_rate, device=device, blocksize=blocksize), callback=_callback):
         while not stop_event.is_set() and got < max_frames:
             stop_event.wait(0.05)
 
@@ -66,7 +78,7 @@ def _frames_to_wav(pcm: bytes, sample_rate: int) -> bytes:
     return buf.getvalue()
 
 
-def play_bytes(data: bytes) -> None:
+def play_bytes(data: bytes, device=None) -> None:
     """Play audio from memory. WAV/PCM via sounddevice; MP3 falls back to temp file."""
     if not data:
         return
@@ -75,7 +87,7 @@ def play_bytes(data: bytes) -> None:
         import soundfile as sf
 
         arr, sr = sf.read(io.BytesIO(data), dtype="float32")
-        sd.play(arr, sr)
+        sd.play(arr, sr, device=device)
         sd.wait()
         return
     except Exception as exc:  # noqa: BLE001
@@ -86,19 +98,19 @@ def play_bytes(data: bytes) -> None:
         f.write(data)
         path = Path(f.name)
     try:
-        play_file(path)
+        play_file(path, device=device)
     finally:
         path.unlink(missing_ok=True)
 
 
-def play_file(path: Path) -> None:
+def play_file(path: Path, device=None) -> None:
     path = Path(path)
     try:
         import sounddevice as sd
         import soundfile as sf
 
         data, sr = sf.read(str(path), dtype="float32")
-        sd.play(data, sr)
+        sd.play(data, sr, device=device)
         sd.wait()
         return
     except Exception as exc:  # noqa: BLE001

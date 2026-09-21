@@ -12,11 +12,13 @@ build/
 *.log
 tmp_*
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 node_modules/
 agents/pi-coding/package-lock.json
-agents/pi-coding/.agentdock-sessions/
-agents/codex/.agentdock-sessions/
-agents/claude-code/.agentdock-sessions/
+agents/**/.agentdock-sessions/
 
 # Personal agent workspace / Obsidian vault (local only)
 workspace/
@@ -49,3 +51,13 @@ Thumbs.db
 .vscode/
 *.swp
 .dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.aider*
+.cursor/
+
+# Admin Vite source build cache (committed static/ is the served bundle)
+runtime/admin/ui/dist/
+
+# Local wake-word training scratch (venv + datasets)
+clients/rpi/wakeword/train_workspace/

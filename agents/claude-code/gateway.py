@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -32,11 +31,15 @@ _AGENTS = _HERE.parent
 if str(_AGENTS) not in sys.path:
     sys.path.insert(0, str(_AGENTS))
 
+from mcp_launch import claude_args  # noqa: E402
 from common import (  # noqa: E402
     PROTOCOL,
+    ProcessTable,
     device_id_of,
     event,
     fallback_work_dir,
+    kill_process,
+    launch_cli,
     make_write_event,
     read_json_request,
     repo_root_from,
@@ -57,8 +60,6 @@ FALLBACK_WORK_DIR = fallback_work_dir(
 BIN = os.environ.get("CLAUDE_BIN") or which("claude") or "claude"
 MODEL = os.environ.get("CLAUDE_MODEL")
 PERMISSION_MODE = os.environ.get("CLAUDE_PERMISSION_MODE", "acceptEdits")
-# Official docs: acceptEdits still needs Bash (etc.) via --allowedTools or settings allow rules.
-# Default a practical coding set for AgentDock voice use; override with CLAUDE_ALLOWED_TOOLS="" to clear.
 _DEFAULT_ALLOWED = "Bash,Read,Edit,Write"
 _allowed_raw = os.environ.get("CLAUDE_ALLOWED_TOOLS", _DEFAULT_ALLOWED)
 ALLOWED_TOOLS = [t.strip() for t in _allowed_raw.split(",") if t.strip()]
@@ -67,6 +68,8 @@ _DEFAULT_VOICE = (
     "你是通过麦克风/扬声器使用的快捷终端助手，回复会被 TTS 朗读。"
     "尽量简短口语化；纯文本不要 Markdown；先说结论。"
 )
+
+_PROCESSES = ProcessTable()
 
 
 def _system_prompt() -> str:
@@ -92,17 +95,16 @@ def _build_cmd(prompt: str) -> list[str]:
     ]
     if MODEL:
         cmd += ["--model", MODEL]
-    # Official form: one flag with comma-separated rules, e.g. "Bash,Read,Edit"
     if ALLOWED_TOOLS:
         cmd += ["--allowedTools", ",".join(ALLOWED_TOOLS)]
     sp = _system_prompt().strip()
     if sp:
         cmd += ["--append-system-prompt", sp]
+    cmd += claude_args()
     return cmd
 
 
 def _delta_text(raw: dict) -> str:
-    # Official: .type==stream_event && .event.delta.type==text_delta → .event.delta.text
     ev = raw.get("event") if isinstance(raw.get("event"), dict) else {}
     delta = ev.get("delta") if isinstance(ev.get("delta"), dict) else {}
     if delta.get("type") and delta.get("type") != "text_delta":
@@ -133,113 +135,127 @@ def run_claude_turn(session_id: str, text: str, write_event, *, cwd: Path) -> No
         )
     )
     try:
-        proc = subprocess.Popen(
-            cmd,
-            cwd=str(cwd),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,
-        )
+        proc, error_log = launch_cli(cmd, cwd=str(cwd))
     except FileNotFoundError as exc:
         write_event(event("agent.error", session_id, content=f"cannot start claude: {exc}"))
         return
 
+    _PROCESSES.register(session_id, proc)
     assistant_parts: list[str] = []
     final_text = ""
     saw_done = False
-    assert proc.stdout is not None
-
-    for line in proc.stdout:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            raw = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        et = str(raw.get("type") or "")
-        if et == "system":
-            write_event(event("agent.start", session_id))
-        elif et == "assistant":
-            content = (
-                raw.get("message", {}).get("content")
-                if isinstance(raw.get("message"), dict)
-                else raw.get("content")
-            )
-            if isinstance(content, list):
-                for block in content:
-                    if not isinstance(block, dict):
-                        continue
-                    if block.get("type") == "tool_use":
-                        write_event(
-                            event(
-                                "agent.tool_call",
-                                session_id,
-                                tool=str(block.get("name") or "tool"),
-                                args=block.get("input") if isinstance(block.get("input"), dict) else {},
+    try:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                raw = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            et = str(raw.get("type") or "")
+            if et == "system":
+                write_event(event("agent.start", session_id))
+            elif et == "assistant":
+                content = (
+                    raw.get("message", {}).get("content")
+                    if isinstance(raw.get("message"), dict)
+                    else raw.get("content")
+                )
+                if isinstance(content, list):
+                    for block in content:
+                        if not isinstance(block, dict):
+                            continue
+                        if block.get("type") == "tool_use":
+                            write_event(
+                                event(
+                                    "agent.tool_call",
+                                    session_id,
+                                    tool=str(block.get("name") or "tool"),
+                                    args=block.get("input")
+                                    if isinstance(block.get("input"), dict)
+                                    else {},
+                                )
                             )
+                        elif block.get("type") == "text" and block.get("text"):
+                            assistant_parts.append(str(block["text"]))
+            elif et == "stream_event":
+                chunk = _delta_text(raw)
+                if chunk:
+                    assistant_parts.append(chunk)
+                    write_event(event("agent.thinking", session_id, content=chunk[:120]))
+            elif et in ("tool_use", "tool_call"):
+                write_event(
+                    event(
+                        "agent.tool_call",
+                        session_id,
+                        tool=str(raw.get("name") or raw.get("tool") or "tool"),
+                        args=raw.get("input") if isinstance(raw.get("input"), dict) else {},
+                    )
+                )
+            elif et in ("tool_result",):
+                write_event(
+                    event(
+                        "agent.tool_result",
+                        session_id,
+                        tool=str(raw.get("name") or "tool"),
+                        status="error" if raw.get("is_error") else "success",
+                        content=str(raw.get("content") or "")[:500],
+                    )
+                )
+            elif et == "result":
+                final_text = _result_text(raw) or "".join(assistant_parts).strip()
+                if final_text:
+                    write_event(
+                        event("agent.message", session_id, content=final_text, speak=True)
+                    )
+                if raw.get("is_error"):
+                    write_event(
+                        event(
+                            "agent.error",
+                            session_id,
+                            content=str(raw.get("result") or raw.get("error") or "claude error")[
+                                :800
+                            ],
                         )
-                    elif block.get("type") == "text" and block.get("text"):
-                        assistant_parts.append(str(block["text"]))
-        elif et == "stream_event":
-            chunk = _delta_text(raw)
-            if chunk:
-                assistant_parts.append(chunk)
-                write_event(event("agent.thinking", session_id, content=chunk[:120]))
-        elif et in ("tool_use", "tool_call"):
-            write_event(
-                event(
-                    "agent.tool_call",
-                    session_id,
-                    tool=str(raw.get("name") or raw.get("tool") or "tool"),
-                    args=raw.get("input") if isinstance(raw.get("input"), dict) else {},
-                )
-            )
-        elif et in ("tool_result",):
-            write_event(
-                event(
-                    "agent.tool_result",
-                    session_id,
-                    tool=str(raw.get("name") or "tool"),
-                    status="error" if raw.get("is_error") else "success",
-                    content=str(raw.get("content") or "")[:500],
-                )
-            )
-        elif et == "result":
-            final_text = _result_text(raw) or "".join(assistant_parts).strip()
-            if final_text:
-                write_event(event("agent.message", session_id, content=final_text, speak=True))
-            if raw.get("is_error"):
+                    )
+                else:
+                    write_event(event("agent.done", session_id))
+                saw_done = True
+
+        code = proc.wait(timeout=30)
+        cancelled = _PROCESSES.release(session_id, proc)
+        if cancelled:
+            write_event(event("agent.cancel", session_id))
+            return
+        error_log.seek(0)
+        stderr = error_log.read()[-2000:].strip()
+        if not saw_done:
+            text_out = final_text or "".join(assistant_parts).strip()
+            if code != 0 and not text_out:
                 write_event(
                     event(
                         "agent.error",
                         session_id,
-                        content=str(raw.get("result") or raw.get("error") or "claude error")[:800],
+                        content=(stderr or f"claude exited {code}")[:800],
                     )
                 )
             else:
+                if text_out:
+                    write_event(
+                        event("agent.message", session_id, content=text_out, speak=True)
+                    )
                 write_event(event("agent.done", session_id))
-            saw_done = True
-
-    stderr = proc.stderr.read() if proc.stderr else ""
-    code = proc.wait(timeout=30)
-    if not saw_done:
-        text_out = final_text or "".join(assistant_parts).strip()
-        if code != 0 and not text_out:
-            write_event(
-                event(
-                    "agent.error",
-                    session_id,
-                    content=(stderr or f"claude exited {code}")[:800],
-                )
-            )
-        else:
-            if text_out:
-                write_event(event("agent.message", session_id, content=text_out, speak=True))
-            write_event(event("agent.done", session_id))
+    except BrokenPipeError:
+        kill_process(proc)
+        _PROCESSES.release(session_id, proc)
+        raise
+    finally:
+        if proc.poll() is None:
+            kill_process(proc)
+        _PROCESSES.release(session_id, proc)
+        error_log.close()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -269,10 +285,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         path = self.path.rstrip("/")
         if path == "/v1/agent/cancel":
-            send_json(
-                self,
-                {"ok": True, "note": "claude -p cancel is best-effort (process already running)"},
-            )
+            sid = str(req.get("session_id") or "")
+            send_json(self, {"ok": _PROCESSES.cancel(sid)})
             return
         if path != "/v1/agent/run":
             self.send_error(404)
@@ -287,6 +301,8 @@ class Handler(BaseHTTPRequestHandler):
         write_event = make_write_event(self)
         try:
             run_claude_turn(sid, text, write_event, cwd=cwd)
+        except BrokenPipeError:
+            _PROCESSES.cancel(sid)
         except Exception as exc:  # noqa: BLE001
             write_event(event("agent.error", sid, content=str(exc)))
 

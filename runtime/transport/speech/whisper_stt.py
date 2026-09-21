@@ -7,6 +7,7 @@ import inspect
 import io
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -70,11 +71,22 @@ class WhisperSTT(STTProvider):
         else:
             self.initial_prompt = None
         self._model = None
+        self._load_lock = threading.Lock()
         self._supports_multilingual: bool | None = None
+        self.requested_device = device
+        self.fallback_reason: str | None = None
+        self.loaded_at: float | None = None
 
     def _load(self, *, force: bool = False) -> None:
+        """Load once. Overlapping callers wait instead of starting a second model."""
         if self._model is not None and not force:
             return
+        with self._load_lock:
+            if self._model is not None and not force:
+                return
+            self._load_unlocked()
+
+    def _load_unlocked(self) -> None:
         try:
             from faster_whisper import WhisperModel
         except ImportError as exc:
@@ -95,11 +107,13 @@ class WhisperSTT(STTProvider):
             if self.device == "cpu":
                 raise
             logger.warning("Whisper CUDA load failed ({}); falling back to CPU", exc)
+            self.fallback_reason = str(exc)
             self.device = "cpu"
             self._model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
         self._supports_multilingual = "multilingual" in inspect.signature(
             self._model.transcribe
         ).parameters
+        self.loaded_at = time.time()
         logger.info("Whisper model ready in {:.2f}s ({})", time.perf_counter() - t0, self.device)
 
     def _fallback_cpu(self, reason: BaseException) -> None:
@@ -113,6 +127,23 @@ class WhisperSTT(STTProvider):
     def warm(self) -> None:
         """Load weights at startup so the first utterance is not cold."""
         self._load()
+
+    def status(self) -> dict[str, object]:
+        """Public, side-effect-free provider health for the Admin snapshot."""
+        ready = self._model is not None
+        return {
+            "provider": "whisper",
+            "ready": ready,
+            "status": "degraded" if ready and self.fallback_reason else (
+                "ready" if ready else "cold"
+            ),
+            "model": self.model_name,
+            "requested_device": self.requested_device,
+            "device": self.device,
+            "language": self.language,
+            "fallback_reason": self.fallback_reason,
+            "loaded_at": self.loaded_at,
+        }
 
     def _lang(self) -> str | None:
         if self.language in (None, "auto", ""):
@@ -148,7 +179,7 @@ class WhisperSTT(STTProvider):
             if getattr(seg, "avg_logprob", 0) < -1.5:
                 continue
             parts.append(piece)
-        return _join_bilingual(parts), info
+        return collapse_char_stutter(_join_bilingual(parts)), info
 
     def _transcribe_code_switch(self, source) -> str:
         """Split on VAD, recognize each utterance (zh or en) then stitch."""
@@ -202,9 +233,10 @@ class WhisperSTT(STTProvider):
         return text
 
     async def transcribe(self, audio: bytes) -> str:
-        self._load()
-
         def _run() -> str:
+            # Load in this worker. Doing it on the event loop freezes the device
+            # socket for the whole model load and the client is disconnected.
+            self._load()
             t0 = time.perf_counter()
             # Prefer in-memory buffer — avoid tempfile round-trip on every utterance
             source = io.BytesIO(audio)
@@ -224,6 +256,31 @@ class WhisperSTT(STTProvider):
                 source.close()
 
         return await asyncio.to_thread(_run)
+
+
+def collapse_char_stutter(text: str) -> str:
+    """Collapse a transcript where Whisper repeated every character.
+
+    ``你你好好`` becomes ``你好``. A normal ``你好`` is left alone.
+    """
+    cjk = [ch for ch in text if _is_cjk(ch)]
+    if len(cjk) < 8:
+        return text
+    pairs = len(cjk) // 2
+    doubled = sum(1 for index in range(pairs) if cjk[index * 2] == cjk[index * 2 + 1])
+    if doubled < pairs * 0.75:
+        return text
+    out: list[str] = []
+    index = 0
+    while index < len(text):
+        ch = text[index]
+        if index + 1 < len(text) and _is_cjk(ch) and text[index + 1] == ch:
+            out.append(ch)
+            index += 2
+            continue
+        out.append(ch)
+        index += 1
+    return "".join(out)
 
 
 def _join_bilingual(parts: list[str]) -> str:

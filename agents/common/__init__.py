@@ -9,8 +9,28 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
+from .process import ProcessTable, kill_process, launch_cli
 
 PROTOCOL = "agentdock.agent/1.0"
+
+__all__ = [
+    "PROTOCOL",
+    "ProcessTable",
+    "device_id_of",
+    "event",
+    "fallback_work_dir",
+    "kill_process",
+    "launch_cli",
+    "load_prompt_text",
+    "make_write_event",
+    "read_json_request",
+    "repo_root_from",
+    "resolve_request_cwd",
+    "send_json",
+    "voice_prompt",
+    "which",
+    "write_ndjson_headers",
+]
 
 
 def repo_root_from(here: Path) -> Path:

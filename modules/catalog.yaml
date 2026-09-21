@@ -1,0 +1,43 @@
+schema_version: 2
+provider_glob: "providers/*.yaml"
+
+enabled:
+  - pi
+  - codex
+  - claude
+  - opencode
+  - cline
+  - openhands
+  - goose
+  - aider
+  - qwen-code
+  - kimi-code
+  - codebuddy
+  - qoder
+  - hermes
+  - edge
+  - gpt-sovits
+  - whisper
+  - sensevoice
+  - funasr
+  - pets
+
+sidecars:
+  runtime:
+    name: Runtime WebSocket
+    port: 8765
+    managed: false
+    health: {kind: tcp, port: 8765}
+  admin:
+    name: Admin / Pets HTTP
+    port: 8766
+    managed: false
+    health: {kind: tcp, port: 8766}
+  web:
+    name: Web Preview
+    port: 8090
+    spawn:
+      executable: "{python}"
+      args: ["clients/cli/main.py", "--ui", "--ui-port", "{port}", "--no-open"]
+      cwd: "."
+    health: {kind: tcp, port: 8090}

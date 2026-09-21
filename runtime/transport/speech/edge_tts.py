@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-
 from runtime.transport.speech.base import TTSInfo, TTSProvider
 
 # Common voices users can select via tts_model / --tts-model
@@ -40,6 +38,7 @@ class EdgeTTS(TTSProvider):
             provider="edge",
             description="Microsoft Edge online neural TTS (mp3).",
             models=list(self._voices),
+            audio_format="mp3",
         )
 
     async def synthesize(self, text: str, *, model: str | None = None) -> bytes:

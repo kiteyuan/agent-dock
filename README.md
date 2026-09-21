@@ -45,20 +45,44 @@ clients/*  ◄──事件 + 语音────┘
 
 ## 快速开始
 
-Windows 一键起主机（默认 **不开 Web**；手机连 `ws://电脑IP:8765`）：
+Windows：脚本只冷启动 Runtime，附属服务在 Admin 启停：
 
 ```powershell
-.\scripts\start.ps1          # Runtime + Pi + Haibara TTS
-.\scripts\start.ps1 -Web     # 额外开桌面预览 http://127.0.0.1:8090/
+.\scripts\start.ps1          # Runtime + 打开 http://127.0.0.1:8766/admin/
 .\scripts\stop.ps1
+```
+
+Admin 会根据硬件标记推荐项；用户直接在“智能助手”和“声音”页面选择即可。
+智能助手需先到官网安装官方客户端，Runtime 只检测 PATH 上是否已安装，再配置
+LLM 并启动 gateway。声音引擎仍可由 Runtime 隔离安装。
+每个 Agent 的模型服务、模型名称和凭据可以单独保存；也可以先配置一套统一模型，
+兼容的 Agent 在设置里下拉直接选用。切换 Agent 不会互相覆盖独立配置。
+当前内置国内 CLI 包括 Qwen Code、Kimi Code、CodeBuddy 和 Qoder。
+也可在 `config.yaml` → `services.*.autostart: true` 让 Runtime 起来后自动拉起。
+
+Admin UI/API 仅接受本机访问；设备仍可从局域网访问 `/pets/*` 和 `/health`。Admin
+设置的默认 Agent/TTS/STT 保存在 `workspace/runtime-state.json`，不会改写 `config.yaml`。
+安装收据与许可证确认保存在 `workspace/module-state.json`。
+Agent 的公开模型选项保存在 `workspace/agent-settings.json`；统一 LLM 与各 Agent
+的引用关系也写在同一文件。凭据与公开设置分离，Windows 下使用当前系统用户的
+DPAPI 加密后写入 `workspace/agent-secrets.json`。
+
+首启与模块启停：见 [`docs/ONBOARDING.md`](./docs/ONBOARDING.md)（Admin 总览直接检查/启动 Agent · TTS · STT · 人物）。
+
+Docker（Runtime + Pi；pets/voices/workspace 挂载；SoVITS 仍在宿主机）：见 [`docs/DOCKER.md`](./docs/DOCKER.md)。
+
+```bash
+docker compose up --build -d
 ```
 
 手动分步：
 
 ```bash
-# Runtime（后端，含 pets :8766）
+# Runtime（后端：设备 WS :8765 + Admin/Pets HTTP :8766）
 pip install -e .
 python -m runtime
+# 浏览器打开 http://127.0.0.1:8766/admin/  — 服务启停 / 设备 / Agent / TTS
+# 或: .\scripts\start.ps1
 
 # Pi 网关（另一终端）
 $env:PI_GATEWAY_PORT=9001; python agents/pi-coding/gateway.py
@@ -86,15 +110,15 @@ python agents/check_link.py --url http://127.0.0.1:8080/v1/agent/run
 python clients/cli/main.py --text "你好" --agent http
 ```
 
-安装与联调说明：[`agents/README.md`](./agents/README.md) · 协议：[`docs/AGENT_PROTOCOL.md`](./docs/AGENT_PROTOCOL.md)。
+安装与联调说明：[`agents/README.md`](./agents/README.md) · 协议：[`docs/AGENT_PROTOCOL.md`](./docs/AGENT_PROTOCOL.md) · [Provider 支持清单](./docs/PROVIDERS.md)。
 
 ## 默认能力
 
 | 能力 | 默认 |
 |------|------|
-| STT | Whisper `small` |
+| STT | Whisper `small`；中文主机可切换 SenseVoice |
 | TTS | Edge `zh-CN-XiaoxiaoNeural` |
-| Agent | `mock`（可换符合协议的 `http` / `import`） |
+| Agent | Pi；控制台会优先推荐模型无关的 OpenCode |
 
 配置见 [`config.yaml`](./config.yaml)。跨网：[`docs/DEPLOY_TAILSCALE.md`](./docs/DEPLOY_TAILSCALE.md) · [`docs/DEPLOY_CLOUDFLARE.md`](./docs/DEPLOY_CLOUDFLARE.md)
 

@@ -64,7 +64,10 @@ class DeviceSession {
 
   bool get canToggleTalk =>
       sessionId != null &&
-      (state == ClientState.idle || state == ClientState.listening);
+      (state == ClientState.idle ||
+          state == ClientState.listening ||
+          state == ClientState.busy ||
+          state == ClientState.speaking);
 
   bool get canReplay =>
       sessionId != null &&
@@ -104,7 +107,17 @@ class DeviceSession {
     if (!_captionLive) {
       replyText = s;
     }
-    _setState(ClientState.busy, status: s);
+    // statusLine is not rendered (web parity); mood carries listen/busy/speak.
+    _setState(ClientState.busy);
+  }
+
+  void _showUserSpeech(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return;
+    replyText = t;
+    _captionLive = false;
+    captionMode = false;
+    _notify();
   }
 
   void _resetThinking() {
@@ -260,6 +273,10 @@ class DeviceSession {
       await _stopAndSend();
       return;
     }
+    if (state == ClientState.busy || state == ClientState.speaking) {
+      await cancelTurn();
+      return;
+    }
     if (state != ClientState.idle || sessionId == null) return;
     await _startListen();
   }
@@ -268,12 +285,17 @@ class DeviceSession {
 
   Future<void> cancelTurn() async {
     if (sessionId == null || _ws == null) return;
-    _ws!.sink.add(proto.sessionCancel(sessionId!));
+    try {
+      _ws!.sink.add(proto.sessionCancel(sessionId!));
+    } catch (_) {}
     player.clear();
     _ttsBuf.clear();
     _awaitingIdle = false;
     captionMode = false;
+    _captionLive = false;
+    _resetThinking();
     await recorder.cancel();
+    // Keep current reply; mood returns to idle (same as clients/web).
     _setState(ClientState.idle, status: '已取消');
   }
 
@@ -285,7 +307,9 @@ class DeviceSession {
       player.beginTurn();
       _awaitingIdle = false;
       captionMode = false;
-      replyText = '';
+      _captionLive = false;
+      _resetThinking();
+      // Keep previous reply visible (same as clients/web) until STT / agent text arrives.
       _setState(ClientState.listening, status: '正在录音…');
     } catch (e) {
       _failTurn(e.toString());
@@ -304,6 +328,7 @@ class DeviceSession {
       _setState(ClientState.idle, status: '空录音');
       return;
     }
+    // Previous reply stays on screen until stt.final replaces it.
     _setState(ClientState.busy, status: '识别中…');
     try {
       _ws!.sink.add(proto.audioStart(sessionId!));
@@ -398,6 +423,7 @@ class DeviceSession {
       case 'stt.final':
         _resetThinking();
         _captionLive = false;
+        _showUserSpeech('${payload['text'] ?? payload['content'] ?? ''}');
         _setState(ClientState.busy);
         break;
       case 'agent.start':

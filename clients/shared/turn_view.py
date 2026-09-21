@@ -60,10 +60,9 @@ class TurnView:
             elif (now - self._last_thinking_flush) >= self.thinking_min_interval:
                 self._emit_thinking(final=False)
             shown = self._thinking_buf.strip()
-            if len(shown) > self.thinking_max_len:
-                shown = "…" + shown[-(self.thinking_max_len - 1) :]
-            self.last_oled_line = self._oled(shown)
-            return self.last_oled_line
+            # Console stays compact; OLED gets full text and scrolls itself.
+            self.last_oled_line = shown
+            return shown
 
         if mtype in ("agent.tool_call", "agent.tool_result"):
             self._emit_thinking(final=True)
@@ -71,8 +70,8 @@ class TurnView:
             if not line:
                 return None
             self.print(line)
-            self.last_oled_line = self._oled(line)
-            return self.last_oled_line
+            self.last_oled_line = line
+            return line
 
         if mtype == "agent.message":
             self._emit_thinking(final=True)
@@ -81,8 +80,8 @@ class TurnView:
             if not text:
                 return None
             self.print(text)
-            self.last_oled_line = self._oled(text)
-            return self.last_oled_line
+            self.last_oled_line = text
+            return text
 
         if mtype == "agent.start":
             self._emit_thinking(final=True)
@@ -92,20 +91,20 @@ class TurnView:
             self._emit_thinking(final=True)
             tid = payload.get("tts_id") or ""
             self.print(f"播放中… ({tid})" if tid else "播放中…")
-            self.last_oled_line = "播放中"
-            return self.last_oled_line
+            # Do not replace OLED body with "播放中"
+            return None
 
         if mtype == "tts.end":
             self.print("播放结束")
-            self.last_oled_line = "在线"
-            return self.last_oled_line
+            return None
 
         if mtype in ("agent.error", "error"):
             self._emit_thinking(final=True)
             detail = payload.get("content") or payload.get("detail") or payload.get("text") or "error"
             self.print(f"错误：{detail}")
-            self.last_oled_line = self._oled(f"错误:{detail}")
-            return self.last_oled_line
+            line = f"错误:{detail}"
+            self.last_oled_line = line
+            return line
 
         if mtype == "agent.cancel":
             self._emit_thinking(final=True)
@@ -140,12 +139,6 @@ class TurnView:
             self._thinking_buf = ""
             self._thinking_printed = False
             self._last_thinking_flush = time.monotonic()
-
-    def _oled(self, text: str) -> str:
-        text = (text or "").replace("\n", " ").strip()
-        if len(text) <= self.oled_width:
-            return text
-        return text[: self.oled_width - 1] + "…"
 
 
 def _native_line(mtype: str, payload: dict[str, Any]) -> str:

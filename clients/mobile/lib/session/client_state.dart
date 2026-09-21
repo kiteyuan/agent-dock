@@ -20,5 +20,8 @@ extension ClientStateLabel on ClientState {
       };
 
   bool get canToggleTalk =>
-      this == ClientState.idle || this == ClientState.listening;
+      this == ClientState.idle ||
+      this == ClientState.listening ||
+      this == ClientState.busy ||
+      this == ClientState.speaking;
 }

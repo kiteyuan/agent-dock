@@ -16,14 +16,17 @@ Env:
   PI_SESSION_KEY=device         # device (default) | session — what keys Pi --session-id
   PI_APPEND_SYSTEM_PROMPT=...   # append voice style prompt (default: agents/pi-coding/voice_prompt.txt)
   PI_SYSTEM_PROMPT=...          # replace system prompt entirely (path or literal)
+
 """
 
 from __future__ import annotations
 
 import json
 import os
+import queue
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -39,6 +42,11 @@ DEFAULT_WORKSPACE = REPO_ROOT / "workspace"
 FALLBACK_WORK_DIR = Path(
     os.environ.get("PI_CWD") or os.environ.get("PI_WORKDIR") or DEFAULT_WORKSPACE
 ).expanduser().resolve()
+_AGENTS = HERE.parent
+if str(_AGENTS) not in sys.path:
+    sys.path.insert(0, str(_AGENTS))
+from mcp_launch import sync_pi_mcp  # noqa: E402
+
 PROVIDER = os.environ.get("PI_PROVIDER")  # optional override
 MODEL = os.environ.get("PI_MODEL")
 NO_TOOLS = os.environ.get("PI_NO_TOOLS", "0") == "1"
@@ -50,6 +58,9 @@ SESSION_DIR = Path(
 ).expanduser().resolve()
 # Key Pi memory by stable device id (survives WS reconnect). Use "session" for WS-scoped.
 SESSION_KEY = (os.environ.get("PI_SESSION_KEY") or "device").strip().lower()
+# DeepSeek V4 Flash writes its plan into the reply when thinking is disabled.
+# Keep it on so that plan stays in the thinking channel. Not a user setting.
+THINKING = "high"
 
 # Voice / short-reply system prompt (appended to Pi's default). Override with
 # PI_APPEND_SYSTEM_PROMPT=path|text  or PI_SYSTEM_PROMPT=... to replace entirely.
@@ -162,6 +173,15 @@ def _text_from_message(message: dict) -> str:
     return ""
 
 
+def spoken_reply(message: dict, *, streamed_text: str = "") -> str:
+    """Return the reply text to speak. Thinking is never read aloud.
+
+    A thinking-only message is not a reply. Tool turns emit one before the
+    real answer; speaking a placeholder there would block the later text.
+    """
+    return _text_from_message(message).strip() or streamed_text.strip()
+
+
 def _safe_session_id(session_id: str) -> str:
     """Filesystem-safe id for Pi --session-id (create-if-missing)."""
     cleaned = "".join(c for c in session_id if c.isalnum() or c in "-_")
@@ -190,6 +210,14 @@ def _resolve_request_cwd(req: dict) -> Path:
     return FALLBACK_WORK_DIR
 
 
+def _mcp_extension_args(root: Path | None = None) -> list[str]:
+    """Load the adapter shipped by ``npm install`` in this directory."""
+    entry = (root or HERE) / "node_modules" / "pi-mcp-adapter" / "index.ts"
+    if not entry.is_file():
+        return []
+    return ["-e", str(entry)]
+
+
 def _build_pi_cmd(prompt: str, *, pi_key: str) -> list[str]:
     cmd = [*_resolve_pi_cmd(), "--mode", "json", "--print"]
     if NO_SESSION:
@@ -209,8 +237,74 @@ def _build_pi_cmd(prompt: str, *, pi_key: str) -> list[str]:
     if NO_TOOLS:
         cmd += ["--no-tools"]
     cmd += _system_prompt_args()
+    if THINKING:
+        cmd += ["--thinking", THINKING]
+    cmd += _mcp_extension_args()
     cmd.append(prompt)
     return cmd
+
+
+
+class ClientGone(Exception):
+    """Runtime closed the NDJSON stream; stop writing and kill Pi."""
+
+
+_CLIENT_GONE_ERRORS = (
+    BrokenPipeError,
+    ConnectionAbortedError,
+    ConnectionResetError,
+)
+
+
+def _kill_proc(proc: subprocess.Popen | None) -> None:
+    if proc is None or proc.poll() is not None:
+        return
+    try:
+        proc.terminate()
+        proc.wait(timeout=2)
+    except Exception:  # noqa: BLE001
+        try:
+            proc.kill()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _iter_stdout_lines(proc: subprocess.Popen[str]):
+    """Yield stdout lines, and return once Pi has exited.
+
+    A tool can inherit Pi's stdout and exit without closing it. A plain
+    ``for line in proc.stdout`` then blocks forever, so the phone never
+    receives ``agent.done``.
+    """
+    lines: queue.Queue[str | None] = queue.Queue()
+
+    def _read() -> None:
+        try:
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                lines.put(line)
+        finally:
+            lines.put(None)
+
+    threading.Thread(target=_read, name="pi-stdout", daemon=True).start()
+    while True:
+        try:
+            line = lines.get(timeout=0.5)
+        except queue.Empty:
+            if proc.poll() is None:
+                continue
+            try:
+                line = lines.get(timeout=1.0)
+            except queue.Empty:
+                if proc.stdout is not None:
+                    try:
+                        proc.stdout.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+                return
+        if line is None:
+            return
+        yield line
 
 
 def run_pi_turn(
@@ -223,9 +317,16 @@ def run_pi_turn(
 ) -> None:
     work_dir = (cwd or FALLBACK_WORK_DIR).resolve()
     if not work_dir.is_dir():
-        write_event(_event("agent.error", session_id, content=f"workspace is not a directory: {work_dir}"))
+        write_event(
+            _event(
+                "agent.error",
+                session_id,
+                content=f"workspace is not a directory: {work_dir}",
+            )
+        )
         return
     pi_key = _pi_memory_key(session_id=session_id, device_id=device_id)
+    sync_pi_mcp(work_dir)
     cmd = _build_pi_cmd(text, pi_key=pi_key)
     sid_note = "ephemeral" if NO_SESSION else pi_key
     write_event(
@@ -236,11 +337,12 @@ def run_pi_turn(
         )
     )
     try:
+        # stderr to DEVNULL avoids stdout/stderr pipe deadlock when Pi logs heavily.
         proc = subprocess.Popen(
             cmd,
             cwd=str(work_dir),
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             text=True,
             encoding="utf-8",
             errors="replace",
@@ -251,107 +353,117 @@ def run_pi_turn(
         return
 
     assistant_text = ""
+    streamed_text = ""
     saw_done = False
     assert proc.stdout is not None
-    for line in proc.stdout:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            raw = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        et = raw.get("type")
-        if et == "agent_start":
-            write_event(_event("agent.start", session_id))
-        elif et == "message_update":
-            ame = raw.get("assistantMessageEvent") or {}
-            if ame.get("type") == "text_delta" and ame.get("delta"):
-                # progress only — final speak text comes from message_end
-                pass
-            elif ame.get("type") == "thinking_delta" and ame.get("delta"):
-                write_event(
-                    _event("agent.thinking", session_id, content=str(ame.get("delta"))[:200])
-                )
-        elif et == "tool_execution_start":
-            write_event(
-                _event(
-                    "agent.tool_call",
-                    session_id,
-                    tool=str(raw.get("toolName") or raw.get("tool") or "tool"),
-                    args=raw.get("args") if isinstance(raw.get("args"), dict) else {},
-                )
+
+    def emit_reply(text: str) -> None:
+        nonlocal assistant_text
+        cleaned = text.strip()
+        if not cleaned:
+            return
+        assistant_text = cleaned
+        write_event(
+            _event(
+                "agent.message",
+                session_id,
+                content=cleaned,
+                speak=True,
             )
-        elif et == "tool_execution_end":
-            write_event(
-                _event(
-                    "agent.tool_result",
-                    session_id,
-                    tool=str(raw.get("toolName") or raw.get("tool") or "tool"),
-                    status="error" if raw.get("isError") else "success",
-                    content=str(raw.get("result") or raw.get("error") or "")[:500],
-                )
-            )
-        elif et == "message_end":
-            msg = raw.get("message") or {}
-            if msg.get("role") == "assistant":
-                assistant_text = _text_from_message(msg)
-                if assistant_text:
+        )
+
+    try:
+        for line in _iter_stdout_lines(proc):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                raw = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            et = raw.get("type")
+            if et == "agent_start":
+                write_event(_event("agent.start", session_id))
+            elif et == "message_update":
+                ame = raw.get("assistantMessageEvent") or {}
+                if ame.get("type") == "text_delta" and ame.get("delta"):
+                    streamed_text += str(ame.get("delta"))
+                elif ame.get("type") == "thinking_delta" and ame.get("delta"):
                     write_event(
                         _event(
-                            "agent.message",
+                            "agent.thinking",
                             session_id,
-                            content=assistant_text,
-                            speak=True,
+                            content=str(ame.get("delta"))[:200],
                         )
                     )
-        elif et == "agent_end":
-            if not assistant_text:
-                # fallback: last assistant in messages list
-                for m in reversed(raw.get("messages") or []):
-                    if isinstance(m, dict) and m.get("role") == "assistant":
-                        assistant_text = _text_from_message(m)
-                        if assistant_text:
-                            write_event(
-                                _event(
-                                    "agent.message",
-                                    session_id,
-                                    content=assistant_text,
-                                    speak=True,
-                                )
-                            )
-                        break
-            write_event(_event("agent.done", session_id))
-            saw_done = True
-        elif et == "error":
-            write_event(
-                _event(
-                    "agent.error",
-                    session_id,
-                    content=str(raw.get("message") or raw.get("error") or raw),
-                )
-            )
-            saw_done = True
-
-    stderr = ""
-    if proc.stderr:
-        stderr = proc.stderr.read()
-    code = proc.wait(timeout=10)
-    if not saw_done:
-        if code != 0:
-            write_event(
-                _event(
-                    "agent.error",
-                    session_id,
-                    content=(stderr or f"pi exited {code}")[:800],
-                )
-            )
-        else:
-            if assistant_text:
+            elif et == "tool_execution_start":
                 write_event(
-                    _event("agent.message", session_id, content=assistant_text, speak=True)
+                    _event(
+                        "agent.tool_call",
+                        session_id,
+                        tool=str(raw.get("toolName") or raw.get("tool") or "tool"),
+                        args=raw.get("args") if isinstance(raw.get("args"), dict) else {},
+                    )
                 )
-            write_event(_event("agent.done", session_id))
+            elif et == "tool_execution_end":
+                write_event(
+                    _event(
+                        "agent.tool_result",
+                        session_id,
+                        tool=str(raw.get("toolName") or raw.get("tool") or "tool"),
+                        status="error" if raw.get("isError") else "success",
+                        content=str(raw.get("result") or raw.get("error") or "")[:500],
+                    )
+                )
+            elif et == "message_end":
+                msg = raw.get("message") or {}
+                if msg.get("role") == "assistant":
+                    err = msg.get("errorMessage")
+                    if not err and msg.get("stopReason") == "error":
+                        err = msg.get("error") or "model error"
+                    if err:
+                        write_event(
+                            _event("agent.error", session_id, content=str(err)[:800])
+                        )
+                        saw_done = True
+                        break
+                    emit_reply(spoken_reply(msg, streamed_text=streamed_text))
+                    streamed_text = ""
+            elif et == "agent_end":
+                if not assistant_text:
+                    for m in reversed(raw.get("messages") or []):
+                        if isinstance(m, dict) and m.get("role") == "assistant":
+                            emit_reply(spoken_reply(m, streamed_text=streamed_text))
+                            if assistant_text:
+                                break
+                write_event(_event("agent.done", session_id))
+                saw_done = True
+                break
+            elif et == "error":
+                write_event(
+                    _event(
+                        "agent.error",
+                        session_id,
+                        content=str(raw.get("message") or raw.get("error") or raw),
+                    )
+                )
+                saw_done = True
+                break
+
+        if not saw_done:
+            code = proc.wait(timeout=10)
+            if code != 0:
+                write_event(
+                    _event("agent.error", session_id, content=f"pi exited {code}")
+                )
+            else:
+                emit_reply(assistant_text or streamed_text)
+                write_event(_event("agent.done", session_id))
+    except ClientGone:
+        _kill_proc(proc)
+        raise
+    finally:
+        _kill_proc(proc)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -367,7 +479,10 @@ class Handler(BaseHTTPRequestHandler):
                 "id": "pi",
                 "name": "Pi Coding Agent",
                 "capabilities": ["coding", "bash", "filesystem"],
-                "description": "Gateway over @earendil-works/pi-coding-agent (--mode json, Pi memory by device_id)",
+                "description": (
+                    "Gateway over @earendil-works/pi-coding-agent "
+                    "(--mode json, Pi memory by device_id)"
+                ),
             }
             raw = json.dumps(body, ensure_ascii=False).encode()
             self.send_response(200)
@@ -419,14 +534,26 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
         def write_event(obj: dict) -> None:
-            line = (json.dumps(obj, ensure_ascii=False) + "\n").encode()
-            self.wfile.write(line)
-            self.wfile.flush()
+            try:
+                line = (json.dumps(obj, ensure_ascii=False) + "\n").encode()
+                self.wfile.write(line)
+                self.wfile.flush()
+            except _CLIENT_GONE_ERRORS as exc:
+                raise ClientGone(str(exc)) from exc
 
         try:
             run_pi_turn(sid, text, write_event, device_id=device_id, cwd=cwd)
+        except ClientGone:
+            print(f"[pi-gateway] client gone mid-turn session={sid}", flush=True)
         except Exception as exc:  # noqa: BLE001
-            write_event(_event("agent.error", sid, content=str(exc)))
+            try:
+                write_event(_event("agent.error", sid, content=str(exc)))
+            except ClientGone:
+                print(
+                    f"[pi-gateway] client gone while sending error session={sid}",
+                    flush=True,
+                )
+
 
 
 def main() -> None:
@@ -470,6 +597,7 @@ def main() -> None:
         print(f"  system_prompt ({kind}): {preview}", flush=True)
     if PROVIDER:
         print(f"  provider={PROVIDER} model={MODEL or '(default)'}", flush=True)
+    print(f"  thinking={THINKING}", flush=True)
     if NO_TOOLS:
         print("  flags: --no-tools", flush=True)
     server.serve_forever()

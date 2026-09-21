@@ -236,6 +236,16 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.75); }
   -webkit-font-smoothing: none;
   font-smooth: never;
 }
+.sheet input[readonly] {
+  color: var(--muted);
+  opacity: 0.9;
+}
+.sheet .hint {
+  margin: 0.4rem 0 0.6rem;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
 .sheet-actions { display: flex; gap: 0.5rem; margin-top: 0.9rem; }
 .sheet-actions button {
   flex: 1;

@@ -15,6 +15,11 @@ class TTSRegistry:
         if default:
             self.default_id = provider.info.id
 
+    def unregister(self, tts_id: str) -> None:
+        self._providers.pop(tts_id, None)
+        if self.default_id == tts_id:
+            self.default_id = None
+
     def get(self, tts_id: str | None = None) -> TTSProvider | None:
         if not self._providers:
             return None

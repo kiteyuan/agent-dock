@@ -4,8 +4,10 @@ loguru>=0.7
 numpy>=1.24
 sounddevice>=0.4
 soundfile>=0.12
-# Optional OLED (display.driver: ssd1306)
+webrtcvad>=2.0.10
+openwakeword>=0.6.0
+# OLED 用底层 smbus2 直驱，不依赖 luma
 # luma.oled>=3.12
-# pillow>=10.0
+pillow>=10.0
 # RPi.GPIO>=0.7
 # gpiozero>=2.0

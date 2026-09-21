@@ -1,29 +1,21 @@
 # 自定义角色与音色
 
-不同用户可换自己的角色精灵 / TTS 音色，无需改业务逻辑代码。
+权威配置在**主机 Runtime**（`config.yaml` + `pets/` + `voices/` + Admin `:8766/admin/`）。
+客户端是接收壳：只连 WS、录/播、展示；**不配置** TTS / 人物。
 
 ## 角色（Pet）
 
-**权威资源在主机** `pets/`，不靠客户端长期打包。
-
-流程：
-
-1. 主机安装 / 放置 pet 包（`pets/<id>/spritesheet.webp` + `pets/catalog.json`）
-2. 客户端连接后发 `pets.list`，下拉选择角色
-3. **首次**选中（或首次需要渲染）时从 `http://<主机>:8766/pets/...` 下载
-4. 写入客户端本地缓存；之后直接用缓存
-
-客户端内的 `clients/web/sprites/`、`clients/mobile/assets/sprites/` 仅作**离线兜底**（未连上 Runtime 时首屏）。
+1. 主机放置 pet 包：`pets/<id>/spritesheet.webp`，并在 `pets/catalog.json` 设 `default`
+2. Runtime 在 `session.accept` 下发 `pet_id`，并推送 `pets.list.result`（含 `base_url`）
+3. 客户端按默认 id 下载精灵图并缓存；bundled catalog 仅离线首屏兜底
 
 ### 加一个角色（主机）
-
-1. 放入精灵图（与现有相同 8×9 × 192×208 atlas）：
 
 ```text
 pets/<id>/spritesheet.webp
 ```
 
-2. 在 `pets/catalog.json` 的 `pets` 数组追加：
+`pets/catalog.json`：
 
 ```json
 {
@@ -34,27 +26,22 @@ pets/<id>/spritesheet.webp
 }
 ```
 
-3. 确认 `config.yaml`：
+`config.yaml`：
 
 ```yaml
 server:
   assets_port: 8766
 pets:
   root: "pets"
-# 可选：Tailscale 等
-# network.assets_url: "http://100.x.y.z:8766/pets"
 ```
 
-4. 重启 Runtime。Web / Mobile 重连后下拉出现新角色；选中后自动下载并缓存。
-
-客户端按 `pets.list` 动态生成下拉，**不用改** `pixel-bot.js` / `pixel_bot.dart`。
+重启 Runtime。客户端重连后自动用新的 catalog / default（Admin 面板可查看）。
 
 ## 音色（TTS）
 
-音色包只在**主机**，客户端只选 ID：
-
-1. 新建 `voices/<Name>/`（参考 `voices/Haibara/`，含 `voice.yaml` + 参考音频 / 权重）
-2. 在根目录 `config.yaml` → `tts.providers` 注册，例如：
+1. 主机 `voices/<Name>/` + 根目录 `config.yaml` → `tts.default` / `tts.providers`
+2. Runtime 在 `session.accept` 下发 `tts_id`，并推送 `tts.list.result`
+3. 客户端只播 Runtime 发来的音频；不选音色
 
 ```yaml
 tts:
@@ -64,15 +51,18 @@ tts:
       type: "gpt-sovits"
       voice_dir: "voices/Haibara"
       url: "http://127.0.0.1:9880"
-    myvoice:
-      type: "gpt-sovits"
-      name: "My Voice"
-      voice_dir: "voices/MyVoice"
-      url: "http://127.0.0.1:9880"
 ```
 
-GPT-SoVITS 音色需先起 `api_v2.py`（`.\scripts\start.ps1` 默认会起 `:9880`）。
+改默认：修改 `config.yaml`，或在 Admin「设为默认」（后者写入
+`workspace/runtime-state.json` 覆盖层）；客户端下次会话生效。
 
-3. 重启 Runtime。Web / Mobile 连接后会发 `tts.list`，设置里下拉自动出现新音色。
+## 客户端只需配什么
 
-客户端**不打包**音色模型；换用户音色 = 换主机 `voices/` + config。
+| 配置 | 谁管 |
+|------|------|
+| Runtime WS URL / Token | 客户端（连接） |
+| TTS default / providers | 主机 |
+| Pet default / catalog | 主机 |
+| Agent default | 主机 |
+
+CLI 的 `--tts` 仅调试覆盖（会发 `tts.select`）；正式客户端不要用。

@@ -5,7 +5,7 @@ HTTP gateway: AgentDock Agent Protocol ↔ OpenAI Codex CLI (`codex exec --json`
   python agents/codex/gateway.py
   → http://127.0.0.1:9002/v1/agent/run
 
-Requires: `codex` on PATH (https://github.com/openai/codex) and auth configured.
+Requires: `codex` on PATH (https://developers.openai.com/codex/cli) and auth configured.
 
 Env:
   CODEX_GATEWAY_PORT=9002
@@ -19,8 +19,8 @@ Env:
 
 from __future__ import annotations
 
+import json
 import os
-import subprocess
 import sys
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -31,11 +31,15 @@ _AGENTS = _HERE.parent
 if str(_AGENTS) not in sys.path:
     sys.path.insert(0, str(_AGENTS))
 
+from mcp_launch import codex_args  # noqa: E402
 from common import (  # noqa: E402
     PROTOCOL,
+    ProcessTable,
     device_id_of,
     event,
     fallback_work_dir,
+    kill_process,
+    launch_cli,
     make_write_event,
     read_json_request,
     repo_root_from,
@@ -61,6 +65,8 @@ _DEFAULT_VOICE = (
     "尽量简短口语化；纯文本不要 Markdown；先说结论。"
 )
 
+_PROCESSES = ProcessTable()
+
 
 def _system_prompt() -> str:
     return voice_prompt(
@@ -72,13 +78,11 @@ def _system_prompt() -> str:
 
 
 def _build_cmd(prompt: str, *, cwd: Path) -> list[str]:
-    # Flag forms match docs: `codex exec --json --sandbox workspace-write --cd <dir>`
-    cmd = [BIN, "exec", "--json", "--sandbox", SANDBOX, "--cd", str(cwd)]
+    cmd = [BIN, "exec", *codex_args(), "--json", "--sandbox", SANDBOX, "--cd", str(cwd)]
     if SKIP_GIT:
         cmd.append("--skip-git-repo-check")
     if MODEL:
         cmd += ["--model", MODEL]
-    # Codex has no --append-system-prompt; prefix voice style into the user prompt.
     sp = _system_prompt().strip()
     full = f"{sp}\n\n用户请求：{prompt}" if sp else prompt
     cmd.append(full)
@@ -106,95 +110,99 @@ def run_codex_turn(session_id: str, text: str, write_event, *, cwd: Path) -> Non
         )
     )
     try:
-        proc = subprocess.Popen(
-            cmd,
-            cwd=str(cwd),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,
-        )
+        proc, error_log = launch_cli(cmd, cwd=str(cwd))
     except FileNotFoundError as exc:
         write_event(event("agent.error", session_id, content=f"cannot start codex: {exc}"))
         return
 
+    _PROCESSES.register(session_id, proc)
     assistant_text = ""
     saw_done = False
-    assert proc.stdout is not None
-    import json
-
-    for line in proc.stdout:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            raw = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        et = str(raw.get("type") or "")
-        if et == "thread.started":
-            write_event(event("agent.start", session_id))
-        elif et == "turn.started":
-            write_event(event("agent.thinking", session_id, content="codex turn started"))
-        elif et in ("item.started", "item.updated", "item.completed"):
-            item = raw.get("item") if isinstance(raw.get("item"), dict) else {}
-            itype = str(item.get("type") or "")
-            if itype in ("command_execution", "command", "mcp_tool_call", "file_change"):
+    try:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                raw = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            et = str(raw.get("type") or "")
+            if et == "thread.started":
+                write_event(event("agent.start", session_id))
+            elif et == "turn.started":
+                write_event(event("agent.thinking", session_id, content="codex turn started"))
+            elif et in ("item.started", "item.updated", "item.completed"):
+                item = raw.get("item") if isinstance(raw.get("item"), dict) else {}
+                itype = str(item.get("type") or "")
+                if itype in ("command_execution", "command", "mcp_tool_call", "file_change"):
+                    write_event(
+                        event(
+                            "agent.tool_call" if et != "item.completed" else "agent.tool_result",
+                            session_id,
+                            tool=itype,
+                            status="success" if et == "item.completed" else None,
+                            content=_item_text(item)[:500] or None,
+                            args={k: item.get(k) for k in ("command", "path", "server") if k in item},
+                        )
+                    )
+                elif itype in ("agent_message", "message", "agent_message_delta"):
+                    chunk = _item_text(item)
+                    if chunk:
+                        assistant_text = chunk
+                        if et == "item.completed":
+                            write_event(
+                                event("agent.message", session_id, content=chunk, speak=True)
+                            )
+                elif itype in ("reasoning", "plan_update"):
+                    note = _item_text(item)
+                    if note:
+                        write_event(event("agent.thinking", session_id, content=note[:300]))
+            elif et == "turn.completed":
+                write_event(event("agent.done", session_id))
+                saw_done = True
+            elif et in ("turn.failed", "error"):
                 write_event(
                     event(
-                        "agent.tool_call" if et != "item.completed" else "agent.tool_result",
+                        "agent.error",
                         session_id,
-                        tool=itype,
-                        status="success" if et == "item.completed" else None,
-                        content=_item_text(item)[:500] or None,
-                        args={k: item.get(k) for k in ("command", "path", "server") if k in item},
+                        content=str(raw.get("error") or raw.get("message") or raw)[:800],
                     )
                 )
-            elif itype in ("agent_message", "message", "agent_message_delta"):
-                chunk = _item_text(item)
-                if chunk:
-                    assistant_text = chunk
-                    if et == "item.completed":
-                        write_event(
-                            event("agent.message", session_id, content=chunk, speak=True)
-                        )
-            elif itype in ("reasoning", "plan_update"):
-                note = _item_text(item)
-                if note:
-                    write_event(event("agent.thinking", session_id, content=note[:300]))
-        elif et == "turn.completed":
-            if assistant_text:
-                # already emitted on item.completed; still ensure done
-                pass
-            write_event(event("agent.done", session_id))
-            saw_done = True
-        elif et in ("turn.failed", "error"):
-            write_event(
-                event(
-                    "agent.error",
-                    session_id,
-                    content=str(raw.get("error") or raw.get("message") or raw)[:800],
-                )
-            )
-            saw_done = True
+                saw_done = True
 
-    stderr = proc.stderr.read() if proc.stderr else ""
-    code = proc.wait(timeout=30)
-    if not saw_done:
-        if code != 0:
-            write_event(
-                event(
-                    "agent.error",
-                    session_id,
-                    content=(stderr or f"codex exited {code}")[:800],
+        code = proc.wait(timeout=30)
+        cancelled = _PROCESSES.release(session_id, proc)
+        if cancelled:
+            write_event(event("agent.cancel", session_id))
+            return
+        error_log.seek(0)
+        stderr = error_log.read()[-2000:].strip()
+        if not saw_done:
+            if code != 0:
+                write_event(
+                    event(
+                        "agent.error",
+                        session_id,
+                        content=(stderr or f"codex exited {code}")[:800],
+                    )
                 )
-            )
-        else:
-            if assistant_text:
-                write_event(event("agent.message", session_id, content=assistant_text, speak=True))
-            write_event(event("agent.done", session_id))
+            else:
+                if assistant_text:
+                    write_event(
+                        event("agent.message", session_id, content=assistant_text, speak=True)
+                    )
+                write_event(event("agent.done", session_id))
+    except BrokenPipeError:
+        kill_process(proc)
+        _PROCESSES.release(session_id, proc)
+        raise
+    finally:
+        if proc.poll() is None:
+            kill_process(proc)
+        _PROCESSES.release(session_id, proc)
+        error_log.close()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -224,10 +232,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         path = self.path.rstrip("/")
         if path == "/v1/agent/cancel":
-            send_json(
-                self,
-                {"ok": True, "note": "codex exec cancel is best-effort (process already running)"},
-            )
+            sid = str(req.get("session_id") or "")
+            send_json(self, {"ok": _PROCESSES.cancel(sid)})
             return
         if path != "/v1/agent/run":
             self.send_error(404)
@@ -236,12 +242,14 @@ class Handler(BaseHTTPRequestHandler):
         sid = str(req.get("session_id") or uuid.uuid4().hex[:12])
         text = str(req.get("text") or "")
         cwd = resolve_request_cwd(req, FALLBACK_WORK_DIR)
-        _ = device_id_of(req)  # reserved for future session resume
+        _ = device_id_of(req)
 
         write_ndjson_headers(self)
         write_event = make_write_event(self)
         try:
             run_codex_turn(sid, text, write_event, cwd=cwd)
+        except BrokenPipeError:
+            _PROCESSES.cancel(sid)
         except Exception as exc:  # noqa: BLE001
             write_event(event("agent.error", sid, content=str(exc)))
 

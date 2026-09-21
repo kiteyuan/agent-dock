@@ -35,20 +35,12 @@ stt:
 session:
   max_context: 40
 
-# TTS — Haibara GPT-SoVITS primary; Edge fallback
+# TTS engines live in the module catalog. Character packs under voices/<id>/
+# with voice.yaml are registered automatically — do not list them here.
 tts:
-  default: "haibara"
+  default: "edge"
   warm: true                # pre-switch SoVITS weights after Runtime starts
   providers:
-    haibara:
-      type: "gpt-sovits"
-      name: "Haibara (GPT-SoVITS)"
-      voice_dir: "voices/Haibara"
-      url: "http://127.0.0.1:9880"
-      api: "v2"                 # v2: POST /tts ; v1: POST /
-      text_lang: "auto"         # 多语：auto；纯中文可改 zh / all_zh
-      load_weights: true
-      timeout: 120
     edge:
       type: "edge"
       name: "Edge TTS"
@@ -58,60 +50,39 @@ tts:
         - "zh-CN-YunxiNeural"
         - "zh-CN-XiaoyiNeural"
         - "en-US-JennyNeural"
-    echo:
-      type: "echo"
-      name: "Echo (silent stub)"
-    # my-tts:
-    #   type: "http"
-    #   name: "My TTS"
-    #   url: "http://127.0.0.1:9000/tts"
-    #   model: "default"
-    #   models: ["default", "warm"]
 
 agent:
   default: "pi"
-  agents:
-    mock:
-      type: "mock"
-    echo:
-      type: "echo"
-    pi:
-      type: "http"
-      name: "Pi Coding Agent"
-      url: "http://127.0.0.1:9001/v1/agent/run"
-      mode: "stream"
-      cancel_url: "http://127.0.0.1:9001/v1/agent/cancel"
-      capabilities: ["coding", "bash", "filesystem"]
-      timeout: 180
-    codex:
-      type: "http"
-      name: "OpenAI Codex"
-      url: "http://127.0.0.1:9002/v1/agent/run"
-      mode: "stream"
-      cancel_url: "http://127.0.0.1:9002/v1/agent/cancel"
-      capabilities: ["coding", "bash", "filesystem"]
-      timeout: 300
-    claude:
-      type: "http"
-      name: "Claude Code"
-      url: "http://127.0.0.1:9003/v1/agent/run"
-      mode: "stream"
-      cancel_url: "http://127.0.0.1:9003/v1/agent/cancel"
-      capabilities: ["coding", "bash", "filesystem"]
-      timeout: 300
-    # Public Agent Protocol — local demo:
-    #   python agents/demo/server.py
-    #   python agents/check_link.py --url http://127.0.0.1:8080/v1/agent/run
-    http:
-      type: "http"
-      name: "Reference HTTP Agent"
-      url: "http://127.0.0.1:8080/v1/agent/run"
-      mode: "stream"          # stream | events | text | auto
-      # auth_token: "dev-token"  # or "${AGENT_TOKEN}"
-      # cancel_url: "http://127.0.0.1:8080/v1/agent/cancel"
-      capabilities: ["demo", "general"]
-      timeout: 120
+  # 本机助手地址来自 modules/providers/agents.yaml 的 sidecar 端口。
+  # 只有 Docker 这类远程主机才需要在这里写 url。
 
 security:
   require_token: false
   tokens: []
+
+# Sidecar processes (shown on overview; start via module buttons)
+services:
+  pi:
+    port: 9001
+    autostart: false
+  codex:
+    port: 9002
+    autostart: false
+  claude:
+    port: 9003
+    autostart: false
+  sovits:
+    port: 9880
+    autostart: false
+    # 整合包解压到 workspace/GPT-SoVITS/，再在管理页点「检查安装」。
+  web:
+    port: 8090
+    autostart: false
+
+# 内置能力、探针和启动配方集中在声明式目录；这里只覆盖部署参数。
+modules:
+  catalog: "modules/catalog.yaml"
+  # proxy: "http://127.0.0.1:7890"  # optional installer HTTP/HTTPS proxy
+
+health:
+  interval_seconds: 3

@@ -13,6 +13,7 @@ class TTSInfo(BaseModel):
     provider: str
     description: str = ""
     models: list[str] = Field(default_factory=list)
+    audio_format: str = "wav"
 
 
 class STTProvider(ABC):

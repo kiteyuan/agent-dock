@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from loguru import logger
 
 from runtime.transport.speech.base import TTSInfo, TTSProvider
 
@@ -25,11 +24,11 @@ class GPTSoVITSTTS(TTSProvider):
 
     def __init__(
         self,
-        tts_id: str = "haibara",
+        tts_id: str,
         *,
         name: str | None = None,
-        voice_dir: str | Path = "voices/Haibara",
-        url: str = "http://127.0.0.1:9880",
+        voice_dir: str | Path,
+        url: str = "http://127.0.0.1:19880",
         api: str = "v2",
         text_lang: str = "auto",
         timeout: float = 120,
@@ -148,7 +147,7 @@ class GPTSoVITSTTS(TTSProvider):
         except urllib.error.URLError as exc:
             raise RuntimeError(
                 f"GPT-SoVITS unreachable at {self.url} ({exc}). "
-                "Start the API (e.g. api_v2.py on :9880) with this voice pack loaded."
+                "The internal API should be listening; the sidecar does not speak this protocol."
             ) from exc
 
         if "json" in ctype:
@@ -167,7 +166,7 @@ class GPTSoVITSTTS(TTSProvider):
             q = urllib.parse.urlencode({"weights_path": str(path)})
             url = f"{self.url}{route}?{q}"
             try:
-                with urllib.request.urlopen(url, timeout=min(60.0, self.timeout)) as resp:
+                with urllib.request.urlopen(url, timeout=self.timeout) as resp:
                     resp.read()
             except Exception as exc:  # noqa: BLE001
-                logger.warning("GPT-SoVITS weight switch skipped ({}): {}", route, exc)
+                raise RuntimeError(f"GPT-SoVITS weight switch failed ({route}): {exc}") from exc

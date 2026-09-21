@@ -8,6 +8,7 @@
     "gateway": "python gateway.py"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "^0.85.0"
+    "@earendil-works/pi-coding-agent": "^0.85.0",
+    "pi-mcp-adapter": "^2.35.0"
   }
 }

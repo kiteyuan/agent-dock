@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>AgentDock</title>
-  <link rel="stylesheet" href="./styles.css?v=6" />
+  <link rel="stylesheet" href="./styles.css?v=7" />
 </head>
 <body>
   <div class="stage" id="stage" data-mood="offline">
@@ -31,12 +31,11 @@
       <input id="url" type="text" placeholder="ws://192.168.x.x:8765" />
       <label>Token（可选）</label>
       <input id="token" type="password" placeholder="token" />
-      <label>TTS</label>
-      <select id="ttsId">
-        <option value="haibara">haibara</option>
-      </select>
-      <label>角色</label>
-      <select id="petId"></select>
+      <p class="hint" id="runtimeDefaults">TTS / 角色由 Runtime 下发（Admin / config.yaml）</p>
+      <label>当前 TTS</label>
+      <input id="ttsId" type="text" readonly placeholder="连接后显示" />
+      <label>当前角色</label>
+      <input id="petId" type="text" readonly placeholder="连接后显示" />
       <div class="sheet-actions">
         <button type="submit" id="btnSave" value="save">保存并连接</button>
         <button type="button" id="btnClose" value="cancel">关闭</button>
@@ -44,7 +43,7 @@
     </form>
   </dialog>
 
-  <script src="./pixel-bot.js?v=3"></script>
-  <script src="./app.js?v=11"></script>
+  <script src="./pixel-bot.js?v=4"></script>
+  <script src="./app.js?v=14"></script>
 </body>
 </html>

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import threading
 import urllib.error
 import urllib.request
 from typing import Any, Iterator
@@ -31,6 +32,10 @@ from runtime.protocol.agent_codec import (
     request_to_http_body,
 )
 
+# How long to wait for the HTTP worker after we stop consuming events.
+# Closing the socket should unblock readline almost immediately.
+_WORKER_JOIN_TIMEOUT_S = 2.0
+
 
 def _expand_secret(value: str | None) -> str | None:
     """Expand ${ENV} placeholders in tokens."""
@@ -39,6 +44,28 @@ def _expand_secret(value: str | None) -> str | None:
     if value.startswith("${") and value.endswith("}"):
         return os.environ.get(value[2:-1], "")
     return value
+
+
+def _close_response(resp: Any) -> None:
+    """Force-close urllib response so a blocked readline() wakes up."""
+    if resp is None:
+        return
+    try:
+        resp.close()
+    except Exception:  # noqa: BLE001
+        pass
+    fp = getattr(resp, "fp", None)
+    raw = getattr(fp, "raw", None) if fp is not None else None
+    sock = getattr(raw, "_sock", None) if raw is not None else None
+    if sock is not None:
+        try:
+            sock.shutdown(2)  # socket.SHUT_RDWR
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            sock.close()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 class HTTPAgent(AgentAdapter):
@@ -110,6 +137,9 @@ class HTTPAgent(AgentAdapter):
                     AgentEventType.ERROR,
                 ):
                     return
+        except asyncio.CancelledError:
+            self._best_effort_cancel(sid)
+            raise
         except Exception as exc:  # noqa: BLE001
             yield agent_error(sid, str(exc))
 
@@ -119,13 +149,28 @@ class HTTPAgent(AgentAdapter):
         *,
         prefer_stream: bool,
     ) -> AgentEventStream:
+        """Stream agent events; always release the HTTP socket when the consumer stops.
+
+        Previously ``finally: await task`` could block the event loop forever while the
+        worker sat in ``readline()`` (sidecar still running after a terminal event or
+        mid-LLM-call). That left the device ``busy`` and made admin cancel hang.
+        """
         sid = request.session_id
         queue: asyncio.Queue[Any] = asyncio.Queue()
         loop = asyncio.get_running_loop()
+        stop = threading.Event()
+        resp_holder: list[Any] = []
 
         def worker() -> None:
             try:
-                for item in self._fetch_stream(request, prefer_stream=prefer_stream):
+                for item in self._fetch_stream(
+                    request,
+                    prefer_stream=prefer_stream,
+                    stop=stop,
+                    resp_holder=resp_holder,
+                ):
+                    if stop.is_set():
+                        break
                     loop.call_soon_threadsafe(queue.put_nowait, ("event", item))
                 loop.call_soon_threadsafe(queue.put_nowait, ("end", None))
             except Exception as exc:  # noqa: BLE001
@@ -140,8 +185,26 @@ class HTTPAgent(AgentAdapter):
                 if kind == "error":
                     raise payload
                 yield payload
+                if getattr(payload, "type", None) in (
+                    AgentEventType.DONE,
+                    AgentEventType.CANCEL,
+                    AgentEventType.ERROR,
+                ):
+                    break
         finally:
-            await task
+            stop.set()
+            if resp_holder:
+                _close_response(resp_holder[0])
+            try:
+                await asyncio.wait_for(task, timeout=_WORKER_JOIN_TIMEOUT_S)
+            except asyncio.TimeoutError:
+                if resp_holder:
+                    _close_response(resp_holder[0])
+                # Thread may outlive us briefly; do not block the event loop.
+            except asyncio.CancelledError:
+                if resp_holder:
+                    _close_response(resp_holder[0])
+                raise
 
     def _build_headers(self, *, accept: str) -> dict[str, str]:
         headers = {
@@ -152,7 +215,14 @@ class HTTPAgent(AgentAdapter):
         }
         return headers
 
-    def _fetch_stream(self, request: AgentRequest, *, prefer_stream: bool) -> Iterator[Any]:
+    def _fetch_stream(
+        self,
+        request: AgentRequest,
+        *,
+        prefer_stream: bool,
+        stop: threading.Event | None = None,
+        resp_holder: list[Any] | None = None,
+    ) -> Iterator[Any]:
         body = json.dumps(request_to_http_body(request, stream=prefer_stream)).encode()
         accept = (
             "application/x-ndjson, text/event-stream, application/json"
@@ -171,15 +241,19 @@ class HTTPAgent(AgentAdapter):
             detail = exc.read().decode("utf-8", errors="replace")[:500]
             raise RuntimeError(f"HTTP {exc.code}: {detail or exc.reason}") from exc
 
-        with resp:
+        if resp_holder is not None:
+            resp_holder.append(resp)
+        try:
+            if stop is not None and stop.is_set():
+                return
             ctype = (resp.headers.get("Content-Type") or "").lower()
             sid = request.session_id
 
             if "text/event-stream" in ctype:
-                yield from self._read_sse_live(sid, resp)
+                yield from self._read_sse_live(sid, resp, stop=stop)
                 return
             if "ndjson" in ctype or "x-ndjson" in ctype:
-                yield from self._read_ndjson_live(sid, resp)
+                yield from self._read_ndjson_live(sid, resp, stop=stop)
                 return
 
             # Buffered JSON / text / unknown — read all then decode
@@ -212,10 +286,20 @@ class HTTPAgent(AgentAdapter):
                 return
 
             yield from iter_json_body_events(sid, raw)
+        finally:
+            _close_response(resp)
 
-    def _read_ndjson_live(self, session_id: str, resp: Any) -> Iterator[Any]:
+    def _read_ndjson_live(
+        self,
+        session_id: str,
+        resp: Any,
+        *,
+        stop: threading.Event | None = None,
+    ) -> Iterator[Any]:
         saw_terminal = False
         while True:
+            if stop is not None and stop.is_set():
+                break
             line = resp.readline()
             if not line:
                 break
@@ -236,10 +320,18 @@ class HTTPAgent(AgentAdapter):
 
             yield agent_done(session_id)
 
-    def _read_sse_live(self, session_id: str, resp: Any) -> Iterator[Any]:
+    def _read_sse_live(
+        self,
+        session_id: str,
+        resp: Any,
+        *,
+        stop: threading.Event | None = None,
+    ) -> Iterator[Any]:
         saw_terminal = False
         data_lines: list[str] = []
         while True:
+            if stop is not None and stop.is_set():
+                break
             line = resp.readline()
             if not line:
                 break

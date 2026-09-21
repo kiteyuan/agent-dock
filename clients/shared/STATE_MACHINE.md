@@ -15,7 +15,13 @@
 | `speaking` | 正在收/播 TTS | 否（取消除外） |
 | `error` | 出错；可重连或回 idle | 视实现 |
 
-点按交互：**第一次开始录音 → 第二次结束并发送**（与 Web / Pi 一致）。
+点按交互：
+
+- **idle**：点一次开始录音  
+- **listening**：再点 = 结束并发送  
+- **busy / speaking**：再点 = `session.cancel`（清 TTS 队列 → idle）
+
+与 Web / Mobile / Pi 一致。
 
 ## 主流程
 
@@ -49,18 +55,20 @@ idle
 
 | type | 作用 |
 |------|------|
-| `device.hello` | `device_id`, `device_type`, `protocol_version`, 可选 `token` / `tts_id` |
+| `device.hello` | `device_id`, `device_type`, `protocol_version`，可选 `token`（**不**配置 TTS/人物） |
 | `user.message` | 文本轮（可选） |
 | `audio.start` / 二进制 / `audio.end` | 一轮语音；WAV 建议 16 kHz mono PCM |
-| `tts.select` | 选音色 |
 | `session.cancel` | 取消当前轮 |
 | `device.ping` | 心跳 |
+
+> `tts.select` 仅 CLI/调试覆盖；正式瘦客户端不发。TTS / 人物由 Runtime 决定。
 
 **Runtime → 客户端**
 
 | type | 作用 |
 |------|------|
-| `session.accept` | 给 `session_id` |
+| `session.accept` | `session_id` + Runtime 默认 `tts_id` / `pet_id` / `agent_id` + assets |
+| `tts.list.result` / `pets.list.result` | 连接后由 Runtime **推送**（也可主动拉取） |
 | `stt.partial` / `stt.final` | 识别 |
 | `agent.thinking` / `tool_*` / `agent.message` | 过程 / 回复；口语常带 `speak: true` |
 | `tts.start` | 可带 `text`（按句字幕）、`format` |

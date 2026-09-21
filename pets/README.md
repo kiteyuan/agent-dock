@@ -15,7 +15,7 @@ pets/
 
 ## 下发
 
-Runtime 启动时额外开 HTTP（默认 `:8766`）：
+Runtime 的 Admin/Pets HTTP 在同一端口（默认 `:8766`）：
 
 - `GET /pets/catalog.json`
 - `GET /pets/<pet-id>/spritesheet.webp`
@@ -26,4 +26,6 @@ Runtime 启动时额外开 HTTP（默认 `:8766`）：
 
 1. 新建 `pets/<id>/spritesheet.webp`
 2. 在 `pets/catalog.json` 的 `pets` 数组追加条目
-3. 重启 Runtime；客户端重连后下拉会出现新角色，选中后自动下载并缓存
+3. 重启 Runtime；客户端重连后按 Runtime 默认人物自动下载并缓存
+
+也可以从本机 Admin 的人物页提交 URL；下载、校验与解压在后台 job 中执行。
