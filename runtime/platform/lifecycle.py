@@ -274,10 +274,12 @@ class ModuleLifecycle:
         sidecar_id = spec.sidecar_id if spec else target
         if spec and spec.kind == "agent":
             workspace = getattr(self.supervisor, "workspace", None)
+            installs = getattr(self.supervisor, "installs_root", None)
             installed, detail = agent_installed(
                 spec,
                 root=self.catalog.root,
                 workspace=workspace,
+                installs_root=installs,
                 has_receipt=self.receipt_lookup(spec.id),
             )
             if not installed:

@@ -1,0 +1,7 @@
+modules:
+  - id: pets
+    name: 人物包
+    kind: pet
+    version: local
+    capabilities: {local: true, cpu: true}
+    description: assets/pets 目录中的静态人物资源

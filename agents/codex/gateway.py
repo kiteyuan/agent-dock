@@ -9,7 +9,7 @@ Requires: `codex` on PATH (https://developers.openai.com/codex/cli) and auth con
 
 Env:
   CODEX_GATEWAY_PORT=9002
-  CODEX_CWD=...                 # fallback cwd (default: <repo>/workspace)
+  CODEX_CWD=...                 # fallback cwd (default: <repo>/data/vault)
   CODEX_BIN=codex
   CODEX_SANDBOX=workspace-write # or read-only / danger-full-access
   CODEX_MODEL=...

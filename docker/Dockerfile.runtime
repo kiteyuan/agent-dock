@@ -14,10 +14,12 @@ COPY runtime ./runtime
 RUN pip install --no-cache-dir -e .
 
 # Data paths are bind-mounted; keep placeholders so relative paths resolve.
-RUN mkdir -p /app/pets /app/voices /app/workspace
+RUN mkdir -p /app/assets/pets /app/assets/voices /app/catalog /data
 
 ENV PYTHONUNBUFFERED=1 \
-    HF_HOME=/cache/huggingface
+    AGENTDOCK_HOME=/data \
+    AGENTDOCK_DOCKER=1 \
+    HF_HOME=/data/cache/huggingface
 
 EXPOSE 8765 8766
 

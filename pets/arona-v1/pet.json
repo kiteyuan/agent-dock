@@ -1,7 +1,0 @@
-{
-  "id": "arona-v1",
-  "displayName": "Arona",
-  "description": "A faithful chibi Codex pet inspired by Arona from Blue Archive, with corrected side-run direction, readable legs, stable head scale, and natural jump motion.",
-  "spritesheetPath": "spritesheet.webp",
-  "kind": "person"
-}

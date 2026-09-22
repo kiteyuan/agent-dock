@@ -11,6 +11,19 @@ env:
   FLUTTER_VERSION: "3.27.4"
 
 jobs:
+  layout:
+    name: Paths layout
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install and test layout
+        run: |
+          pip install -e ".[dev]"
+          python -m pytest tests/test_paths_layout.py tests/test_workspace.py -q
+
   android:
     name: Android APK
     runs-on: ubuntu-latest

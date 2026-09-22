@@ -86,7 +86,7 @@ def _voice_items(host: Any, services: dict[str, dict[str, Any]]) -> list[dict[st
                 "name": record.name,
                 "engine": record.engine,
                 "engine_name": module.name if module else record.engine,
-                "path": f"voices/{record.id}",
+                "path": f"assets/voices/{record.id}",
                 "address": address,
                 "model": model,
                 "complete": record.complete,

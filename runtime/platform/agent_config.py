@@ -60,9 +60,16 @@ def _map_shared_to_agent(
 class AgentConfigStore:
     """Stores public model choices separately from credentials."""
 
-    def __init__(self, workspace: Path, catalog: ModuleCatalog) -> None:
-        self.path = workspace / "agent-settings.json"
-        self.secret_path = workspace / "agent-secrets.json"
+    def __init__(
+        self,
+        state_dir: Path,
+        catalog: ModuleCatalog,
+        *,
+        secrets_dir: Path | None = None,
+    ) -> None:
+        self.path = state_dir / "agent-settings.json"
+        self.secret_path = state_dir / "agent-secrets.json"
+        self._key_dir = secrets_dir
         self.catalog = catalog
         self._lock = threading.RLock()
         self._settings = self._load(self.path)
@@ -204,7 +211,7 @@ class AgentConfigStore:
             if clear_credential or provider_changed:
                 self._secrets.pop("shared", None)
             if credential:
-                self._secrets["shared"] = _seal(credential)
+                self._secrets["shared"] = _seal(credential, key_dir=self._key_dir)
             self._write(self.path, self._settings)
             self._write(self.secret_path, self._secrets, private=True)
             return self.public_shared()
@@ -257,7 +264,7 @@ class AgentConfigStore:
             if clear_credential or provider_changed:
                 secrets.pop(module_id, None)
             if credential:
-                secrets[module_id] = _seal(credential)
+                secrets[module_id] = _seal(credential, key_dir=self._key_dir)
             self._write(self.path, self._settings)
             self._write(self.secret_path, self._secrets, private=True)
             return self.public(module_id)
@@ -296,7 +303,7 @@ class AgentConfigStore:
                 ).strip()
                 sealed = (self._secrets.get("agents") or {}).get(module_id)
             env = dict(provider.extra_env)
-            credential = _unseal(str(sealed)) if sealed else ""
+            credential = _unseal(str(sealed), key_dir=self._key_dir) if sealed else ""
             if provider.credential_env and credential:
                 env[provider.credential_env] = credential
             if provider.base_url_env and base_url:

@@ -15,7 +15,7 @@
 | `cli/` | 启动 Web UI + CLI 调试 |
 | `rpi/` | 树莓派随身终端 |
 | `mobile/` | **正式手机端**（Flutter 瘦客户端） |
-| `shared/` | 协议 + TurnView + 状态约定；pet 离线兜底 catalog |
+| `shared/` | 协议 + TurnView + 状态约定 |
 
 自定义角色 / 音色：[`CUSTOM_ASSETS.md`](./CUSTOM_ASSETS.md)。
 

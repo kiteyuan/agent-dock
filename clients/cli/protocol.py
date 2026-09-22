@@ -23,5 +23,6 @@ session_cancel = mod.session_cancel
 tts_list = mod.tts_list
 tts_select = mod.tts_select
 agents_list = mod.agents_list
+pets_list = mod.pets_list
 ping = mod.ping
 device_status = mod.device_status

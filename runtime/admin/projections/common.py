@@ -13,6 +13,7 @@ def agent_is_installed(host: Any, spec: Any) -> tuple[bool, str]:
         spec,
         root=host.catalog.root,
         workspace=host.runtime.workspace,
+        installs_root=getattr(host.runtime, "installs_root", None),
         has_receipt=host.module_state.receipt(spec.id) is not None,
     )
 
@@ -22,7 +23,10 @@ def module_installed(host: Any, module_id: str, cwd: str | None) -> tuple[bool, 
     spec = host.catalog.module(module_id)
     if spec and spec.install.kind == "steps":
         receipt = host.module_state.receipt(module_id)
-        path = host.runtime.workspace / "modules" / module_id
+        installs = getattr(host.runtime, "installs_root", None)
+        if installs is None:
+            return False, "installs_root not configured"
+        path = installs / module_id
         return bool(receipt and path.is_dir()), (
             f"{receipt.get('version')} · {path}" if receipt else str(path)
         )

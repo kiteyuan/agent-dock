@@ -1,4 +1,4 @@
-"""Discover speakable voices from voices/<id>/voice.yaml.
+"""Discover speakable voices from assets/voices/<id>/voice.yaml.
 
 A pack names an engine from the module catalog. The catalog's voice_pack
 rules decide which files are required and how the pack is bound. config.yaml

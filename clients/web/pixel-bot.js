@@ -1,12 +1,11 @@
 /**
- * Codex Pet atlas player — catalog from Runtime pets.list (download + Cache API),
- * with bundled ./sprites/catalog.json as offline fallback.
+ * Codex Pet atlas player — catalog from Runtime pets.list only
+ * (download + Cache API). No bundled offline sprites.
  * Atlas: 8×9 × 192×208; only cycle non-empty frames.
  */
 (function (global) {
   const CELL_W = 192;
   const CELL_H = 208;
-  const FALLBACK_CATALOG = "./sprites/catalog.json";
   const CACHE_NAME = "agentdock-pets-v1";
 
   const ROW = {
@@ -31,8 +30,7 @@
 
   /** @type {Record<string, {id:string,label:string,src:string,url?:string,sheet?:string}>} */
   let PETS = {};
-  let DEFAULT_PET = "monthly-salary-cat";
-  let catalogReady = null;
+  let DEFAULT_PET = "";
   let remoteBase = "";
   let assetsPort = 8766;
 
@@ -88,8 +86,9 @@
     const pets = Array.isArray(list) ? list : [];
     for (const p of pets) {
       if (!p || !p.id) continue;
+      if (!baseUrl) continue;
       const sheet = p.sheet || p.id + "/spritesheet.webp";
-      const src = p.src || (baseUrl ? joinUrl(baseUrl, sheet) : "./sprites/" + String(sheet).replace(/^\/+/, ""));
+      const src = p.src || joinUrl(baseUrl, sheet);
       map[p.id] = {
         id: p.id,
         label: p.label || p.id,
@@ -102,7 +101,6 @@
     PETS = map;
     DEFAULT_PET =
       defaultId && map[defaultId] ? defaultId : Object.keys(map)[0];
-    catalogReady = Promise.resolve({ pets: PETS, defaultId: DEFAULT_PET });
     return true;
   }
 
@@ -120,37 +118,7 @@
   }
 
   function loadCatalog() {
-    if (catalogReady) return catalogReady;
-    catalogReady = fetch(FALLBACK_CATALOG)
-      .then((r) => {
-        if (!r.ok) throw new Error("catalog " + r.status);
-        return r.json();
-      })
-      .then((data) => {
-        if (!applyPetsList(data.pets, data.default, null)) {
-          throw new Error("empty pet catalog");
-        }
-        // rewrite to bundled paths
-        for (const id of Object.keys(PETS)) {
-          const sheet = PETS[id].sheet || id + "/spritesheet.webp";
-          PETS[id].src = "./sprites/" + String(sheet).replace(/^\/+/, "");
-        }
-        return { pets: PETS, defaultId: DEFAULT_PET };
-      })
-      .catch((err) => {
-        console.warn("pet catalog load failed, using fallback", err);
-        PETS = {
-          "monthly-salary-cat": {
-            id: "monthly-salary-cat",
-            label: "Monthly salary cat",
-            src: "./sprites/monthly-salary-cat/spritesheet.webp",
-            url: "",
-          },
-        };
-        DEFAULT_PET = "monthly-salary-cat";
-        return { pets: PETS, defaultId: DEFAULT_PET };
-      });
-    return catalogReady;
+    return Promise.resolve({ pets: PETS, defaultId: DEFAULT_PET });
   }
 
   function createPixelBot(canvas, initialPetId) {
@@ -165,7 +133,7 @@
     let sheet = null;
     let ready = false;
     let lastKey = "";
-    let petId = initialPetId || DEFAULT_PET;
+    let petId = initialPetId || DEFAULT_PET || "";
     let loadGen = 0;
     let objectUrl = null;
 
@@ -175,7 +143,11 @@
 
     function loadSheet(id) {
       const pet = resolvePet(id);
-      if (!pet) return;
+      if (!pet || !pet.src) {
+        ready = false;
+        sheet = null;
+        return;
+      }
       petId = pet.id;
       ready = false;
       sheet = null;
@@ -228,9 +200,8 @@
       );
     }
 
-    const booted = loadCatalog().then(() => {
-      if (!PETS[petId]) petId = DEFAULT_PET;
-      loadSheet(petId);
+    const booted = Promise.resolve().then(() => {
+      if (petId && PETS[petId]) loadSheet(petId);
     });
 
     return {
@@ -248,7 +219,8 @@
       },
       /** Reload current pet after remote catalog applied. */
       reload() {
-        loadSheet(petId);
+        if (petId && PETS[petId]) loadSheet(petId);
+        else if (DEFAULT_PET) loadSheet(DEFAULT_PET);
       },
       getPet() {
         return petId;

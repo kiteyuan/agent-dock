@@ -8,8 +8,9 @@ from runtime.runtime import Runtime
 
 
 def test_snapshot_does_not_perform_network_probe(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("AGENTDOCK_HOME", str(tmp_path / "home"))
     cfg = {
-        "workspace": {"root": str(tmp_path / "workspace")},
+        "paths": {"home": str(tmp_path / "home")},
         "pets": {"root": str(tmp_path / "pets")},
         "stt": {"provider": "none"},
         "agent": {
@@ -25,6 +26,8 @@ def test_snapshot_does_not_perform_network_probe(monkeypatch, tmp_path) -> None:
             "default": "edge",
             "providers": {"edge": {"type": "edge", "name": "Edge TTS"}},
         },
+        "server": {"host": "127.0.0.1"},
+        "security": {"require_token": False},
     }
     runtime = Runtime(cfg)
 

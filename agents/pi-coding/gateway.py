@@ -9,10 +9,10 @@ Requires: npm deps in agents/pi-coding (npx pi).
 
 Env:
   PI_GATEWAY_PORT=9001
-  PI_CWD=E:\\path\\to\\project   # fallback cwd when request has no workspace (default: <repo>/workspace)
+  PI_CWD=E:\\path\\to\\project   # fallback cwd when request has no workspace (default: <repo>/data/vault)
   PI_NO_TOOLS=1
   PI_NO_SESSION=1               # opt out: ephemeral turns (old behavior)
-  PI_SESSION_DIR=...            # Pi session files (default: agents/pi-coding/.agentdock-sessions)
+  PI_SESSION_DIR=...            # Pi session files (default: <repo>/data/sessions/pi-coding)
   PI_SESSION_KEY=device         # device (default) | session — what keys Pi --session-id
   PI_APPEND_SYSTEM_PROMPT=...   # append voice style prompt (default: agents/pi-coding/voice_prompt.txt)
   PI_SYSTEM_PROMPT=...          # replace system prompt entirely (path or literal)
@@ -37,8 +37,8 @@ HOST = os.environ.get("PI_GATEWAY_HOST", "127.0.0.1")
 PORT = int(os.environ.get("PI_GATEWAY_PORT", "9000"))
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
-DEFAULT_WORKSPACE = REPO_ROOT / "workspace"
-# Fallback cwd when Runtime does not send workspace (default: <repo>/workspace). Override: PI_CWD=
+DEFAULT_WORKSPACE = REPO_ROOT / "data" / "vault"
+# Fallback cwd when Runtime does not send workspace (default: <repo>/data/vault). Override: PI_CWD=
 FALLBACK_WORK_DIR = Path(
     os.environ.get("PI_CWD") or os.environ.get("PI_WORKDIR") or DEFAULT_WORKSPACE
 ).expanduser().resolve()
@@ -53,8 +53,9 @@ NO_TOOLS = os.environ.get("PI_NO_TOOLS", "0") == "1"
 # Default: reuse Pi session files keyed by AgentDock session_id.
 # Set PI_NO_SESSION=1 to restore one-shot (--no-session) turns.
 NO_SESSION = os.environ.get("PI_NO_SESSION", "0") == "1"
+_DEFAULT_SESSIONS = REPO_ROOT / "data" / "sessions" / "pi-coding"
 SESSION_DIR = Path(
-    os.environ.get("PI_SESSION_DIR") or (HERE / ".agentdock-sessions")
+    os.environ.get("PI_SESSION_DIR") or _DEFAULT_SESSIONS
 ).expanduser().resolve()
 # Key Pi memory by stable device id (survives WS reconnect). Use "session" for WS-scoped.
 SESSION_KEY = (os.environ.get("PI_SESSION_KEY") or "device").strip().lower()

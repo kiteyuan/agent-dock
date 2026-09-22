@@ -45,9 +45,18 @@ def make_installer(tmp_path):
         ],
     )
     catalog = ModuleCatalog(modules=[module], sidecars=[], root=tmp_path)
-    workspace = tmp_path / "workspace"
-    state = ModuleState(workspace)
-    return InstallManager(catalog=catalog, workspace=workspace, state=state), state
+    workspace = tmp_path / "vault"
+    installs = tmp_path / "installs"
+    state = ModuleState(tmp_path / "state")
+    return (
+        InstallManager(
+            catalog=catalog,
+            workspace=workspace,
+            installs_root=installs,
+            state=state,
+        ),
+        state,
+    )
 
 
 def test_installer_requires_explicit_license_acceptance(tmp_path) -> None:
@@ -60,7 +69,7 @@ def test_installer_records_receipt_and_only_uninstalls_managed_dir(tmp_path) -> 
     installer, state = make_installer(tmp_path)
     state.accept_license("fixture", "fixture-license", accepted=True)
     receipt = installer.install("fixture")
-    target = tmp_path / "workspace" / "modules" / "fixture"
+    target = tmp_path / "installs" / "fixture"
     assert (target / "installed.txt").read_text() == "ok"
     assert receipt["module_id"] == "fixture"
     assert state.receipt("fixture") is not None
@@ -75,7 +84,7 @@ def test_installer_rolls_back_failed_upgrade(tmp_path) -> None:
     installer, state = make_installer(tmp_path)
     state.accept_license("fixture", "fixture-license", accepted=True)
     installer.install("fixture")
-    target = tmp_path / "workspace" / "modules" / "fixture"
+    target = tmp_path / "installs" / "fixture"
     module = installer.catalog.module("fixture")
     assert module is not None
     module.install.steps = [
@@ -97,4 +106,4 @@ def test_installer_honors_cancellation_before_mutation(tmp_path) -> None:
     cancel.set()
     with pytest.raises(InstallCancelled):
         installer.install("fixture", cancel=cancel)
-    assert not (tmp_path / "workspace" / "modules" / "fixture").exists()
+    assert not (tmp_path / "installs" / "fixture").exists()

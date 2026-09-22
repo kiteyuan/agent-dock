@@ -13,7 +13,7 @@ from runtime.transport.speech.gpt_sovits_tts import GPTSoVITSTTS
 
 class _Broken:
     def __init__(self) -> None:
-        self.info = TTSInfo(id="Haibara", name="Haibara", provider="http")
+        self.info = TTSInfo(id="haibara", name="Haibara", provider="http")
 
     async def synthesize(self, text: str, *, model: str | None = None) -> bytes:
         raise RuntimeError("sidecar down")
@@ -42,7 +42,7 @@ class _Registry:
 def test_tts_failure_does_not_fall_back_to_edge() -> None:
     registry = _Registry()
     pipeline = BridgePipeline(router=None, tts_registry=registry)  # type: ignore[arg-type]
-    session = Session(session_id="s1", device_id="d1", tts_id="Haibara", tts_model="voices/Haibara")
+    session = Session(session_id="s1", device_id="d1", tts_id="haibara", tts_model="assets/voices/haibara")
     sent: list[str] = []
 
     async def send(data: str | bytes) -> None:

@@ -24,7 +24,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/sprites/catalog.json
-    - assets/sprites/monthly-salary-cat/
-    - assets/sprites/arona-v1/

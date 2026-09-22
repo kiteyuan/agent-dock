@@ -1,0 +1,62 @@
+schema_version: 2
+
+sidecars:
+  sovits:
+    name: GPT-SoVITS Engine
+    port: 9880
+    spawn:
+      executable: "{python}"
+      args: ["-m", "runtime.transport.speech.sidecar", "--provider", "gpt-sovits", "--port", "{port}"]
+      cwd: "{root}"
+      env:
+        PYTHONPATH: "{root}"
+        AGENTDOCK_GPT_SOVITS_ROOT: "{sovits_root}"
+        AGENTDOCK_GPT_SOVITS_PYTHON: "{sovits_python}"
+    health: {kind: http, url: "http://127.0.0.1:9880/health"}
+
+modules:
+  - id: edge
+    name: Edge TTS
+    kind: tts
+    registry_id: edge
+    provider_types: [edge]
+    version: cloud
+    homepage: https://github.com/rany2/edge-tts
+    licenses:
+      - {id: edge-service, name: Microsoft Service Terms, url: "https://www.microsoft.com/servicesagreement", requires_acceptance: true, redistributable: false}
+    capabilities: {languages: [multilingual], streaming: true, local: false, cpu: true}
+    description: 零本地模型的在线语音默认项
+    voice_pack:
+      provider: edge
+      model: voice
+      required_fields: [voice]
+  - id: gpt-sovits
+    name: GPT-SoVITS
+    kind: tts
+    sidecar_id: sovits
+    version: external
+    homepage: https://github.com/RVC-Boss/GPT-SoVITS
+    provider_types: [gpt-sovits]
+    licenses:
+      - {id: mit, name: MIT, url: "https://opensource.org/license/mit"}
+    hardware: {min_ram_gb: 8, min_disk_gb: 10, min_vram_gb: 4, gpu_recommended: true}
+    capabilities: {languages: [zh, en, ja, ko, yue], streaming: false, voice_cloning: true, local: true, cpu: true, gpu: true}
+    description: 少样本语音克隆。音色包放在 assets/voices/<kebab-id>/。
+    bundle:
+      directory: GPT-SoVITS
+      marker: api_v2.py
+      python: runtime/python.exe
+      python_fallbacks: ["runtime/python", ".venv/Scripts/python.exe", ".venv/bin/python"]
+      nested: true
+      note_file: 解压到这里.txt
+      note: |
+        把官网下载的 GPT-SoVITS Windows 整合包解压到这个文件夹。
+        解压完成后，这里或它的下一层应能直接看到 api_v2.py 和 runtime/python.exe。
+        然后回到管理页，在这张卡片上点「检查安装」。
+    voice_pack:
+      provider: http
+      model: directory
+      files:
+        - {id: models.gpt, default: models/gpt.ckpt}
+        - {id: models.sovits, default: models/sovits.pth}
+        - {id: reference.wav, default: reference/ref.wav}

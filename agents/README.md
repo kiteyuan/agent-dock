@@ -43,7 +43,7 @@ agents/codex/
 agents/claude-code/
 ```
 
-内置 Provider 由 `modules/providers/agents.yaml` 自动注册。请先按各助手官网安装
+内置 Provider 由 `catalog/providers/agents.yaml` 自动注册。请先按各助手官网安装
 官方 CLI，并确保命令在 PATH 中；Runtime 只检测是否已安装，再配置 LLM 并启动
 gateway。Admin 中每个 Agent 的 Provider、模型、地址和凭据独立保存，并在启动对应
 gateway 时通过受控环境注入。

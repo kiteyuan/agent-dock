@@ -12,7 +12,6 @@ from loguru import logger
 from runtime.agent.registry import AgentRegistry
 from runtime.bridge.bus import EventBus, client_disconnected
 from runtime.bridge.pipeline import BridgePipeline
-from runtime.device.audio_capture import describe_audio, save_audio_capture
 from runtime.device.connection import DeviceConnection
 from runtime.pets import list_pets
 from runtime.protocol.agent import agent_cancel
@@ -463,7 +462,6 @@ class DeviceGateway:
     ) -> None:
         """STT + pipeline off the WS read loop so cancel/ping stay responsive."""
         assert self.stt is not None
-        self._capture_audio(conn.device_id, audio)
         try:
             text = await self.stt.transcribe(audio)
         except asyncio.CancelledError:
@@ -483,15 +481,3 @@ class DeviceGateway:
         await conn.send(encode_message(stt_final(sid, text)))
         bus = EventBus(conn.send)
         await self.pipeline.run_turn(session, text, bus, agent_id=session.agent_id)
-
-    def _capture_audio(self, device_id: str | None, audio: bytes) -> None:
-        root = self.pipeline.workspace
-        if not root:
-            logger.info("audio capture skipped; {}", describe_audio(audio))
-            return
-        try:
-            path, summary = save_audio_capture(Path(root), device_id or "device", audio)
-        except OSError:
-            logger.exception("audio capture failed")
-            return
-        logger.info("audio capture {} {}", summary, path)

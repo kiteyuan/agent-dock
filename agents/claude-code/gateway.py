@@ -9,7 +9,7 @@ Requires: `claude` on PATH (https://code.claude.com) and auth configured.
 
 Env:
   CLAUDE_GATEWAY_PORT=9003
-  CLAUDE_CWD=...                      # fallback cwd (default: <repo>/workspace)
+  CLAUDE_CWD=...                      # fallback cwd (default: <repo>/data/vault)
   CLAUDE_BIN=claude
   CLAUDE_MODEL=...
   CLAUDE_PERMISSION_MODE=acceptEdits  # or bypassPermissions / default / plan

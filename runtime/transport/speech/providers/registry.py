@@ -70,7 +70,7 @@ def _sovits(provider_id: str, cfg: dict[str, Any]) -> TTSProvider:
         name=cfg.get("name"),
         voice_dir=cfg.get("voice_dir")
         or cfg.get("voices_dir")
-        or f"voices/{provider_id}",
+        or f"assets/voices/{provider_id}",
         url=cfg.get("url") or "http://127.0.0.1:19880",
         api=cfg.get("api") or "v2",
         text_lang=cfg.get("text_lang") or "auto",

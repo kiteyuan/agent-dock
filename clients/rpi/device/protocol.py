@@ -7,8 +7,10 @@ import sys
 from pathlib import Path
 
 _shared = Path(__file__).resolve().parents[2] / "shared" / "protocol.py"
-if not _shared.exists():
-    _shared = Path(__file__).resolve().parent / "_protocol_fallback.py"
+if not _shared.is_file():
+    raise ImportError(
+        f"cannot load protocol from {_shared}; keep clients/shared next to device/"
+    )
 
 spec = importlib.util.spec_from_file_location("device_protocol_shared", _shared)
 if spec is None or spec.loader is None:
@@ -26,5 +28,6 @@ session_cancel = mod.session_cancel
 tts_list = mod.tts_list
 tts_select = mod.tts_select
 agents_list = mod.agents_list
+pets_list = mod.pets_list
 ping = mod.ping
 device_status = mod.device_status

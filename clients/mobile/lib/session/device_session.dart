@@ -38,7 +38,7 @@ class DeviceSession {
   String replyText = '';
   bool captionMode = false;
 
-  String url = 'ws://192.168.1.1:8765';
+  String url = 'ws://127.0.0.1:8765';
   String token = '';
   /// Filled from Runtime session.accept / catalog push — not client config.
   String ttsId = '';
@@ -56,6 +56,10 @@ class DeviceSession {
   String _thinkingBuf = '';
   DateTime? _lastThinkingFlush;
   bool _captionLive = false;
+  /// Committed caption so far (full sentences); [replyText] may lag while typing.
+  String _captionCommitted = '';
+  Timer? _typeTimer;
+  int _typeToken = 0;
   static const _thinkingMin = Duration(milliseconds: 400);
   static const _processMaxLen = 72;
 
@@ -111,13 +115,97 @@ class DeviceSession {
     _setState(ClientState.busy);
   }
 
+  String _plainReply(String raw) =>
+      raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+
   void _showUserSpeech(String text) {
-    final t = text.trim();
+    final t = _plainReply(text);
     if (t.isEmpty) return;
+    _stopTypewriter();
     replyText = t;
     _captionLive = false;
+    _captionCommitted = '';
     captionMode = false;
     _notify();
+  }
+
+  void _stopTypewriter() {
+    _typeToken++;
+    _typeTimer?.cancel();
+    _typeTimer = null;
+  }
+
+  /// Stop typing; optionally snap UI to the last committed caption.
+  void _endCaptionTyping({bool keepReply = true}) {
+    _stopTypewriter();
+    if (keepReply && _captionCommitted.isNotEmpty) {
+      replyText = _captionCommitted;
+    }
+    _captionLive = false;
+    _captionCommitted = '';
+    captionMode = false;
+  }
+
+  int _typewriterMs(int len) => len > 80
+      ? 12
+      : len > 30
+          ? 18
+          : 28;
+
+  /// Join spoken sentences into one paragraph (no forced line breaks).
+  String _captionSep(String prev, String next) {
+    if (prev.isEmpty) return '';
+    final last = prev[prev.length - 1];
+    if (RegExp(r'\s').hasMatch(last)) return '';
+    if (RegExp(
+      r'[\u3000-\u303F\u4E00-\u9FFF\uFF00-\uFFEF。！？…」』）】]',
+    ).hasMatch(last)) {
+      return '';
+    }
+    if (next.isNotEmpty &&
+        RegExp(r'[，。！？、；：…」』）】,.!?;:]').hasMatch(next[0])) {
+      return '';
+    }
+    return ' ';
+  }
+
+  /// Typewriter caption: spoken sentences flow as one paragraph.
+  void _appendCaptionTypewriter(String line) {
+    final s = _plainReply(line);
+    if (s.isEmpty) return;
+    _typeToken++;
+    final my = _typeToken;
+    _typeTimer?.cancel();
+    _typeTimer = null;
+
+    if (!_captionLive) {
+      _captionLive = true;
+      _captionCommitted = '';
+      replyText = '';
+    } else {
+      replyText = _captionCommitted;
+    }
+
+    final sep = _captionSep(_captionCommitted, s);
+    final addition = '$sep$s';
+    final base = _captionCommitted;
+    _captionCommitted = '$base$addition';
+
+    var i = 0;
+    final ms = _typewriterMs(s.length);
+    _typeTimer = Timer.periodic(Duration(milliseconds: ms), (t) {
+      if (my != _typeToken) {
+        t.cancel();
+        return;
+      }
+      i += 1;
+      replyText = base + addition.substring(0, i);
+      _notify();
+      if (i >= addition.length) {
+        t.cancel();
+        _typeTimer = null;
+      }
+    });
   }
 
   void _resetThinking() {
@@ -196,14 +284,10 @@ class DeviceSession {
         final line = t.trim();
         if (line.isEmpty) return;
         if (captionMode) {
-          if (!_captionLive) {
-            _captionLive = true;
-            replyText = line;
-          } else {
-            replyText = '$replyText\n$line';
-          }
+          _appendCaptionTypewriter(line);
+        } else {
+          _notify();
         }
-        _notify();
       };
       player.onBecameIdle = _maybeIdle;
       player.onQueueChanged = _notify;
@@ -291,8 +375,7 @@ class DeviceSession {
     player.clear();
     _ttsBuf.clear();
     _awaitingIdle = false;
-    captionMode = false;
-    _captionLive = false;
+    _endCaptionTyping(keepReply: true);
     _resetThinking();
     await recorder.cancel();
     // Keep current reply; mood returns to idle (same as clients/web).
@@ -306,8 +389,7 @@ class DeviceSession {
       player.clear();
       player.beginTurn();
       _awaitingIdle = false;
-      captionMode = false;
-      _captionLive = false;
+      _endCaptionTyping(keepReply: true);
       _resetThinking();
       // Keep previous reply visible (same as clients/web) until STT / agent text arrives.
       _setState(ClientState.listening, status: '正在录音…');
@@ -347,11 +429,10 @@ class DeviceSession {
   void _failTurn(String detail) {
     final text = detail.trim().isEmpty ? '出错了' : detail.trim();
     lastError = text;
+    _endCaptionTyping(keepReply: false);
     replyText = text;
     _ttsBuf.clear();
     _awaitingIdle = false;
-    captionMode = false;
-    _captionLive = false;
     _resetThinking();
     if (sessionId != null && _ws != null) {
       _setState(ClientState.idle, status: text);
@@ -495,8 +576,7 @@ class DeviceSession {
         player.clear();
         _ttsBuf.clear();
         _awaitingIdle = false;
-        captionMode = false;
-        _captionLive = false;
+        _endCaptionTyping(keepReply: true);
         _resetThinking();
         _setState(ClientState.idle, status: '已取消');
         break;
@@ -511,12 +591,19 @@ class DeviceSession {
     if (_awaitingIdle && !player.isBusy && _ttsBuf.isEmpty) {
       _awaitingIdle = false;
       player.commitTurn();
+      _stopTypewriter();
+      if (_captionCommitted.isNotEmpty) {
+        replyText = _captionCommitted;
+      }
+      _captionCommitted = '';
       captionMode = false;
       _captionLive = false;
       if (state == ClientState.busy ||
           state == ClientState.speaking ||
           state == ClientState.error) {
         _setState(ClientState.idle, status: '点按角色通话');
+      } else {
+        _notify();
       }
     }
   }
@@ -530,6 +617,7 @@ class DeviceSession {
   }
 
   Future<void> dispose() async {
+    _stopTypewriter();
     await disconnect(silent: true);
     await recorder.dispose();
     await player.dispose();

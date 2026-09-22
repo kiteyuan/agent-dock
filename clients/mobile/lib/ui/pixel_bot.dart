@@ -83,6 +83,14 @@ class _PixelBotState extends State<PixelBot> {
   }
 
   Future<void> _load(String petId) async {
+    if (petId.trim().isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _sheet?.dispose();
+        _sheet = null;
+      });
+      return;
+    }
     try {
       final bytes = await PetCatalog.loadSheetBytes(petId);
       final codec = await ui.instantiateImageCodec(bytes);

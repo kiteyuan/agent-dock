@@ -7,14 +7,20 @@ network:
   advertise_url: null   # e.g. "ws://100.x.y.z:8765"
   assets_url: null      # optional override, e.g. "http://100.x.y.z:8766/pets"
 
-# Host-side pet packs — clients download + cache after pets.list
-pets:
-  root: "pets"
-
-# Shared Agent working directory (absolute, or relative to repo root).
-# Runtime sends this as AgentRequest.workspace to every agent turn.
-workspace:
-  root: "workspace"
+# Unified paths (layout v2). home=null → <repo>/data (gitignore).
+# Override with AGENTDOCK_HOME or an absolute paths.home for OS user data dirs.
+paths:
+  home: null
+  vault: "vault"
+  state: "state"
+  logs: "logs"
+  installs: "installs"
+  cache: "cache"
+  sessions: "sessions"
+  secrets: "secrets"
+  pets: null          # null → <repo>/assets/pets
+  voices: null        # null → <repo>/assets/voices
+  catalog: "catalog/catalog.yaml"
 
 # Speech recognition — ON by default
 stt:
@@ -35,7 +41,7 @@ stt:
 session:
   max_context: 40
 
-# TTS engines live in the module catalog. Character packs under voices/<id>/
+# TTS engines live in the module catalog. Character packs under assets/voices/<id>/
 # with voice.yaml are registered automatically — do not list them here.
 tts:
   default: "edge"
@@ -53,11 +59,13 @@ tts:
 
 agent:
   default: "pi"
-  # 本机助手地址来自 modules/providers/agents.yaml 的 sidecar 端口。
+  # 本机助手地址来自 catalog/providers/agents.yaml 的 sidecar 端口。
   # 只有 Docker 这类远程主机才需要在这里写 url。
 
 security:
-  require_token: false
+  # Exposed binds (0.0.0.0 / Docker) auto-require a token stored in data/state/device-auth.json
+  # when tokens is empty. Set require_token: false only for loopback-only Device binds.
+  require_token: true
   tokens: []
 
 # Sidecar processes (shown on overview; start via module buttons)
@@ -74,14 +82,13 @@ services:
   sovits:
     port: 9880
     autostart: false
-    # 整合包解压到 workspace/GPT-SoVITS/，再在管理页点「检查安装」。
+    # 整合包解压到 data/vault/GPT-SoVITS/，再在管理页点「检查安装」。
   web:
     port: 8090
     autostart: false
 
-# 内置能力、探针和启动配方集中在声明式目录；这里只覆盖部署参数。
+# Optional installer overrides (catalog path lives under paths.catalog).
 modules:
-  catalog: "modules/catalog.yaml"
   # proxy: "http://127.0.0.1:7890"  # optional installer HTTP/HTTPS proxy
 
 health:

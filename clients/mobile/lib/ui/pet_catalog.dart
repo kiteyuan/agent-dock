@@ -1,9 +1,7 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 class PetInfo {
@@ -13,7 +11,6 @@ class PetInfo {
     required this.sheet,
     this.url = '',
     this.remoteUrl,
-    this.assetPath,
   });
 
   final String id;
@@ -21,66 +18,44 @@ class PetInfo {
   final String sheet;
   final String url;
   String? remoteUrl;
-  String? assetPath;
 }
 
-/// Pets: Runtime `pets.list` → download → app cache; bundled assets as offline fallback.
+/// Pets come only from Runtime `pets.list` → download → app cache.
+/// No bundled offline sprites.
 class PetCatalog {
   PetCatalog._();
 
   static final Map<String, PetInfo> pets = {};
-  static String defaultId = 'monthly-salary-cat';
+  static String defaultId = '';
   static String? assetsBaseUrl;
   static int assetsPort = 8766;
-  static bool _bundleLoaded = false;
 
   static Future<void> ensureLoaded() async {
-    if (_bundleLoaded && pets.isNotEmpty) return;
-    try {
-      final raw = await rootBundle.loadString('assets/sprites/catalog.json');
-      final data = jsonDecode(raw) as Map<String, dynamic>;
-      _applyList(data['pets'], data['default'] as String?, remote: false);
-    } catch (_) {
-      pets['monthly-salary-cat'] = PetInfo(
-        id: 'monthly-salary-cat',
-        label: 'Monthly salary cat',
-        sheet: 'monthly-salary-cat/spritesheet.webp',
-        assetPath: 'assets/sprites/monthly-salary-cat/spritesheet.webp',
-      );
-      defaultId = 'monthly-salary-cat';
-    }
-    _bundleLoaded = true;
+    // Catalog arrives via applyRemoteCatalog after session.accept.
   }
 
-  static void _applyList(dynamic list, String? defaultHint, {required bool remote}) {
+  static void _applyList(dynamic list, String? defaultHint) {
     if (list is! List) return;
     final next = <String, PetInfo>{};
     for (final item in list) {
       if (item is! Map) continue;
       final id = '${item['id'] ?? ''}'.trim();
       if (id.isEmpty) continue;
-      final sheet = '${item['sheet'] ?? '$id/spritesheet.webp'}'.replaceAll(RegExp(r'^/+'), '');
-      final existing = pets[id];
+      final sheet =
+          '${item['sheet'] ?? '$id/spritesheet.webp'}'.replaceAll(RegExp(r'^/+'), '');
       final info = PetInfo(
         id: id,
         label: '${item['label'] ?? id}',
         sheet: sheet,
         url: '${item['url'] ?? ''}',
-        assetPath: existing?.assetPath ?? (remote ? null : 'assets/sprites/$sheet'),
-        remoteUrl: existing?.remoteUrl,
       );
-      if (remote && assetsBaseUrl != null && assetsBaseUrl!.isNotEmpty) {
-        info.remoteUrl = '${assetsBaseUrl!.replaceAll(RegExp(r'/+$'), '')}/$sheet';
+      if (assetsBaseUrl != null && assetsBaseUrl!.isNotEmpty) {
+        info.remoteUrl =
+            '${assetsBaseUrl!.replaceAll(RegExp(r'/+$'), '')}/$sheet';
       }
       next[id] = info;
     }
     if (next.isEmpty) return;
-    // Keep assetPath fallbacks from previous bundle entries.
-    for (final e in pets.entries) {
-      if (next.containsKey(e.key) && next[e.key]!.assetPath == null) {
-        next[e.key]!.assetPath = e.value.assetPath;
-      }
-    }
     pets
       ..clear()
       ..addAll(next);
@@ -117,18 +92,22 @@ class PetCatalog {
     Map<String, dynamic> payload, {
     String? wsUrl,
   }) async {
-    await ensureLoaded();
     final portRaw = payload['assets_port'];
     if (portRaw is num) assetsPort = portRaw.toInt();
     final serverBase = '${payload['base_url'] ?? ''}'.trim();
-    assetsBaseUrl = baseFromWs(wsUrl, port: assetsPort, serverBase: serverBase.isEmpty ? null : serverBase) ??
+    assetsBaseUrl = baseFromWs(
+          wsUrl,
+          port: assetsPort,
+          serverBase: serverBase.isEmpty ? null : serverBase,
+        ) ??
         (serverBase.isEmpty ? null : serverBase);
-    _applyList(payload['pets'], payload['default'] as String?, remote: true);
+    _applyList(payload['pets'], payload['default'] as String?);
   }
 
   static String resolveId(String? id) {
     if (id != null && pets.containsKey(id)) return id;
-    return defaultId;
+    if (defaultId.isNotEmpty && pets.containsKey(defaultId)) return defaultId;
+    return pets.keys.isEmpty ? '' : pets.keys.first;
   }
 
   static Future<Directory> _cacheRoot() async {
@@ -147,10 +126,12 @@ class PetCatalog {
     return file;
   }
 
-  /// Bytes for spritesheet: cache → download → bundled asset.
+  /// Bytes for spritesheet: cache → download from Runtime. No bundle fallback.
   static Future<Uint8List> loadSheetBytes(String? petId) async {
-    await ensureLoaded();
     final id = resolveId(petId);
+    if (id.isEmpty) {
+      throw StateError('pet catalog empty — connect to Runtime first');
+    }
     final pet = pets[id];
     if (pet == null) {
       throw StateError('unknown pet: $id');
@@ -162,23 +143,12 @@ class PetCatalog {
     }
 
     final remote = pet.remoteUrl;
-    if (remote != null && remote.isNotEmpty) {
-      try {
-        final bytes = await _download(remote);
-        await cached.writeAsBytes(bytes, flush: true);
-        return bytes;
-      } catch (e) {
-        debugPrint('pet download failed $remote: $e');
-      }
+    if (remote == null || remote.isEmpty) {
+      throw StateError('no remote URL for pet $id');
     }
-
-    final asset = pet.assetPath;
-    if (asset != null && asset.isNotEmpty) {
-      final data = await rootBundle.load(asset);
-      return data.buffer.asUint8List();
-    }
-
-    throw StateError('no sheet for pet $id');
+    final bytes = await _download(remote);
+    await cached.writeAsBytes(bytes, flush: true);
+    return bytes;
   }
 
   static Future<Uint8List> _download(String url) async {

@@ -18,19 +18,26 @@ python clients/cli/main.py --ui
 ```text
 runtime/          # 后端服务（Python 包）：协议、会话、Agent 适配、STT/TTS、网关
 clients/          # 瘦终端（只连 WS；不算模型）
-  web/            # 桌面预览 UI
+  web/            # 桌面预览 UI（人物图从 Runtime :8766/pets 下载缓存）
   cli/            # 启动 Web UI + CLI 调试
   rpi/            # 树莓派随身终端
   mobile/         # Flutter 手机 App
   shared/         # 协议 / 状态机 / TurnView
 agents/           # 本地安装 / 联调外部 Agent（demo + pi-coding + check_link）
-workspace/        # 个人 Agent 工作区 / Obsidian 库（gitignore，不入库）
-examples/         # 示例：obsidian-starter 等
-pets/             # 主机角色包（客户端下载后缓存）
-voices/           # TTS 音色资源（如 Haibara）
+catalog/          # 能力声明（agent / tts / stt）
+assets/
+  pets/           # 本机角色包（gitignore；仓库仅 README）
+  voices/         # 本机音色包（gitignore；仓库仅 README）
+data/             # 用户数据根（gitignore）：vault / state / logs / installs / …
 docs/             # 文档
 tests/            # 测试
-config.yaml       # Runtime 配置
+config.yaml       # Runtime 配置（含 paths）
+```
+
+若本机还残留旧版 `workspace/`，迁到 `data/` 并删除空壳：
+
+```bash
+python scripts/migrate_workspace_to_data.py --purge
 ```
 
 ## 完整链路
@@ -60,16 +67,16 @@ LLM 并启动 gateway。声音引擎仍可由 Runtime 隔离安装。
 当前内置国内 CLI 包括 Qwen Code、Kimi Code、CodeBuddy 和 Qoder。
 也可在 `config.yaml` → `services.*.autostart: true` 让 Runtime 起来后自动拉起。
 
-Admin UI/API 仅接受本机访问；设备仍可从局域网访问 `/pets/*` 和 `/health`。Admin
-设置的默认 Agent/TTS/STT 保存在 `workspace/runtime-state.json`，不会改写 `config.yaml`。
-安装收据与许可证确认保存在 `workspace/module-state.json`。
-Agent 的公开模型选项保存在 `workspace/agent-settings.json`；统一 LLM 与各 Agent
+Admin UI/API 仅接受本机访问（Docker 下允许桥接 peer + `Host: localhost`）；设备仍可从局域网访问 `/pets/*` 和 `/health`。Device WS 在 `0.0.0.0` / Docker 下默认需要 token（`data/state/device-auth.json`）。Admin
+设置的默认 Agent/TTS/STT 保存在 `data/state/runtime-state.json`，不会改写 `config.yaml`。
+安装收据与许可证确认保存在 `data/state/module-state.json`。
+Agent 的公开模型选项保存在 `data/state/agent-settings.json`；统一 LLM 与各 Agent
 的引用关系也写在同一文件。凭据与公开设置分离，Windows 下使用当前系统用户的
-DPAPI 加密后写入 `workspace/agent-secrets.json`。
+DPAPI 加密后写入 `data/state/agent-secrets.json`。
 
 首启与模块启停：见 [`docs/ONBOARDING.md`](./docs/ONBOARDING.md)（Admin 总览直接检查/启动 Agent · TTS · STT · 人物）。
 
-Docker（Runtime + Pi；pets/voices/workspace 挂载；SoVITS 仍在宿主机）：见 [`docs/DOCKER.md`](./docs/DOCKER.md)。
+Docker（纯 Runtime；Agent / SoVITS 在宿主机）：见 [`docs/DOCKER.md`](./docs/DOCKER.md)。
 
 ```bash
 docker compose up --build -d
@@ -143,9 +150,9 @@ cd clients/mobile && flutter run   # 需本机 Flutter；多端产物见 GitHub 
 
 | 资源 | 来源 | 说明 |
 |------|------|------|
-| 角色（Pet） | [codex-pets.net](https://codex-pets.net) 社区 Codex Pet | 默认包见 `pets/`；详情与加包：[`pets/README.md`](./pets/README.md)、[`clients/CUSTOM_ASSETS.md`](./clients/CUSTOM_ASSETS.md) |
-| TTS Haibara | 本机 GPT-SoVITS 音色包（权重不入库） | 放置与配置：[`voices/Haibara/README.md`](./voices/Haibara/README.md) |
-| TTS Edge | Microsoft Edge TTS | `config.yaml` 可选用，无需本地模型 |
+| 角色（Pet） | 本机 `assets/pets/`（不入库） | 可从 [codex-pets.net](https://codex-pets.net) 等自行导入；说明：[`assets/pets/README.md`](./assets/pets/README.md) |
+| TTS 音色包 | 本机 `assets/voices/<id>/`（不入库） | 权重 / wav 本机自备；说明：[`assets/voices/README.md`](./assets/voices/README.md) |
+| TTS Edge | Microsoft Edge TTS | `config.yaml` 默认可选，无需本地模型 |
 
 自定义角色 / 音色流程以 [`clients/CUSTOM_ASSETS.md`](./clients/CUSTOM_ASSETS.md) 为准。
 

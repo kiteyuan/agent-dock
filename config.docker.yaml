@@ -1,8 +1,6 @@
-# Docker-oriented Runtime config (mounted as /app/config.yaml).
-# Voices are discovered from voices/<id>/. Local speech is GPT-SoVITS inside
-# the runtime network, not a host port. Agent → compose service "pi".
-# STT defaults to CPU so Docker Desktop (Windows) works without GPU passthrough.
-# For CUDA Whisper, prefer native .\scripts\start.ps1 on the host for now.
+# Docker Runtime config (mounted as /app/config.yaml).
+# STT defaults to CPU so Docker Desktop works without GPU passthrough.
+# Default agent is mock — wire an external Agent URL when you have one.
 
 server:
   host: "0.0.0.0"
@@ -13,18 +11,25 @@ network:
   advertise_url: null
   assets_url: null
 
-pets:
-  root: "pets"
-
-workspace:
-  root: "workspace"
+paths:
+  home: "/data"
+  vault: "vault"
+  state: "state"
+  logs: "logs"
+  installs: "installs"
+  cache: "cache"
+  sessions: "sessions"
+  secrets: "secrets"
+  pets: "/app/assets/pets"
+  voices: "/app/assets/voices"
+  catalog: "catalog/catalog.yaml"
 
 stt:
   provider: "whisper"
   warm: true
   defer_warm: true
   whisper:
-    model: "small"            # lighter default in-container; override to medium if you have RAM
+    model: "small"
     device: "cpu"
     language: "zh"
     beam_size: 3
@@ -53,7 +58,9 @@ tts:
       name: "Echo (silent stub)"
 
 agent:
-  default: "pi"
+  # Out of the box: mock (no external process).
+  # Host Pi gateway: set default to "pi" and use host.docker.internal (below).
+  default: "mock"
   agents:
     mock:
       type: "mock"
@@ -62,12 +69,13 @@ agent:
     pi:
       type: "http"
       name: "Pi Coding Agent"
-      url: "http://pi:9001/v1/agent/run"
+      # Gateway on the Docker host (Admin / python agents/pi-coding/gateway.py)
+      url: "http://host.docker.internal:9001/v1/agent/run"
       mode: "stream"
-      cancel_url: "http://pi:9001/v1/agent/cancel"
+      cancel_url: "http://host.docker.internal:9001/v1/agent/cancel"
       capabilities: ["coding", "bash", "filesystem"]
       timeout: 180
 
 security:
-  require_token: false
+  require_token: true
   tokens: []

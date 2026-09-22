@@ -16,7 +16,7 @@
 - 人物资源仍在：`http://127.0.0.1:8766/pets/`（与 Admin 同端口）
 
 可查看在线设备 / 会话、切换 default Agent/TTS、取消本轮、强制断设备。运行态改动写入
-`workspace/runtime-state.json` 覆盖层，不写回 `config.yaml`。Admin API/UI 仅限本机，
+`data/state/runtime-state.json` 覆盖层，不写回 `config.yaml`。Admin API/UI 仅限本机，
 但人物资源和 `/health` 仍允许局域网设备访问。
 
 客户端（Pi / Mobile / Web）是接收壳：不配置 TTS/人物；连接后由 `session.accept` + catalog 推送应用主机默认。

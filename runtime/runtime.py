@@ -33,30 +33,46 @@ from runtime.platform.installer import InstallManager
 from runtime.platform.lifecycle import ModuleLifecycle
 from runtime.platform.module_state import ModuleState
 from runtime.platform.state import RuntimeState
-from runtime.security.auth import DeviceAuth
+from runtime.security.auth import build_device_auth
 from runtime.security.permissions import PermissionGuard
 from runtime.services import ServiceSupervisor
 from runtime.session.manager import SessionManager
 from runtime.transport.speech.registry import TTSRegistry
 from runtime.transport.speech.stt_factory import create_stt
 from runtime.transport.speech.voice_catalog import VoiceCatalog
-from runtime.workspace import resolve_workspace
+from runtime.layout_migrate import migrate_layout
+from runtime.platform.environment import running_in_docker
+from runtime.paths import (
+    resolve_installs,
+    resolve_secrets,
+    resolve_state,
+    resolve_voices,
+    resolve_workspace,
+)
 
 
 class Runtime:
     def __init__(self, cfg: dict[str, Any]) -> None:
         self.cfg = cfg
+        migrate_layout(cfg)
         self.catalog = ModuleCatalog.load(cfg)
         session_cfg = cfg.get("session") or {}
         self.sessions = SessionManager(max_context=int(session_cfg.get("max_context", 40)))
         self.registry = AgentRegistry()
         self.tts_registry = TTSRegistry()
         self.permissions = PermissionGuard()
-        self.auth = self._build_auth(cfg.get("security", {}))
+        self.state_dir = resolve_state(cfg, ensure=True)
+        self.auth = build_device_auth(
+            cfg.get("security") if isinstance(cfg.get("security"), dict) else {},
+            state_dir=self.state_dir,
+            server_host=str((cfg.get("server") or {}).get("host") or "0.0.0.0"),
+            in_docker=running_in_docker(),
+        )
         register_agents(self.registry, cfg.get("agent", {}))
         register_tts(self.tts_registry, cfg.get("tts", {}))
         bind_catalog_endpoints(self.catalog, self.registry, self.tts_registry)
-        self.voices = VoiceCatalog(self.catalog.root / "voices")
+        self.voices_root = resolve_voices(cfg)
+        self.voices = VoiceCatalog(self.voices_root)
         self.voices.sync(self.tts_registry, self.catalog)
         default_id = (
             cfg.get("agent", {}).get("default")
@@ -67,6 +83,8 @@ class Runtime:
         )
         self.stt = create_stt(stt_config(self.catalog, cfg.get("stt", {})))
         self.workspace = resolve_workspace(cfg, ensure=True)
+        self.installs_root = resolve_installs(cfg, ensure=True)
+        self.secrets_dir = resolve_secrets(cfg, ensure=True)
         self.pipeline = BridgePipeline(
             self.router,
             tts_registry=self.tts_registry,
@@ -85,8 +103,12 @@ class Runtime:
         )
         self._admin_httpd = None
         self._warm_tasks: list[asyncio.Task] = []
-        self.agent_configs = AgentConfigStore(self.workspace, self.catalog)
-        self.mcp = McpConfigStore(self.workspace)
+        self.agent_configs = AgentConfigStore(
+            self.state_dir,
+            self.catalog,
+            secrets_dir=self.secrets_dir,
+        )
+        self.mcp = McpConfigStore(self.state_dir)
         self.services = ServiceSupervisor(
             cfg,
             catalog=self.catalog,
@@ -100,6 +122,7 @@ class Runtime:
         self.assets = AssetIndex(
             root=self.catalog.root,
             pets_root=self.pets_root,
+            voices_root=self.voices_root,
             interval_seconds=float((health_cfg or {}).get("asset_interval_seconds", 5)),
             on_refresh=self.sync_voices,
         )
@@ -107,7 +130,7 @@ class Runtime:
             workspace=self.workspace,
             catalog=self.catalog,
         )
-        self.state = RuntimeState(self.workspace)
+        self.state = RuntimeState(self.state_dir)
         self.bundles = BundleBinder(
             self.catalog,
             self.workspace,
@@ -115,11 +138,12 @@ class Runtime:
             self.services.refresh_context,
         )
         self.bundles.sync()
-        self.module_state = ModuleState(self.workspace)
+        self.module_state = ModuleState(self.state_dir)
         self.pet_installer = PetInstaller(self.pets_root)
         self.installer = InstallManager(
             catalog=self.catalog,
             workspace=self.workspace,
+            installs_root=self.installs_root,
             state=self.module_state,
             proxy=(
                 (cfg.get("modules") or {}).get("proxy")
@@ -280,7 +304,7 @@ class Runtime:
         self._ensure_sidecar(self._current_stt_id())
 
     def _tts_engine_id(self, tts_id: str | None) -> str | None:
-        """Map a voice-pack registry id (e.g. Haibara) to its engine module id."""
+        """Map a voice-pack registry id (e.g. haibara) to its engine module id."""
         if not tts_id:
             return None
         voice = self.voices.get(tts_id)
@@ -315,9 +339,3 @@ class Runtime:
         result = self.services.ensure_listening(module.sidecar_id)
         if not result.get("ok"):
             raise RuntimeError(result.get("error") or f"{module.sidecar_id} is not listening")
-
-    def _build_auth(self, sec: dict[str, Any]) -> DeviceAuth:
-        return DeviceAuth(
-            require_token=bool(sec.get("require_token", False)),
-            tokens=list(sec.get("tokens") or []),
-        )

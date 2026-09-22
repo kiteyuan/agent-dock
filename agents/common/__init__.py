@@ -39,7 +39,14 @@ def repo_root_from(here: Path) -> Path:
 
 
 def default_workspace(repo: Path) -> Path:
-    return (repo / "workspace").resolve()
+    """Prefer layout-v2 vault; fall back to legacy in-repo workspace/ if present."""
+    vault = (repo / "data" / "vault").resolve()
+    if vault.is_dir():
+        return vault
+    legacy = (repo / "workspace").resolve()
+    if legacy.is_dir():
+        return legacy
+    return vault
 
 
 def fallback_work_dir(repo: Path, *, env_cwd: str = "AGENT_CWD", env_workdir: str = "AGENT_WORKDIR") -> Path:

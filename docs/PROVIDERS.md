@@ -1,6 +1,6 @@
 # Provider 支持清单
 
-Provider 定义位于 `modules/providers/*.yaml`。智能助手由用户按官网安装官方 CLI，
+Provider 定义位于 `catalog/providers/*.yaml`。智能助手由用户按官网安装官方 CLI，
 Runtime 只检查命令是否在 PATH 上，再配置 LLM 并拉起 gateway。TTS/STT 的隔离安装
 仍以 Windows 为主要验收平台；OpenHands 因上游限制请在 WSL 中自行安装 CLI。
 
@@ -39,7 +39,7 @@ sidecar 仍只获得映射后的环境变量，不会读到其他助手的独立
 ## TTS
 
 - Edge：零本地模型的默认路径，需要网络。音色是微软语音名，不是本地语言包。
-- GPT-SoVITS：外部根目录。自定义音色放在 `voices/<id>/`，`voice.yaml` 指向该目录里的权重和参考音频。
+- GPT-SoVITS：外部根目录。自定义音色放在 `assets/voices/<kebab-id>/`，`voice.yaml` 指向该目录里的权重和参考音频。
 
 GPT-SoVITS 通过本机 `/v1/tts` sidecar 接入 Runtime。Edge 在 Runtime 进程内直接调用。
 
@@ -54,7 +54,7 @@ SenseVoice/FunASR 通过统一 `/stt` sidecar 协议接入，切换默认项不�
 
 ## 安装安全
 
-- 每个 Provider 只写入 `workspace/modules/<id>/`。
+- 每个 Provider 只写入 `data/installs/<id>/`。
 - Git 源固定 tag 或 commit；官方二进制支持预设 SHA-256。
 - 下载、解压、pip/npm 和模型预取都在可取消后台 job 中执行。
 - zip 解压拒绝路径穿越；卸载拒绝删除没有 Runtime 收据的目录。

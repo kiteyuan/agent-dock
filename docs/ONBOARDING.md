@@ -1,6 +1,6 @@
 # Runtime 脚手架
 
-AgentDock Runtime 是集成脚手架：用声明式 `modules/catalog.yaml` 接入 Agent
+AgentDock Runtime 是集成脚手架：用声明式 `catalog/catalog.yaml` 接入 Agent
 网关、TTS 引擎、STT 与人物文件包。客户端只是接收壳，默认项、资源目录和进程
 生命周期都由主机管理。
 
@@ -25,18 +25,19 @@ AgentDock Runtime 是集成脚手架：用声明式 `modules/catalog.yaml` 接�
 
 ## 状态与配置
 
-- `config.yaml`：部署配置、路径、端口和 `autostart`。
-- `modules/catalog.yaml`：内置模块能力、探针与启动配方。
-- `modules/providers/*.yaml`：版本、安装步骤、硬件能力和许可证。
-- `workspace/runtime-state.json`：Admin 设置的默认 Agent/TTS/STT 覆盖层。
-- `workspace/module-state.json`：安装收据、版本、摘要与许可证确认。
-- `workspace/agent-settings.json`：统一 LLM 的公开选项，以及每个 Agent 的独立
+- `config.yaml`：部署配置、`paths`、端口和 `autostart`。
+- `catalog/catalog.yaml`：内置模块能力、探针与启动配方。
+- `catalog/providers/*.yaml`：版本、安装步骤、硬件能力和许可证。
+- `data/state/runtime-state.json`：Admin 设置的默认 Agent/TTS/STT 覆盖层。
+- `data/state/module-state.json`：安装收据、版本、摘要与许可证确认。
+- `data/state/agent-settings.json`：统一 LLM 的公开选项，以及每个 Agent 的独立
   设置或“使用统一配置”引用。
-- `workspace/agent-secrets.json`：与公开设置分离的凭据；Windows 使用当前用户
+- `data/state/agent-secrets.json`：与公开设置分离的凭据；Windows 使用当前用户
   DPAPI 加密，Linux/macOS 限制为当前用户读写。
-- `workspace/modules/<id>/`：声音等仍由 Runtime 隔离安装的目录；助手改为使用
+- `data/installs/<id>/`：声音等仍由 Runtime 隔离安装的目录；助手改为使用
   系统 PATH 上的官方 CLI，旧的一键安装目录仅用于检测残留。
-- `workspace/logs/<service>.log`：Runtime 拉起的 sidecar 日志。
+- `data/logs/<service>.log`：Runtime 拉起的 sidecar 日志。
+- `data/vault/`：注入 Agent 的工作区（知识库 / Obsidian）。
 
 启动时先读 `config.yaml`，再应用状态覆盖层。覆盖值已失效时会回退配置并记录告警，
 不会修改原配置文件。

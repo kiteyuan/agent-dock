@@ -32,7 +32,6 @@ coverage/
 # Android leftovers if generated
 **/android/**/gradle-wrapper.jar
 **/android/.gradle
-**/android/captures/
 **/android/local.properties
 **/android/**/GeneratedPluginRegistrant.java
 **/android/key.properties

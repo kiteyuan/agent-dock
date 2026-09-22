@@ -17,11 +17,21 @@ tmp_*
 .coverage
 htmlcov/
 node_modules/
-agents/pi-coding/package-lock.json
 agents/**/.agentdock-sessions/
 
-# Personal agent workspace / Obsidian vault (local only)
+# Personal agent data root (layout v2) — local only
+data/
+# Legacy layout (pre-v2); keep ignored if still present during migration
 workspace/
+/pets/
+/modules/
+/voices/
+
+# Host personalization packs (local only — not published with the repo)
+assets/pets/**
+!assets/pets/README.md
+assets/voices/**
+!assets/voices/README.md
 
 # Local overrides (put real tokens / LAN URLs here)
 config.local.yaml
@@ -42,6 +52,7 @@ config.local.yaml
 *.onnx
 *.safetensors
 *.gguf
+assets/voices/**/models/
 voices/**/models/
 
 # OS / IDE
@@ -61,3 +72,7 @@ runtime/admin/ui/dist/
 
 # Local wake-word training scratch (venv + datasets)
 clients/rpi/wakeword/train_workspace/
+
+# Placeholder / never commit empty product shells
+marketplace/
+runtime/marketplace/

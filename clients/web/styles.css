@@ -173,7 +173,8 @@ html, body {
   display: inline;
   font-size: inherit;
   line-height: inherit;
-  white-space: pre-wrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
   word-break: break-word;
   color: var(--text);
 }

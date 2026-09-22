@@ -1,4 +1,4 @@
-/* Pixel bot UI — mood via animation only; reply streams below */
+/* Pixel bot UI — mood via animation only; reply typewriter below */
 
 const $ = (id) => document.getElementById(id);
 
@@ -18,7 +18,7 @@ let ttsChunks = [];
 let ttsPlayQueue = [];
 let ttsPlaying = false;
 let ttsPendingText = "";
-/** Caption follows TTS sentence-by-sentence (auto-scroll) */
+/** Caption follows TTS with typewriter (paragraph flow, auto-scroll) */
 let captionMode = false;
 let captionStarted = false;
 let captionBuf = "";
@@ -199,41 +199,79 @@ function plainText(raw) {
   s = s.replace(/^>\s?/gm, "");
   s = s.replace(/^\s*[-*+]\s+/gm, "");
   s = s.replace(/^\s*\d+\.\s+/gm, "");
-  // collapse blank lines
-  s = s.replace(/\n{3,}/g, "\n\n");
+  // Spoken reply is one paragraph — hard newlines become spaces
+  s = s.replace(/\s+/g, " ");
   return s.trim();
 }
 
-/** Append one spoken sentence when its audio starts; keep viewport pinned to the end. */
+/** Join spoken sentences into one paragraph (no forced line breaks). */
+function captionSep(prev, next) {
+  if (!prev) return "";
+  const last = prev.slice(-1);
+  if (/\s/.test(last)) return "";
+  // After CJK / fullwidth punctuation, glue directly
+  if (/[\u3000-\u303F\u4E00-\u9FFF\uFF00-\uFFEF。！？…」』）】]/.test(last)) return "";
+  const first = String(next || "").slice(0, 1);
+  if (/[，。！？、；：…」』）】,.!?;:]/.test(first)) return "";
+  return " ";
+}
+
+/** Typewriter pace — faster for longer lines so it keeps up with TTS. */
+function typewriterMs(len) {
+  return len > 80 ? 12 : len > 30 ? 18 : 28;
+}
+
+/**
+ * Append one spoken sentence when its audio starts — typewriter into the reply box.
+ * Sentences flow as one paragraph; a new sentence snaps any in-flight typing first.
+ */
 function appendCaption(sentence) {
   const s = plainText(sentence);
   if (!s) return;
   streamToken += 1;
+  const my = streamToken;
   if (streamTimer) {
     clearInterval(streamTimer);
     streamTimer = null;
   }
+  const el = $("reply");
+  const caret = $("caret");
+  const box = $("replyBox");
   if (!captionStarted) {
     captionStarted = true;
     captionBuf = "";
-    $("reply").textContent = "";
-  }
-  // One spoken sentence per line so the next line doesn't glue onto the previous tail
-  if (captionBuf) {
-    captionBuf += "\n" + s;
+    el.textContent = "";
   } else {
-    captionBuf = s;
+    // Finish previous sentence instantly before typing the next
+    el.textContent = captionBuf;
   }
-  $("reply").textContent = captionBuf;
-  $("caret").hidden = false;
-  $("replyBox").classList.add("streaming");
+  const sep = captionSep(captionBuf, s);
+  const addition = sep + s;
+  const base = captionBuf;
+  captionBuf = base + addition;
   saveLastReply(captionBuf);
-  requestAnimationFrame(() => {
-    $("replyBox").scrollTop = $("replyBox").scrollHeight;
-  });
+  caret.hidden = false;
+  box.classList.add("streaming");
+  let i = 0;
+  const ms = typewriterMs(s.length);
+  streamTimer = setInterval(() => {
+    if (my !== streamToken) return;
+    i += 1;
+    el.textContent = base + addition.slice(0, i);
+    box.scrollTop = box.scrollHeight;
+    if (i >= addition.length) {
+      clearInterval(streamTimer);
+      streamTimer = null;
+    }
+  }, ms);
 }
 
 function resetCaptionState() {
+  if (streamTimer) {
+    clearInterval(streamTimer);
+    streamTimer = null;
+  }
+  streamToken += 1;
   captionMode = false;
   captionStarted = false;
   captionBuf = "";
@@ -273,7 +311,7 @@ function streamReply(text) {
   }
   box.classList.add("streaming");
   let i = 0;
-  const ms = full.length > 80 ? 12 : full.length > 30 ? 18 : 28;
+  const ms = typewriterMs(full.length);
   streamTimer = setInterval(() => {
     if (my !== streamToken) return;
     i += 1;
@@ -787,9 +825,8 @@ $("btnSave").onclick = (e) => {
 loadPrefs();
 
 (async () => {
-  // Offline fallback sprite until Runtime pushes catalog + default pet.
-  const petId = await window.PixelBot.fillPetSelect(null, "");
-  window.pixelBot = window.PixelBot.createPixelBot($("sprite"), petId);
+  // Pet sprites load only after Runtime pushes pets.list — no bundled fallback.
+  window.pixelBot = window.PixelBot.createPixelBot($("sprite"), "");
   await window.pixelBot.ready;
   window.pixelBot.start();
   setMood("offline");

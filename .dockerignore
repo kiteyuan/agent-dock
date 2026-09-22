@@ -7,7 +7,13 @@
 **/__pycache__
 **/*.egg-info
 **/.agentdock-sessions
+data/**
 workspace/**
+# Host personalization (compose bind-mounts ./assets instead)
+assets/pets/**
+!assets/pets/README.md
+assets/voices/**
+!assets/voices/README.md
 clients/mobile
 clients/web
 clients/cli
@@ -16,12 +22,16 @@ docs
 examples
 tests
 *.wav
+*.mp3
 *.log
 tmp_*
+assets/voices/**/models
 voices/**/models
 **/*.ckpt
 **/*.pth
 **/*.safetensors
+**/*.onnx
+**/*.gguf
 agents/codex
 agents/claude-code
 agents/demo

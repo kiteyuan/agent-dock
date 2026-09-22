@@ -17,13 +17,13 @@ python agents/codex/gateway.py
 # CODEX_GATEWAY_PORT=9002 python agents/codex/gateway.py
 ```
 
-工作区：优先用 Runtime 下发的 `workspace`；否则 `CODEX_CWD` / `<repo>/workspace`。
+工作区：优先用 Runtime 下发的 `workspace`；否则 `CODEX_CWD` / `<repo>/data/vault`。
 
 | 环境变量 | 默认 | 说明 |
 |----------|------|------|
 | `CODEX_SANDBOX` | `workspace-write` | 官方默认是 **read-only**；AgentDock 默认放宽为可写工作区 |
 | `CODEX_MODEL` | （CLI 默认） | `--model` |
-| `CODEX_SKIP_GIT_CHECK` | `1` | `workspace/` 常不是 git 仓库，对应 `--skip-git-repo-check` |
+| `CODEX_SKIP_GIT_CHECK` | `1` | `data/vault` 常不是 git 仓库，对应 `--skip-git-repo-check` |
 
 说明（对照 [non-interactive 文档](https://learn.chatgpt.com/docs/non-interactive-mode)）：
 

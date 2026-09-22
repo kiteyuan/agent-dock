@@ -1,5 +1,7 @@
 from runtime.admin.access import (
     admin_host_allowed,
+    admin_peer_allowed,
+    admin_token_allowed,
     admin_write_allowed,
     client_is_loopback,
 )
@@ -14,6 +16,27 @@ def test_admin_requires_a_localhost_host_header() -> None:
     assert not admin_host_allowed("192.168.1.20:8766")
     assert not admin_host_allowed(None)
     assert not admin_host_allowed("")
+
+
+def test_admin_peer_allows_docker_bridge_when_flagged(monkeypatch) -> None:
+    monkeypatch.setenv("AGENTDOCK_DOCKER", "1")
+    assert admin_peer_allowed("172.17.0.1")
+    assert admin_peer_allowed("10.0.0.2")
+    assert not admin_peer_allowed("8.8.8.8")
+    monkeypatch.delenv("AGENTDOCK_DOCKER", raising=False)
+    assert not admin_peer_allowed("172.17.0.1")
+
+
+def test_admin_token_gate_for_non_loopback(monkeypatch) -> None:
+    monkeypatch.setenv("AGENTDOCK_ADMIN_TOKEN", "secret-admin")
+    assert admin_token_allowed({}, peer="127.0.0.1")
+    assert not admin_token_allowed({}, peer="172.17.0.1")
+    assert admin_token_allowed(
+        {"X-AgentDock-Admin-Token": "secret-admin"},
+        peer="172.17.0.1",
+    )
+    monkeypatch.delenv("AGENTDOCK_ADMIN_TOKEN", raising=False)
+    assert admin_token_allowed({}, peer="172.17.0.1")
 
 
 def test_admin_write_rejects_cross_site_fetch_metadata() -> None:

@@ -112,7 +112,7 @@ class SnapshotService:
         elif kind == "pet":
             if not value:
                 raise ValueError("character cannot be empty")
-            # Pet default lives in pets/catalog.json, not runtime-state.json.
+            # Pet default lives in assets/pets/catalog.json, not runtime-state.json.
             self.runtime.pet_installer.set_default(value)
             self.assets.refresh()
             self._broadcast_defaults(kind)
@@ -165,13 +165,15 @@ class SnapshotService:
             ),
             None,
         )
+        installs_root = getattr(self.runtime, "installs_root", None)
         if (
             module
             and module.kind != "agent"
             and module.install.kind == "steps"
             and (
                 self.module_state.receipt(module.id) is None
-                or not (self.runtime.workspace / "modules" / module.id).is_dir()
+                or installs_root is None
+                or not (installs_root / module.id).is_dir()
             )
         ):
             raise ValueError(f"{module.id} is not installed")

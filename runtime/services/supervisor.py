@@ -17,9 +17,10 @@ from typing import Any
 from loguru import logger
 
 from runtime.platform.catalog import ModuleCatalog
+from runtime.platform.environment import running_in_docker
 from runtime.platform.health import tcp_open
 from runtime.platform.types import SidecarSpec
-from runtime.workspace import resolve_workspace
+from runtime.paths import resolve_installs, resolve_logs, resolve_workspace
 
 
 @dataclass
@@ -45,6 +46,8 @@ class ServiceSupervisor:
         self.root = self.catalog.root
         self._context = self.catalog.context(self.cfg)
         self.workspace = resolve_workspace(self.cfg, ensure=True)
+        self.installs_root = resolve_installs(self.cfg, ensure=True)
+        self.logs_root = resolve_logs(self.cfg, ensure=True)
         self.environment_resolver = environment_resolver or (lambda _module_id: {})
         self._lock = threading.RLock()
         self._processes: dict[str, ManagedProcess] = {}
@@ -75,6 +78,9 @@ class ServiceSupervisor:
             return {"ok": False, "error": f"unknown service: {service_id}"}
         if not spec.managed or spec.spawn is None:
             return {"ok": False, "error": f"{service_id} is not managed"}
+        blocked = self._docker_spawn_blocked(service_id)
+        if blocked:
+            return {"ok": False, "error": blocked, "id": service_id}
         with self._lock:
             state = self.process_state(service_id)
             if state["owned"]:
@@ -122,6 +128,12 @@ class ServiceSupervisor:
             return {"ok": True, "id": service_id}
         if tcp_open("127.0.0.1", spec.port):
             return {"ok": True, "already": True, "id": service_id}
+        blocked = self._docker_spawn_blocked(service_id)
+        if blocked:
+            # Agent gateways are expected on the host (host.docker.internal).
+            if self._is_agent_sidecar(service_id):
+                return {"ok": True, "id": service_id, "external": True}
+            return {"ok": False, "error": blocked, "id": service_id}
         started = self.start(service_id)
         if tcp_open("127.0.0.1", spec.port):
             return {"ok": True, "already": True, "id": service_id}
@@ -137,6 +149,36 @@ class ServiceSupervisor:
             "id": service_id,
             "error": f"{service_id} did not listen on {spec.port}",
         }
+
+    def _is_agent_sidecar(self, service_id: str) -> bool:
+        return any(
+            module.sidecar_id == service_id and module.kind == "agent"
+            for module in self.catalog.modules
+        )
+
+    def _docker_spawn_blocked(self, service_id: str) -> str | None:
+        if not running_in_docker():
+            return None
+        if service_id == "web":
+            return (
+                "Web preview cannot run inside the Runtime container; "
+                "open clients/web on the host instead"
+            )
+        if self._is_agent_sidecar(service_id):
+            return (
+                "Agent gateways cannot be spawned inside the Runtime container. "
+                "Install the CLI on the host, run agents/*/gateway.py there, "
+                "and point agent URL at host.docker.internal"
+            )
+        spec = self.catalog.sidecar(service_id)
+        if spec is not None and spec.spawn is not None:
+            blob = " ".join([spec.spawn.executable, *spec.spawn.args])
+            if "agents/" in blob or "clients/" in blob:
+                return (
+                    f"{service_id} spawn needs repo paths that are not in the "
+                    "Runtime image; run it on the host"
+                )
+        return None
 
     def stop(self, service_id: str) -> dict[str, Any]:
         spec = self.catalog.sidecar(service_id)
@@ -189,7 +231,7 @@ class ServiceSupervisor:
             None,
         )
         module_id = module.id if module else spec.id
-        module_dir = self.workspace / "modules" / module_id
+        module_dir = self.installs_root / module_id
         scripts = module_dir / ".venv" / ("Scripts" if sys.platform == "win32" else "bin")
         module_python = scripts / ("python.exe" if sys.platform == "win32" else "python")
         module_bin = module_dir / "node_modules" / ".bin"
@@ -245,7 +287,7 @@ class ServiceSupervisor:
         cwd: Path,
         env: dict[str, str],
     ) -> dict[str, Any]:
-        log_dir = self.workspace / "logs"
+        log_dir = self.logs_root
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = log_dir / f"{spec.id}.log"
         log_file = open(log_path, "a", encoding="utf-8")  # noqa: SIM115

@@ -1,8 +1,8 @@
 """Seal agent credentials for the current OS user.
 
 Windows uses DPAPI, so the blob can only be opened by the same user.
-Other systems use a Fernet key kept in the user profile, outside the
-workspace that Docker bind-mounts.
+Other systems use a Fernet key kept under paths.secrets (default
+``<home>/secrets/credential.key``), outside Docker bind-mounted vaults.
 """
 
 from __future__ import annotations

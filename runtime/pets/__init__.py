@@ -1,4 +1,4 @@
-"""Pet pack catalog — resources under <repo>/pets/ served to clients."""
+"""Pet pack catalog — resources under assets/pets/ served to clients."""
 
 from __future__ import annotations
 
@@ -6,16 +6,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from runtime.workspace import repo_root
+from runtime.paths import resolve_pets
 
 
 def pets_root(cfg: dict[str, Any] | None = None) -> Path:
-    pets_cfg = (cfg or {}).get("pets") if isinstance((cfg or {}).get("pets"), dict) else {}
-    raw = (pets_cfg or {}).get("root") or "pets"
-    path = Path(str(raw)).expanduser()
-    if not path.is_absolute():
-        path = repo_root() / path
-    return path.resolve()
+    return resolve_pets(cfg)
 
 
 def load_catalog(root: Path) -> dict[str, Any]:

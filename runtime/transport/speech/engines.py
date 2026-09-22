@@ -94,7 +94,7 @@ class GptSovitsEngine(LazyEngine):
         root = Path(os.environ.get("AGENTDOCK_GPT_SOVITS_ROOT") or "")
         if not (root / "api_v2.py").is_file():
             raise RuntimeError(
-                "GPT-SoVITS bundle was not found. Extract it into workspace/GPT-SoVITS, then recheck."
+                "GPT-SoVITS bundle was not found. Extract it into data/vault/GPT-SoVITS, then recheck."
             )
         if _tcp_open(self.api_port):
             return self.api_port

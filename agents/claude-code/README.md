@@ -17,7 +17,7 @@ python agents/claude-code/gateway.py
 # CLAUDE_GATEWAY_PORT=9003 python agents/claude-code/gateway.py
 ```
 
-工作区：优先用 Runtime 下发的 `workspace`；否则 `CLAUDE_CWD` / `<repo>/workspace`。
+工作区：优先用 Runtime 下发的 `workspace`；否则 `CLAUDE_CWD` / `<repo>/data/vault`。
 
 | 环境变量 | 默认 | 说明 |
 |----------|------|------|

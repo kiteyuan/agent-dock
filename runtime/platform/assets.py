@@ -19,11 +19,13 @@ class AssetIndex:
         *,
         root: Path,
         pets_root: Path,
+        voices_root: Path | None = None,
         interval_seconds: float = 5.0,
         on_refresh: Callable[[], None] | None = None,
     ) -> None:
         self.root = root
         self.pets_root = pets_root
+        self.voices_root = voices_root if voices_root is not None else (root / "voices")
         self.interval_seconds = max(1.0, float(interval_seconds))
         self.on_refresh = on_refresh
         self._data: dict[str, Any] = {"voices": [], "pets": [], "pet_default": None}
@@ -58,13 +60,13 @@ class AssetIndex:
             return json.loads(json.dumps(self._data))
 
     def refresh(self) -> None:
-        voices_root = self.root / "voices"
+        voices_root = self.voices_root
         voices = []
         if voices_root.is_dir():
             voices = [
                 {
                     "id": child.name,
-                    "path": str(child.relative_to(self.root)).replace("\\", "/"),
+                    "path": str(child).replace("\\", "/"),
                     "has_voice_yaml": (child / "voice.yaml").is_file(),
                 }
                 for child in sorted(voices_root.iterdir())

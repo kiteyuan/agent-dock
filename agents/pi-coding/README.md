@@ -25,14 +25,13 @@ python agents/pi-coding/gateway.py
 
 可选环境变量：`PI_PROVIDER`、`PI_MODEL`、`PI_NO_TOOLS=1`、`PI_GATEWAY_PORT`、`PI_CWD`。
 
-默认工作区：Runtime `config.yaml` → `workspace.root`（默认仓库 `workspace/`），经 Agent Protocol 字段 `workspace` 下发。  
-网关无 `workspace` 时回退到 `PI_CWD` / `<repo>/workspace`。  
-新用户可复制参考库：[`examples/obsidian-starter/`](../../examples/obsidian-starter/)。
+默认工作区：Runtime `config.yaml` → `paths.vault`（默认仓库 `data/vault/`），经 Agent Protocol 字段 `workspace` 下发。  
+网关无 `workspace` 时回退到 `PI_CWD` / `<repo>/data/vault`。
 
 ### 会话记忆
 
 默认按请求里的 **`device.id`（设备）** 复用 Pi session，WS 重连换 `session_id` 也不断记忆。  
-文件：`agents/pi-coding/.agentdock-sessions/dev-<device_id>.…`
+文件：`data/sessions/pi-coding/dev-<device_id>.…`
 
 | 环境变量 | 作用 |
 |----------|------|

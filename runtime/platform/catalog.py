@@ -10,7 +10,7 @@ from urllib.parse import urlsplit, urlunsplit
 import yaml
 
 from runtime.platform.types import ModuleSpec, SidecarSpec
-from runtime.workspace import repo_root
+from runtime.paths import repo_root, resolve_catalog_path, resolve_vault
 
 
 def retarget_port(url: str, port: int) -> str:
@@ -46,11 +46,7 @@ class ModuleCatalog:
     def load(cls, cfg: dict[str, Any] | None = None) -> ModuleCatalog:
         config = cfg or {}
         root = repo_root()
-        catalog_cfg = config.get("modules") if isinstance(config.get("modules"), dict) else {}
-        raw_path = (catalog_cfg or {}).get("catalog") or "modules/catalog.yaml"
-        path = Path(str(raw_path)).expanduser()
-        if not path.is_absolute():
-            path = root / path
+        path = resolve_catalog_path(config)
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         documents = [data]
         provider_glob = str(data.get("provider_glob") or "providers/*.yaml")
@@ -181,7 +177,7 @@ class ModuleCatalog:
         values = {
             "python": sys.executable,
             "root": str(self.root),
-            "workspace": str(self.root / "workspace"),
+            "workspace": str(resolve_vault(config)),
         }
         for module in self.modules:
             if module.bundle is None or not module.sidecar_id:

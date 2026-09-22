@@ -42,13 +42,14 @@ class InstallManager:
         catalog: ModuleCatalog,
         workspace: Path,
         state: ModuleState,
+        installs_root: Path,
         proxy: str | None = None,
     ) -> None:
         self.catalog = catalog
         self.workspace = workspace.resolve()
         self.state = state
         self.proxy = proxy
-        self.modules_root = self.workspace / "modules"
+        self.modules_root = installs_root.resolve()
 
     def install(
         self,

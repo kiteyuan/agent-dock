@@ -14,7 +14,12 @@ from urllib.parse import unquote, urlparse
 
 from loguru import logger
 
-from runtime.admin.access import admin_host_allowed, admin_write_allowed, client_is_loopback
+from runtime.admin.access import (
+    admin_host_allowed,
+    admin_peer_allowed,
+    admin_token_allowed,
+    admin_write_allowed,
+)
 from runtime.admin.api import api_get, api_post
 from runtime.pets import list_pets, load_catalog, resolve_asset
 
@@ -22,10 +27,6 @@ if TYPE_CHECKING:
     from runtime.runtime import Runtime
 
 _ADMIN_STATIC = Path(__file__).resolve().parent / "static"
-
-
-def _is_loopback(host: str) -> bool:
-    return client_is_loopback(host)
 
 
 class _AdminServer(ThreadingHTTPServer):
@@ -40,7 +41,7 @@ class _AdminServer(ThreadingHTTPServer):
 
 class _AdminHandler(BaseHTTPRequestHandler):
     runtime: Runtime | None = None
-    pets_root: Path = Path("pets")
+    pets_root: Path = Path("assets/pets")
 
     def log_message(self, fmt: str, *args: object) -> None:
         # Polling access logs are noise. Keep only HTTP failures.
@@ -126,11 +127,22 @@ class _AdminHandler(BaseHTTPRequestHandler):
 
     def _admin_allowed(self) -> bool:
         host = self.headers.get("Host")
-        if client_is_loopback(self.client_address[0]) and admin_host_allowed(host):
+        peer = self.client_address[0]
+        if (
+            admin_peer_allowed(peer)
+            and admin_host_allowed(host)
+            and admin_token_allowed(self.headers, peer=peer)
+        ):
             return True
         self._json(
             HTTPStatus.FORBIDDEN,
-            {"ok": False, "error": "Admin is available from localhost only"},
+            {
+                "ok": False,
+                "error": (
+                    "Admin requires localhost Host and a loopback peer "
+                    "(or Docker bridge peer when AGENTDOCK_DOCKER=1)"
+                ),
+            },
         )
         return False
 
