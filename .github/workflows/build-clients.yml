@@ -98,6 +98,41 @@ jobs:
           print("android patch ok")
           PY
 
+      - name: Pin Gradle distribution URL
+        # Flutter's template sometimes points at github.com/gradle/gradle-distributions
+        # which is unreliable on CI; services.gradle.org is the canonical mirror.
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          props = Path("android/gradle/wrapper/gradle-wrapper.properties")
+          if not props.is_file():
+              raise SystemExit(f"missing {props}")
+          text = props.read_text(encoding="utf-8")
+          lines = []
+          for line in text.splitlines():
+              if line.startswith("distributionUrl="):
+                  # Keep whatever version Flutter selected; only fix the host.
+                  ver = "8.3"
+                  for part in line.split("-"):
+                      if part.replace(".", "").isdigit() or (
+                          part.count(".") >= 1 and part[0].isdigit()
+                      ):
+                          ver = part
+                          break
+                  # Prefer parsing from the URL path (gradle-8.x-all.zip)
+                  import re
+                  m = re.search(r"gradle-(\d+(?:\.\d+)*)", line)
+                  if m:
+                      ver = m.group(1)
+                  line = (
+                      "distributionUrl="
+                      f"https\\://services.gradle.org/distributions/gradle-{ver}-all.zip"
+                  )
+              lines.append(line)
+          props.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print(props.read_text(encoding="utf-8"))
+          PY
+
       - run: flutter analyze --no-fatal-infos
       - run: flutter build apk --release
 

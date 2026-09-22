@@ -66,7 +66,8 @@ def test_catalog_and_assets_defaults() -> None:
     voices = resolve_voices({})
     assert voices.name == "voices"
     assert "assets" in voices.parts
-    assert (voices / "haibara" / "voice.yaml").is_file()
+    # Voice/pet packs are host personalization and are gitignored — do not
+    # require any pack files to exist in a clean checkout.
 
 
 def test_module_catalog_loads_and_vault_in_context(
