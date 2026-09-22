@@ -159,11 +159,6 @@ class ServiceSupervisor:
     def _docker_spawn_blocked(self, service_id: str) -> str | None:
         if not running_in_docker():
             return None
-        if service_id == "web":
-            return (
-                "Web preview cannot run inside the Runtime container; "
-                "open clients/web on the host instead"
-            )
         if self._is_agent_sidecar(service_id):
             return (
                 "Agent gateways cannot be spawned inside the Runtime container. "

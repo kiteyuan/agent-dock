@@ -63,11 +63,11 @@ tts:
 
 | 子目录 | 用途 |
 |--------|------|
-| `vault/` | AgentRequest.workspace（知识库 / Obsidian） |
-| `state/` | runtime-state / module-state / agent-* / mcp.json |
+| `vault/` | AgentRequest.workspace（知识库 / Obsidian）；笔记在 `vault/notes/` |
+| `state/` | runtime-state / module-state / agent-* / mcp.json（含不可删内置 `agentdock`） |
 | `logs/` | sidecar 日志 |
 | `installs/` | 隔离安装产物 |
-| `sessions/` | Agent 会话文件 |
+| `sessions/` | Agent 会话文件（如 Pi） |
 | `secrets/` | 非 Windows 凭据密钥 |
 
 ## 客户端只需配什么

@@ -11,7 +11,7 @@ Env:
   PI_GATEWAY_PORT=9001
   PI_CWD=E:\\path\\to\\project   # fallback cwd when request has no workspace (default: <repo>/data/vault)
   PI_NO_TOOLS=1
-  PI_NO_SESSION=1               # opt out: ephemeral turns (old behavior)
+  PI_NO_SESSION=1               # ephemeral turns (no Pi session files)
   PI_SESSION_DIR=...            # Pi session files (default: <repo>/data/sessions/pi-coding)
   PI_SESSION_KEY=device         # device (default) | session — what keys Pi --session-id
   PI_APPEND_SYSTEM_PROMPT=...   # append voice style prompt (default: agents/pi-coding/voice_prompt.txt)
@@ -50,8 +50,7 @@ from mcp_launch import sync_pi_mcp  # noqa: E402
 PROVIDER = os.environ.get("PI_PROVIDER")  # optional override
 MODEL = os.environ.get("PI_MODEL")
 NO_TOOLS = os.environ.get("PI_NO_TOOLS", "0") == "1"
-# Default: reuse Pi session files keyed by AgentDock session_id.
-# Set PI_NO_SESSION=1 to restore one-shot (--no-session) turns.
+# Default: reuse Pi session files keyed by device. Set PI_NO_SESSION=1 for one-shot.
 NO_SESSION = os.environ.get("PI_NO_SESSION", "0") == "1"
 _DEFAULT_SESSIONS = REPO_ROOT / "data" / "sessions" / "pi-coding"
 SESSION_DIR = Path(

@@ -15,6 +15,9 @@ enabled:
   - codebuddy
   - qoder
   - hermes
+  - gemini
+  - crush
+  - amp
   - edge
   - gpt-sovits
   - whisper
@@ -33,11 +36,3 @@ sidecars:
     port: 8766
     managed: false
     health: {kind: tcp, port: 8766}
-  web:
-    name: Web Preview
-    port: 8090
-    spawn:
-      executable: "{python}"
-      args: ["clients/cli/main.py", "--ui", "--ui-port", "{port}", "--no-open"]
-      cwd: "."
-    health: {kind: tcp, port: 8090}

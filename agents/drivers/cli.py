@@ -153,10 +153,52 @@ SPECS = {
             "ANTHROPIC_API_KEY",
             "OPENROUTER_API_KEY",
         ),
+        # Docs: `hermes -z` is the purest one-shot (final reply on stdout).
         args_before_text=("-z",),
+        args_after_text=("--yolo",),
         model_flag="--model",
     ),
+    "gemini": DriverSpec(
+        id="gemini",
+        name="Gemini CLI",
+        executable="gemini",
+        auth_env=("GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY"),
+        args_before_text=("-p",),
+        args_after_text=(
+            "--output-format",
+            "stream-json",
+            "--approval-mode",
+            "yolo",
+        ),
+        model_flag="--model",
+        buffer_output=True,
+    ),
+    "crush": DriverSpec(
+        id="crush",
+        name="Crush",
+        executable="crush",
+        auth_env=(
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "OPENROUTER_API_KEY",
+            "GROQ_API_KEY",
+        ),
+        # `crush run` is non-interactive; YOLO is default on run (do not pass --yolo).
+        args_before_text=("run", "--quiet"),
+        model_flag="--model",
+    ),
+    "amp": DriverSpec(
+        id="amp",
+        name="Amp",
+        executable="amp",
+        auth_env=("AMP_API_KEY",),
+        args_before_text=("--execute",),
+        args_after_text=("--stream-json",),
+        buffer_output=True,
+    ),
 }
+
+_PLAIN_TEXT_DRIVERS = frozenset({"aider", "hermes", "crush"})
 
 
 class CLIDriver:
@@ -217,7 +259,7 @@ class CLIDriver:
         try:
             data = json.loads(value)
         except json.JSONDecodeError:
-            return value if self.spec.id in ("aider", "hermes") else None
+            return value if self.spec.id in _PLAIN_TEXT_DRIVERS else None
         if not isinstance(data, dict):
             return None
         if self.spec.id == "opencode":
@@ -240,9 +282,7 @@ class CLIDriver:
                 return self._extract_text(message.get("content"))
             return None
         if self.spec.id == "openhands":
-            if data.get("type") in ("message", "assistant"):
-                return self._extract_text(data)
-            return None
+            return self._decode_openhands(data)
         if self.spec.id == "kimi-code":
             return (
                 self._extract_text(data.get("content"))
@@ -253,7 +293,50 @@ class CLIDriver:
             if data.get("type") == "result" and data.get("result"):
                 return self._extract_text(data.get("result"))
             return None
+        if self.spec.id == "gemini":
+            return self._decode_gemini(data)
+        if self.spec.id == "amp":
+            return self._decode_amp(data)
         return self._extract_text(data)
+
+    def _decode_openhands(self, data: dict[str, Any]) -> str | None:
+        event_type = data.get("type")
+        if event_type in ("message", "assistant"):
+            return self._extract_text(data)
+        if event_type == "action" and data.get("action") in (
+            "message",
+            "finish",
+            "agent_finish",
+        ):
+            return self._extract_text(data.get("args") or data)
+        if event_type == "observation" and data.get("observation") in (
+            "message",
+            "agent_state_changed",
+        ):
+            # Prefer explicit message observations; skip tool stdout noise.
+            if data.get("observation") == "message":
+                return self._extract_text(data.get("content") or data)
+        return None
+
+    def _decode_gemini(self, data: dict[str, Any]) -> str | None:
+        event_type = data.get("type")
+        if event_type == "result":
+            return self._extract_text(
+                data.get("response") or data.get("result") or data.get("content")
+            )
+        if event_type == "message" and data.get("role") == "assistant":
+            return self._extract_text(data.get("content") or data.get("delta") or data)
+        return None
+
+    def _decode_amp(self, data: dict[str, Any]) -> str | None:
+        if data.get("type") == "result" and not data.get("is_error"):
+            return self._extract_text(data.get("result") or data.get("content"))
+        if data.get("type") == "assistant":
+            message = data.get("message")
+            if isinstance(message, dict):
+                return self._extract_text(message.get("content"))
+            return self._extract_text(data.get("content"))
+        return None
 
     def _extract_text(self, value: Any) -> str | None:
         if isinstance(value, str):
@@ -270,6 +353,7 @@ class CLIDriver:
             "message",
             "delta",
             "result",
+            "response",
             "part",
             "event",
             "messages",

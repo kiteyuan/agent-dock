@@ -10,10 +10,12 @@ import pytest
 from runtime.layout_migrate import migrate_layout
 from runtime.paths import (
     LAYOUT_VERSION,
+    NOTES_DIR_NAME,
     resolve_catalog_path,
     resolve_home,
     resolve_installs,
     resolve_logs,
+    resolve_notes,
     resolve_pets,
     resolve_state,
     resolve_vault,
@@ -37,6 +39,7 @@ def test_agentdock_home_env_overrides(
     assert home == (tmp_path / "home").resolve()
     assert resolve_state({}, ensure=True) == home / "state"
     assert resolve_vault({}, ensure=True) == home / "vault"
+    assert resolve_notes({}, ensure=True) == home / "vault" / NOTES_DIR_NAME
 
 
 def test_paths_block_children(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

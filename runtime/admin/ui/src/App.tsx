@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Flex, Spin, Typography, message } from "antd";
 import { api, submitAction } from "./api";
 import { configureItem } from "./actions";
@@ -11,6 +11,7 @@ import {
   LicenseModal,
   SharedLlmModal,
 } from "./components/Modals";
+import { OnboardingTour } from "./components/OnboardingTour";
 import { HomePage } from "./pages/HomePage";
 import { AssistantPage } from "./pages/AssistantPage";
 import { VoicePage } from "./pages/VoicePage";
@@ -18,6 +19,8 @@ import { AdvancedPage } from "./pages/AdvancedPage";
 import { CharacterPage } from "./pages/CharacterPage";
 import { DevicesPage } from "./pages/DevicesPage";
 import { McpPage } from "./pages/McpPage";
+import { GraphPage } from "./pages/GraphPage";
+import { isOnboardingDone } from "./onboarding";
 import type { ModuleAction, ModuleItem, ModuleKind, Snapshot, TabKey } from "./types";
 
 const { Text } = Typography;
@@ -30,6 +33,17 @@ export function App() {
   const [settingsItem, setSettingsItem] = useState<ModuleItem | null>(null);
   const [licenseKind, setLicenseKind] = useState<ModuleKind>("agent");
   const [licenseItem, setLicenseItem] = useState<ModuleItem | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
+
+  const goTab = useCallback((next: TabKey) => {
+    setTab(next);
+  }, []);
+
+  useEffect(() => {
+    if (!snapshot || !online || isOnboardingDone()) return;
+    const timer = window.setTimeout(() => setTourOpen(true), 450);
+    return () => window.clearTimeout(timer);
+  }, [snapshot, online]);
 
   const shared = snapshot?.modules.llm.shared;
 
@@ -134,15 +148,28 @@ export function App() {
     content = <DevicesPage snapshot={snapshot} refresh={refresh} />;
   } else if (tab === "mcp") {
     content = <McpPage />;
+  } else if (tab === "graph") {
+    content = <GraphPage />;
   } else {
-    content = <AdvancedPage snapshot={snapshot} refresh={refresh} />;
+    content = (
+      <AdvancedPage
+        snapshot={snapshot}
+        refresh={refresh}
+        onReplayTour={() => {
+          setTab("home");
+          setTourOpen(true);
+        }}
+      />
+    );
   }
 
   return (
     <>
-      <AppShell tab={tab} online={online} onTab={setTab}>
+      <AppShell tab={tab} online={online} onTab={goTab}>
         {content}
       </AppShell>
+
+      <OnboardingTour open={tourOpen} onClose={() => setTourOpen(false)} onTab={goTab} />
 
       {shared ? (
         <SharedLlmModal

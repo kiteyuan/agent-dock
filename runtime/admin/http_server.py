@@ -21,6 +21,7 @@ from runtime.admin.access import (
     admin_write_allowed,
 )
 from runtime.admin.api import api_get, api_post
+from runtime.mcp import handle_mcp_http
 from runtime.pets import list_pets, load_catalog, resolve_asset
 
 if TYPE_CHECKING:
@@ -52,7 +53,7 @@ class _AdminHandler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
-        if urlparse(self.path).path.startswith(("/admin", "/api")) or self.path == "/":
+        if urlparse(self.path).path.startswith(("/admin", "/api", "/mcp")) or self.path == "/":
             self.send_header(
             "Content-Security-Policy",
             "default-src 'self'; connect-src 'self'; img-src 'self' data:; "
@@ -67,6 +68,10 @@ class _AdminHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
             self.end_headers()
+            return
+        if path == "/mcp":
+            if self._admin_allowed():
+                handle_mcp_http(self, method="OPTIONS")
             return
         if not self._admin_allowed():
             return
@@ -86,6 +91,10 @@ class _AdminHandler(BaseHTTPRequestHandler):
                 {"ok": True, "admin": True, "pets": len(pets), "default": default},
             )
             return
+        if path == "/mcp":
+            if self._admin_allowed():
+                handle_mcp_http(self, method="GET")
+            return
         if path.startswith("/api/"):
             if self._admin_allowed():
                 self._api_get(path)
@@ -102,6 +111,16 @@ class _AdminHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = unquote(urlparse(self.path).path or "/")
+        if path == "/mcp":
+            if not self._admin_allowed():
+                return
+            if not self._admin_write_allowed():
+                return
+            raw = self._read_body(empty=b"")
+            if raw is None:
+                return
+            handle_mcp_http(self, method="POST", body=raw)
+            return
         if not path.startswith("/api/"):
             self.send_error(HTTPStatus.NOT_FOUND)
             return
@@ -109,15 +128,9 @@ class _AdminHandler(BaseHTTPRequestHandler):
             return
         if not self._admin_write_allowed():
             return
-        try:
-            length = int(self.headers.get("Content-Length") or 0)
-        except ValueError:
-            self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "invalid length"})
+        raw = self._read_body(empty=b"{}")
+        if raw is None:
             return
-        if length > 1024 * 1024:
-            self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"ok": False})
-            return
-        raw = self.rfile.read(length) if length else b"{}"
         try:
             body = json.loads(raw.decode("utf-8") or "{}")
         except (UnicodeDecodeError, json.JSONDecodeError):
@@ -125,6 +138,16 @@ class _AdminHandler(BaseHTTPRequestHandler):
             return
         self._api_post(path, body if isinstance(body, dict) else {})
 
+    def _read_body(self, *, empty: bytes = b"{}") -> bytes | None:
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "invalid length"})
+            return None
+        if length > 1024 * 1024:
+            self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"ok": False})
+            return None
+        return self.rfile.read(length) if length else empty
     def _admin_allowed(self) -> bool:
         host = self.headers.get("Host")
         peer = self.client_address[0]

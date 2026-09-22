@@ -10,11 +10,12 @@ Layout (layout-version 2)::
 
     <home>/
       vault/            # AgentRequest.workspace (knowledge base / Obsidian)
+        notes/          # fixed markdown knowledge tree (was "Graph View")
       state/            # runtime-state, module-state, agent-*, mcp.json
       logs/
       installs/         # isolated module installs (was workspace/modules)
       cache/
-      sessions/         # agent session files
+      sessions/         # agent-owned session files (e.g. Pi)
       secrets/          # Fernet credential.key (non-Windows)
 
 Resolution order for home: ``AGENTDOCK_HOME`` > ``paths.home`` > ``<repo>/data``.
@@ -30,6 +31,10 @@ from pathlib import Path
 from typing import Any
 
 LAYOUT_VERSION = 2
+
+# Fixed knowledge-base folder under vault (no spaces; Obsidian-compatible tree).
+NOTES_DIR_NAME = "notes"
+LEGACY_NOTES_DIR_NAME = "Graph View"
 
 _STATE_FILES = (
     "runtime-state.json",
@@ -120,6 +125,14 @@ def resolve_vault(cfg: dict[str, Any] | None = None, *, ensure: bool = False) ->
 def resolve_workspace(cfg: dict[str, Any] | None = None, *, ensure: bool = False) -> Path:
     """Alias for :func:`resolve_vault` (AgentRequest.workspace)."""
     return resolve_vault(cfg, ensure=ensure)
+
+
+def resolve_notes(cfg: dict[str, Any] | None = None, *, ensure: bool = False) -> Path:
+    """Markdown knowledge root under vault (``vault/notes``)."""
+    path = resolve_vault(cfg, ensure=ensure) / NOTES_DIR_NAME
+    if ensure:
+        path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def resolve_state(cfg: dict[str, Any] | None = None, *, ensure: bool = False) -> Path:

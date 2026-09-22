@@ -100,6 +100,27 @@ sidecars:
       <<: *generic_agent
       args: ["agents/gateway.py", "--driver", "hermes", "--port", "{port}"]
     health: {kind: http, url: "http://127.0.0.1:9013/v1/agent"}
+  gemini:
+    name: Gemini Gateway
+    port: 9014
+    spawn:
+      <<: *generic_agent
+      args: ["agents/gateway.py", "--driver", "gemini", "--port", "{port}"]
+    health: {kind: http, url: "http://127.0.0.1:9014/v1/agent"}
+  crush:
+    name: Crush Gateway
+    port: 9015
+    spawn:
+      <<: *generic_agent
+      args: ["agents/gateway.py", "--driver", "crush", "--port", "{port}"]
+    health: {kind: http, url: "http://127.0.0.1:9015/v1/agent"}
+  amp:
+    name: Amp Gateway
+    port: 9016
+    spawn:
+      <<: *generic_agent
+      args: ["agents/gateway.py", "--driver", "amp", "--port", "{port}"]
+    health: {kind: http, url: "http://127.0.0.1:9016/v1/agent"}
 
 modules:
   - id: pi
@@ -369,3 +390,63 @@ modules:
         - {id: anthropic, name: Anthropic, credential_env: ANTHROPIC_API_KEY, base_url_env: ANTHROPIC_BASE_URL, extra_env: {HERMES_PROVIDER: anthropic}}
         - {id: openrouter, name: OpenRouter, credential_env: OPENROUTER_API_KEY, default_base_url: "https://openrouter.ai/api/v1", extra_env: {HERMES_PROVIDER: openrouter}}
     description: Nous Research 官方终端 Agent，DeepSeek 文档收录的集成方式；支持无头一次性任务
+  - id: gemini
+    name: Gemini CLI
+    kind: agent
+    registry_id: gemini
+    sidecar_id: gemini
+    version: external
+    homepage: https://geminicli.com/docs/get-started/installation/
+    dependencies: [node, npm]
+    health: {kind: command, command: gemini}
+    licenses:
+      - {id: apache-2.0, name: Apache-2.0, url: "https://www.apache.org/licenses/LICENSE-2.0"}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://geminicli.com/docs/cli/headless/", requires_acceptance: true, redistributable: false}
+    capabilities: {streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://geminicli.com/docs/get-started/configuration/
+      providers:
+        - {id: google, name: Google AI / Gemini, credential_env: GEMINI_API_KEY, model_env: GEMINI_MODEL, model_required: false}
+        - {id: google-genai, name: Google GenAI, credential_env: GOOGLE_API_KEY, model_env: GEMINI_MODEL, model_required: false}
+    description: Google 官方 Gemini 终端 Agent，支持 -p 无头与 stream-json 输出
+  - id: crush
+    name: Crush
+    kind: agent
+    registry_id: crush
+    sidecar_id: crush
+    version: external
+    homepage: https://charm.land/crush
+    dependencies: []
+    health: {kind: command, command: crush}
+    licenses:
+      - {id: fsl-1.1-mit, name: FSL-1.1-MIT, url: "https://fsl.software/FSL-1.1-MIT.template.md"}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://charmbracelet-crush.mintlify.app/cli/run", requires_acceptance: true, redistributable: false}
+    capabilities: {streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://charmbracelet-crush.mintlify.app/
+      providers:
+        - {id: openai, name: OpenAI 兼容服务, credential_env: OPENAI_API_KEY, base_url_env: OPENAI_BASE_URL}
+        - {id: anthropic, name: Anthropic, credential_env: ANTHROPIC_API_KEY}
+        - {id: openrouter, name: OpenRouter, credential_env: OPENROUTER_API_KEY, default_base_url: "https://openrouter.ai/api/v1"}
+    description: Charm 官方终端编码 Agent；crush run 支持非交互一次性任务
+  - id: amp
+    name: Amp
+    kind: agent
+    registry_id: amp
+    sidecar_id: amp
+    version: external
+    homepage: https://ampcode.com/docs/cli
+    dependencies: [node, npm]
+    health: {kind: command, command: amp}
+    licenses:
+      - {id: amp-terms, name: Amp Terms, url: "https://ampcode.com/terms", requires_acceptance: true, redistributable: false}
+      - {id: workspace-execution, name: Workspace Tool Execution, url: "https://ampcode.com/docs/cli/execute-mode", requires_acceptance: true, redistributable: false}
+    capabilities: {streaming: true, local: true, cpu: true}
+    configuration:
+      mode: model
+      help_url: https://ampcode.com/docs/cli/execute-mode
+      providers:
+        - {id: amp, name: Amp 账号, credential_label: Access Token（sgamp_…）, credential_env: AMP_API_KEY}
+    description: Sourcegraph Amp 官方终端 Agent；-x/--execute 支持无头执行与 stream-json

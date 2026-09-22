@@ -1,14 +1,16 @@
-import { DeleteOutlined } from "@ant-design/icons";
+import { DeleteOutlined, QuestionCircleOutlined } from "@ant-design/icons";
 import { Button, Flex, Popconfirm, Tooltip, Typography, message } from "antd";
 import { guard } from "../actions";
 import { submitAction } from "../api";
 import { PageHeader, PanelCard } from "../components/ui";
+import { resetOnboarding } from "../onboarding";
 import type { Snapshot } from "../types";
 
 const { Text } = Typography;
 
 const PATHS: Array<[string, keyof Snapshot["meta"]]> = [
   ["工作区", "workspace"],
+  ["笔记目录", "notes_root"],
   ["角色目录", "pets_root"],
   ["用户设置", "state_file"],
   ["模块状态", "module_state_file"],
@@ -19,9 +21,11 @@ const PATHS: Array<[string, keyof Snapshot["meta"]]> = [
 export function AdvancedPage({
   snapshot,
   refresh,
+  onReplayTour,
 }: {
   snapshot: Snapshot;
   refresh: (force?: boolean) => Promise<void>;
+  onReplayTour?: () => void;
 }) {
   const managed = [
     ...snapshot.modules.agents.map((item) => ["agent", item] as const),
@@ -30,8 +34,24 @@ export function AdvancedPage({
   ].filter(([, item]) => item.managed);
 
   return (
-    <div className="page-stack">
-      <PageHeader title="高级设置" />
+    <div className="page-stack page-stack--narrow" data-tour="page-advanced">
+      <PageHeader
+        title="高级设置"
+        extra={
+          onReplayTour ? (
+            <Button
+              type="default"
+              icon={<QuestionCircleOutlined />}
+              onClick={() => {
+                resetOnboarding();
+                onReplayTour();
+              }}
+            >
+              新手引导
+            </Button>
+          ) : null
+        }
+      />
 
       <PanelCard>
           <div className="list-stack">

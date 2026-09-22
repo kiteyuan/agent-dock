@@ -113,23 +113,71 @@ class DeviceGateway:
                 )
             ),
         ]
+        target: set[str] = set()
+        if kind in ("tts", "agent"):
+            target.add(kind)
+        elif kind is None:
+            target.update({"tts", "agent"})
         for conn in list(self._connections.values()):
-            busy = bool(conn.turn_task and not conn.turn_task.done())
-            # Never mutate an in-flight turn's routing keys mid-utterance.
-            if conn.session and not busy:
-                if kind == "tts":
-                    new_tts = self.tts_registry.default_id
-                    if new_tts != conn.session.tts_id:
-                        conn.session.tts_model = None
-                    conn.session.tts_id = new_tts
-                if kind == "agent":
-                    conn.session.agent_id = self.default_agent_id
+            if conn.session and target:
+                busy = bool(conn.turn_task and not conn.turn_task.done())
+                if busy:
+                    # Keep current utterance on the old voice/agent; apply after.
+                    conn.pending_default_kinds |= target
+                else:
+                    self._sync_session_defaults(conn, kinds=target)
+                    conn.pending_default_kinds -= target
             for message in messages:
                 try:
                     await conn.send(message)
                 except Exception:  # noqa: BLE001
                     logger.debug("failed to push defaults to {}", conn.device_id)
                     break
+
+    def _sync_session_defaults(self, conn: DeviceConnection, *, kinds: set[str]) -> None:
+        """Write registry defaults onto the live session (idle connections only)."""
+        if not conn.session or not kinds:
+            return
+        if "tts" in kinds:
+            new_tts = self.tts_registry.default_id
+            if new_tts != conn.session.tts_id:
+                conn.session.tts_model = None
+            conn.session.tts_id = new_tts
+        if "agent" in kinds and self.default_agent_id:
+            conn.session.agent_id = self.default_agent_id
+
+    def _flush_pending_defaults(self, conn: DeviceConnection) -> None:
+        if not conn.pending_default_kinds or not conn.session:
+            return
+        # Skip if another turn already started (callback raced with a new turn).
+        if conn.turn_task and not conn.turn_task.done():
+            return
+        kinds = set(conn.pending_default_kinds)
+        conn.pending_default_kinds.clear()
+        self._sync_session_defaults(conn, kinds=kinds)
+        logger.info(
+            "[{}] applied deferred defaults {}",
+            conn.device_id,
+            ",".join(sorted(kinds)),
+        )
+
+    def _track_turn(
+        self,
+        conn: DeviceConnection,
+        task: asyncio.Task | None,
+    ) -> asyncio.Task | None:
+        """Attach turn completion so deferred TTS/agent defaults can land."""
+        if task is None:
+            self._flush_pending_defaults(conn)
+            return None
+
+        def _done(finished: asyncio.Task) -> None:
+            if conn.turn_task is finished:
+                conn.turn_task = None
+            self._flush_pending_defaults(conn)
+
+        task.add_done_callback(_done)
+        return task
 
     async def cancel_session(self, session_id: str) -> bool:
         session = self.sessions.get(session_id)
@@ -214,7 +262,9 @@ class DeviceGateway:
                         continue
                     conn.audio_buf.extend(raw)
                     continue
-                conn.turn_task = await self._dispatch(conn, raw, conn.turn_task)
+                conn.turn_task = self._track_turn(
+                    conn, await self._dispatch(conn, raw, conn.turn_task)
+                )
         except websockets.ConnectionClosed:
             logger.info("Device disconnected: {}", conn.device_id)
         except Exception as exc:  # noqa: BLE001
@@ -375,6 +425,8 @@ class DeviceGateway:
             else:
                 session.tts_model = model
             session.tts_id = tts_id or None
+            # Explicit client pick wins over a deferred admin/MCP default.
+            conn.pending_default_kinds.discard("tts")
             await conn.send(encode_message(tts_selected(sid, tts_id, model)))
             return turn_task
 

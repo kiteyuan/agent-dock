@@ -60,8 +60,18 @@ def normalize_servers(raw: object) -> dict[str, dict]:
             entry["enabled"] = value
         else:
             entry["enabled"] = True
+        label = str(item.get("label") or "").strip()
+        if label:
+            if len(label) > 64:
+                raise ValueError(f"{name} 的名称备注最多 64 个字符")
+            if any(char in label for char in "\r\n"):
+                raise ValueError(f"{name} 的名称备注不能换行")
+            entry["label"] = label
         servers[name] = entry
     return servers
+
+
+_LAUNCH_META = frozenset({"enabled", "label", "builtin", "has_env", "has_headers"})
 
 
 def document(servers: dict[str, dict]) -> dict:
@@ -86,13 +96,15 @@ def normalize_document(raw: object) -> dict[str, dict]:
 
 
 def launch_servers(path: Path | None = None) -> dict[str, dict]:
-    """Servers that agents should load. Drops disabled entries and the enabled flag."""
+    """Servers that agents should load. Drops disabled entries and Admin-only fields."""
     source = path if path is not None else config_path()
     active: dict[str, dict] = {}
     for name, entry in read_servers(source).items():
         if entry.get("enabled", True) is False:
             continue
-        active[name] = {key: value for key, value in entry.items() if key != "enabled"}
+        active[name] = {
+            key: value for key, value in entry.items() if key not in _LAUNCH_META
+        }
     return active
 
 

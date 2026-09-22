@@ -232,6 +232,7 @@ class SnapshotService:
             recommendations=self.hardware.recommendations(),
             meta={
                 "workspace": str(self.runtime.workspace),
+                "notes_root": str(getattr(self.runtime, "notes_root", "") or ""),
                 "pets_root": str(self.runtime.pets_root),
                 "assets_base_url": self.runtime.assets_base_url,
                 "state_file": str(self.state.path),

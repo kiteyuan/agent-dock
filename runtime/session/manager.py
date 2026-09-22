@@ -1,4 +1,4 @@
-"""Session Manager."""
+"""Session Manager — live device WS sessions (not chat history)."""
 
 from __future__ import annotations
 

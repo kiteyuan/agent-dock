@@ -13,12 +13,15 @@ from loguru import logger
 
 from runtime.paths import (
     LAYOUT_VERSION,
+    LEGACY_NOTES_DIR_NAME,
+    NOTES_DIR_NAME,
     layout_version_path,
     repo_root,
     resolve_catalog_path,
     resolve_home,
     resolve_installs,
     resolve_logs,
+    resolve_notes,
     resolve_pets,
     resolve_secrets,
     resolve_sessions,
@@ -104,9 +107,22 @@ def migrate_layout(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
                 continue
         else:
             logger.warning("layout migrate lock busy at {}; skipping", lock_path)
-            return {"from": _read_version(layout_version_path(cfg)), "to": LAYOUT_VERSION, "actions": [], "skipped": "lock"}
+            report = {
+                "from": _read_version(layout_version_path(cfg)),
+                "to": LAYOUT_VERSION,
+                "actions": [],
+                "skipped": "lock",
+            }
+            notes_actions = migrate_notes_dir(cfg)
+            if notes_actions:
+                report["actions"].extend(notes_actions)
+            return report
     try:
-        return _migrate_layout_locked(cfg, home=home, state_dir=state_dir)
+        report = _migrate_layout_locked(cfg, home=home, state_dir=state_dir)
+        notes_actions = migrate_notes_dir(cfg)
+        if notes_actions:
+            report.setdefault("actions", []).extend(notes_actions)
+        return report
     finally:
         if lock_fd is not None:
             try:
@@ -117,6 +133,36 @@ def migrate_layout(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
                 lock_path.unlink(missing_ok=True)
             except OSError:
                 pass
+
+
+def migrate_notes_dir(cfg: dict[str, Any] | None = None) -> list[str]:
+    """Rename legacy ``Graph View`` → ``notes`` under vault. Idempotent."""
+    cfg = cfg or {}
+    vault = resolve_vault(cfg, ensure=True)
+    legacy = vault / LEGACY_NOTES_DIR_NAME
+    notes = vault / NOTES_DIR_NAME
+    actions: list[str] = []
+    if legacy.is_dir() and not notes.exists():
+        try:
+            legacy.rename(notes)
+            actions.append(f"notes:{LEGACY_NOTES_DIR_NAME}->{NOTES_DIR_NAME}")
+            logger.info("migrated vault/{} → vault/{}", LEGACY_NOTES_DIR_NAME, NOTES_DIR_NAME)
+        except OSError as exc:
+            logger.warning(
+                "could not rename vault/{} to vault/{}: {}",
+                LEGACY_NOTES_DIR_NAME,
+                NOTES_DIR_NAME,
+                exc,
+            )
+    elif legacy.is_dir() and notes.exists():
+        logger.warning(
+            "both vault/{} and vault/{} exist; leaving both in place",
+            LEGACY_NOTES_DIR_NAME,
+            NOTES_DIR_NAME,
+        )
+    # Ensure the fixed notes root exists for Admin / indexer.
+    resolve_notes(cfg, ensure=True)
+    return actions
 
 
 def _migrate_layout_locked(

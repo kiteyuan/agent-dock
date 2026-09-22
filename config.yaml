@@ -83,9 +83,6 @@ services:
     port: 9880
     autostart: false
     # 整合包解压到 data/vault/GPT-SoVITS/，再在管理页点「检查安装」。
-  web:
-    port: 8090
-    autostart: false
 
 # Optional installer overrides (catalog path lives under paths.catalog).
 modules:

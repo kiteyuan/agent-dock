@@ -112,7 +112,7 @@ export function HomePage({
   return (
     <div className="page-stack">
       <PageHeader title="概览" />
-      <Row gutter={[12, 12]}>
+      <Row gutter={[12, 12]} data-tour="home-overview">
         {cards.map((card) => (
           <Col xs={24} sm={12} lg={6} key={card.key}>
             <PanelCard onClick={() => onGoto(card.key)}>
@@ -141,6 +141,7 @@ export function HomePage({
             <Tooltip title={allReady && !needsStart ? "已就绪" : "启动助手、合成、识别"}>
               <Button
                 type="primary"
+                data-tour="home-start"
                 icon={<PlayCircleOutlined />}
                 loading={busy}
                 disabled={allReady && !needsStart}

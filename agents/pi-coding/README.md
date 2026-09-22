@@ -30,13 +30,15 @@ python agents/pi-coding/gateway.py
 
 ### 会话记忆
 
-默认按请求里的 **`device.id`（设备）** 复用 Pi session，WS 重连换 `session_id` 也不断记忆。  
-文件：`data/sessions/pi-coding/dev-<device_id>.…`
+默认按请求里的 **`device.id`（设备）** 复用 Pi 原生 session（`--session-dir` / `--session-id`），
+WS 重连换 `session_id` 也不断记忆。文件：`data/sessions/pi-coding/dev-<device_id>.…`
+
+对话历史由 Agent 自己管理；Runtime 只保留连接层 Session（取消/设备绑定）。
 
 | 环境变量 | 作用 |
 |----------|------|
 | `PI_SESSION_KEY=device` | 按设备（默认） |
-| `PI_SESSION_KEY=session` | 按 WS `session_id`（旧行为） |
+| `PI_SESSION_KEY=session` | 按 WS `session_id` |
 | `PI_NO_SESSION=1` | 每轮全新、不落盘 |
 | `PI_SESSION_DIR=...` | 改存储目录 |
 

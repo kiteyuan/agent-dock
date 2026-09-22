@@ -1,5 +1,9 @@
 # AgentDock
 
+<p align="center">
+  <img src="assets/brand/icon-256.png" alt="AgentDock" width="128" height="128" />
+</p>
+
 > AgentDock is an open-source **Agent Bridge / Runtime** that connects devices to agents through sessions and event streams.
 
 AgentDock 是一个开源 **Agent Bridge / Runtime**：通过 Session 与 Event Stream 连接 Device 与任意 Agent。支持 **纯文本** 与 **语音** 双通道。
@@ -26,6 +30,7 @@ clients/          # 瘦终端（只连 WS；不算模型）
 agents/           # 本地安装 / 联调外部 Agent（demo + pi-coding + check_link）
 catalog/          # 能力声明（agent / tts / stt）
 assets/
+  brand/          # 项目图标（入库；python scripts/generate_brand_icons.py）
   pets/           # 本机角色包（gitignore；仓库仅 README）
   voices/         # 本机音色包（gitignore；仓库仅 README）
 data/             # 用户数据根（gitignore）：vault / state / logs / installs / …

@@ -19,7 +19,7 @@ export function DevicesPage({
   const listening = Boolean(channel?.healthy);
 
   return (
-    <div className="page-stack">
+    <div className="page-stack" data-tour="page-devices">
       <PageHeader
         title="设备"
         extra={

@@ -1,0 +1,85 @@
+/* AgentDock Admin theme — declare once, use via var(--*).
+   Toggle with <html data-theme="dark|light">. Accent stays brand orange. */
+
+:root {
+  /* Accent (shared) */
+  --color-primary: #f07840;
+  --color-primary-hover: #ff8f55;
+  --color-primary-active: #d9652e;
+  --color-primary-soft: rgba(240, 120, 64, 0.16);
+  --color-primary-glow: rgba(240, 120, 64, 0.35);
+
+  /* Status (shared) */
+  --color-success: #3dcf8e;
+  --color-warning: #e0a34a;
+  --color-error: #e56b73;
+  --color-neutral: #6b7382;
+
+  /* Spacing / radius / type */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --font: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  /* Default = light (also set explicitly below) */
+  --bg: #f5f5f6;
+  --bg-elevated: #ffffff;
+  --bg-container: #ffffff;
+  --bg-hover: #ececee;
+  --bg-selected: #fff1e9;
+  --bg-mark: #ffffff;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --border-selected: var(--color-primary);
+  --text: #18181b;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --text-inverse: #ffffff;
+
+  --surface: var(--bg-container);
+  --surface-hover: var(--bg-hover);
+  --surface-selected: var(--bg-selected);
+  --text-label: var(--text-secondary);
+}
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f5f6;
+  --bg-elevated: #ffffff;
+  --bg-container: #ffffff;
+  --bg-hover: #ececee;
+  --bg-selected: #fff1e9;
+  --bg-mark: #ffffff;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --text: #18181b;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --text-inverse: #ffffff;
+  --color-primary-soft: rgba(240, 120, 64, 0.12);
+  --color-primary-glow: rgba(240, 120, 64, 0.28);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121212;
+  --bg-elevated: #1a1a1a;
+  --bg-container: #1c1c1c;
+  --bg-hover: #242424;
+  --bg-selected: #2a1f18;
+  --bg-mark: #141414;
+  --border: #2c2c2c;
+  --border-strong: #3a3a3a;
+  --text: #f5f5f5;
+  --text-secondary: #c8c8c8;
+  --text-muted: #9a9a9a;
+  --text-inverse: #ffffff;
+  --color-primary-soft: rgba(240, 120, 64, 0.18);
+  --color-primary-glow: rgba(240, 120, 64, 0.35);
+}

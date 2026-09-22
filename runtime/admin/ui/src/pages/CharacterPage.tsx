@@ -105,7 +105,7 @@ export function CharacterPage({
   }
 
   return (
-    <div className="page-stack">
+    <div className="page-stack" data-tour="page-character">
       <PageHeader title="角色" />
       <div className="pet-grid">
         <button

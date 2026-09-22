@@ -41,9 +41,11 @@ from runtime.transport.speech.registry import TTSRegistry
 from runtime.transport.speech.stt_factory import create_stt
 from runtime.transport.speech.voice_catalog import VoiceCatalog
 from runtime.layout_migrate import migrate_layout
+from runtime.notes import NotesIndexer
 from runtime.platform.environment import running_in_docker
 from runtime.paths import (
     resolve_installs,
+    resolve_notes,
     resolve_secrets,
     resolve_state,
     resolve_voices,
@@ -83,6 +85,8 @@ class Runtime:
         )
         self.stt = create_stt(stt_config(self.catalog, cfg.get("stt", {})))
         self.workspace = resolve_workspace(cfg, ensure=True)
+        self.notes_root = resolve_notes(cfg, ensure=True)
+        self.notes = NotesIndexer(self.notes_root)
         self.installs_root = resolve_installs(cfg, ensure=True)
         self.secrets_dir = resolve_secrets(cfg, ensure=True)
         self.pipeline = BridgePipeline(
@@ -108,7 +112,7 @@ class Runtime:
             self.catalog,
             secrets_dir=self.secrets_dir,
         )
-        self.mcp = McpConfigStore(self.state_dir)
+        self.mcp = McpConfigStore(self.state_dir, admin_port=self.assets_port)
         self.services = ServiceSupervisor(
             cfg,
             catalog=self.catalog,
@@ -215,6 +219,8 @@ class Runtime:
                 pets_root=self.pets_root,
                 runtime=self,
             )
+            self.mcp.set_admin_port(self._admin_httpd.server_port)
+            self.mcp.ensure_builtin()
         except OSError:
             logger.exception(
                 "Admin HTTP failed to bind :{} — pets/admin UI unavailable",

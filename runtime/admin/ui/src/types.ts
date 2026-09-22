@@ -9,6 +9,7 @@ export type TabKey =
   | "character"
   | "devices"
   | "mcp"
+  | "graph"
   | "advanced";
 
 export interface LicenseInfo {
@@ -153,6 +154,7 @@ export interface Snapshot {
   sessions: SessionItem[];
   meta: {
     workspace?: string;
+    notes_root?: string;
     pets_root?: string;
     state_file?: string;
     module_state_file?: string;

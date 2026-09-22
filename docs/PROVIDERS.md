@@ -19,11 +19,14 @@ Runtime 只检查命令是否在 PATH 上，再配置 LLM 并拉起 gateway。TT
 - CodeBuddy Code：检测系统 `codebuddy` CLI。
 - Qoder CLI：检测系统 `qoder` CLI。
 - Hermes Agent：检测系统 `hermes` CLI；DeepSeek 官方文档收录的集成方式。
+- Gemini CLI：检测系统 `gemini` CLI；`-p` 无头 + `stream-json`。
+- Crush：检测系统 `crush` CLI；`crush run --quiet` 非交互。
+- Amp：检测系统 `amp` CLI；`--execute` / `-x` 无头 + `--stream-json`。
 
 已停止服务的 iFlow CLI 不进入清单，其官方迁移目标 Qoder 已接入。仅有 IDE
 插件、没有稳定无头 CLI 的产品也不会伪装成可启动 Agent。
-TRAE Agent 当前只有 Rich 控制台输出，没有稳定的 stdout 机器协议，因此暂不进入
-清单；等上游提供正式 JSON/NDJSON 输出后再接入。
+开源 `trae-cli`（bytedance/trae-agent）与 Trae IDE（trae.ai）不是同一产品；前者
+仅有 GitHub 安装说明、没有独立官网安装页，因此暂不进入清单。
 
 每个 Agent 可以独立保存 Provider、模型和服务地址，也可以引用一套统一 LLM。
 公开设置与凭据分文件存储；Windows 凭据使用当前用户 DPAPI 加密，其他系统限制
@@ -35,6 +38,15 @@ Runtime 启动 Agent sidecar 时会先移除父进程继承的模型密钥，再
 sidecar 仍只获得映射后的环境变量，不会读到其他助手的独立 Key。
 通用 gateway 使用各 CLI 的非交互/自动批准模式；它们能够执行命令并修改工作区，
 因此首次准备或设为默认前必须单独确认 `Workspace Tool Execution`。
+对话记忆由各 Agent CLI 自带的 session 能力管理；Runtime 只保留连接层 Session。
+
+## 内置 Runtime MCP
+
+Runtime 在 Admin 口（默认 `:8766/mcp`）固定暴露一个不可删除的 HTTP MCP，名称为
+`agentdock`。它会写入共用菜单 `data/state/mcp.json`，随助手启动注入；Admin「MCP」
+页可开关，但不可改传输或删除。工具覆盖：查看状态、切换默认助手/TTS/STT/角色、
+prepare/start/stop 模块、外置 MCP 增删改、查看/取消 job。
+
 
 ## TTS
 

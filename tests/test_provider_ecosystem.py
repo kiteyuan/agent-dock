@@ -25,6 +25,9 @@ def test_catalog_contains_curated_provider_set() -> None:
         "codebuddy",
         "qoder",
         "hermes",
+        "gemini",
+        "crush",
+        "amp",
         "edge",
         "gpt-sovits",
         "whisper",
@@ -69,6 +72,9 @@ def test_agent_install_urls_point_to_official_sites() -> None:
         "codebuddy": "www.codebuddy.ai",
         "qoder": "docs.qoder.com",
         "hermes": "hermes-agent.nousresearch.com",
+        "gemini": "geminicli.com",
+        "crush": "charm.land",
+        "amp": "ampcode.com",
     }
     forbidden_hosts = {
         "github.com",
@@ -108,6 +114,7 @@ def test_cli_driver_decodes_nested_json_output() -> None:
     assert driver.decode_line('{"type":"tool_use","part":{"text":"不要朗读"}}') is None
     assert create_driver("aider").decode_line("plain output") == "plain output"
     assert create_driver("hermes").decode_line("plain output") == "plain output"
+    assert create_driver("crush").decode_line("plain output") == "plain output"
     assert (
         create_driver("kimi-code").decode_line(
             '{"role":"assistant","content":[{"type":"text","text":"完成"}]}'
@@ -131,6 +138,24 @@ def test_cli_driver_decodes_nested_json_output() -> None:
             '{"type":"result","result":"最终回复"}'
         )
         == "最终回复"
+    )
+    assert (
+        create_driver("gemini").decode_line(
+            '{"type":"result","response":"Gemini 完成"}'
+        )
+        == "Gemini 完成"
+    )
+    assert (
+        create_driver("amp").decode_line(
+            '{"type":"result","result":"Amp 完成","is_error":false}'
+        )
+        == "Amp 完成"
+    )
+    assert (
+        create_driver("openhands").decode_line(
+            '{"type":"action","action":"message","args":{"content":"OpenHands 回复"}}'
+        )
+        == "OpenHands 回复"
     )
 
 
@@ -156,6 +181,24 @@ def test_kimi_print_mode_does_not_add_conflicting_auto_flag(monkeypatch) -> None
     assert command[:3] == ["kimi", "-p", "修复测试"]
     assert "--output-format" in command
     assert "--auto" not in command
+
+
+def test_new_cli_drivers_use_documented_headless_flags(monkeypatch) -> None:
+    cases = {
+        "gemini": (["gemini", "-p", "任务"], ["--output-format", "stream-json", "--approval-mode", "yolo"]),
+        "crush": (["crush", "run", "--quiet", "任务"], []),
+        "amp": (["amp", "--execute", "任务"], ["--stream-json"]),
+        "hermes": (["hermes", "-z", "任务"], ["--yolo"]),
+    }
+    for driver_id, (prefix, required) in cases.items():
+        driver = create_driver(driver_id)
+        monkeypatch.setattr(driver, "resolve_executable", lambda exe=prefix[0]: exe)
+        command = driver.command("任务")
+        assert command[: len(prefix)] == prefix, driver_id
+        for flag in required:
+            assert flag in command, f"{driver_id} missing {flag}"
+        if driver_id == "crush":
+            assert "--yolo" not in command
 
 
 def test_stt_registry_builds_isolated_sidecar_client() -> None:

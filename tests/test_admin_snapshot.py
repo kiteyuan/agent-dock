@@ -49,9 +49,9 @@ def test_snapshot_does_not_perform_network_probe(monkeypatch, tmp_path) -> None:
     codex = next(item for item in snapshot.services if item["id"] == "codex")
     assert codex["group"] == "agent"
     assert "<" not in codex["detail"]
-    web = next(item for item in snapshot.services if item["id"] == "web")
-    assert web["group"] == "core"
-    assert web["expected"] is True
+    runtime_svc = next(item for item in snapshot.services if item["id"] == "runtime")
+    assert runtime_svc["group"] == "core"
+    assert "web" not in {item["id"] for item in snapshot.services}
     runtime.lifecycle.close()
 
 

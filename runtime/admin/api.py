@@ -21,6 +21,26 @@ def api_get(host: Any, path: str) -> None:
     if path == "/api/v1/mcp":
         host._json(HTTPStatus.OK, {"ok": True, **runtime.mcp.public()})
         return
+    if path == "/api/v1/notes/graph":
+        indexer = getattr(runtime, "notes", None)
+        if indexer is None:
+            host._json(HTTPStatus.OK, {"ok": True, "root": "", "nodes": [], "edges": [], "stats": {}})
+            return
+        host._json(HTTPStatus.OK, indexer.graph())
+        return
+    if path == "/api/v1/notes/doc":
+        indexer = getattr(runtime, "notes", None)
+        note_id = (parse_qs(urlparse(host.path).query).get("id") or [""])[0]
+        if indexer is None:
+            host._json(
+                HTTPStatus.OK,
+                {"ok": True, "id": note_id, "title": "", "path": "", "exists": False, "content": ""},
+            )
+            return
+        payload = indexer.doc(note_id)
+        status = HTTPStatus.OK if payload.get("ok", True) else HTTPStatus.BAD_REQUEST
+        host._json(status, payload)
+        return
     if path == "/api/v1/jobs":
         host._json(
             HTTPStatus.OK,

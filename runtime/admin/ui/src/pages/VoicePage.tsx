@@ -160,7 +160,7 @@ export function VoicePage({
   }
 
   return (
-    <div className="page-stack">
+    <div className="page-stack" data-tour="page-voice">
       <PageHeader title="声音" />
       <div className="provider-grid">
           {engines.map((item) => {

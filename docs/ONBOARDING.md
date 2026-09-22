@@ -37,7 +37,7 @@ AgentDock Runtime 是集成脚手架：用声明式 `catalog/catalog.yaml` 接�
 - `data/installs/<id>/`：声音等仍由 Runtime 隔离安装的目录；助手改为使用
   系统 PATH 上的官方 CLI，旧的一键安装目录仅用于检测残留。
 - `data/logs/<service>.log`：Runtime 拉起的 sidecar 日志。
-- `data/vault/`：注入 Agent 的工作区（知识库 / Obsidian）。
+- `data/vault/`：注入 Agent 的工作区（知识库 / Obsidian）。Markdown 笔记固定在 `data/vault/notes/`（由旧目录 `Graph View` 自动迁移）；Admin「图谱」页按 `[[双链]]` 渲染关系图。
 
 启动时先读 `config.yaml`，再应用状态覆盖层。覆盖值已失效时会回退配置并记录告警，
 不会修改原配置文件。

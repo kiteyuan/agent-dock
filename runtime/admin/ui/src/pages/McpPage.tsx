@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
-import { App, Button, Flex, Input, Modal, Spin, Typography, message } from "antd";
+import { App, Button, Flex, Input, Modal, Spin, Tag, Typography, message } from "antd";
 import { api } from "../api";
 import { PageHeader } from "../components/ui";
 
@@ -36,8 +36,26 @@ function asMap(raw: unknown): McpMap {
 }
 
 function vendorEntry(entry: McpEntry): McpEntry {
-  const { enabled: _enabled, ...rest } = entry;
+  const {
+    enabled: _enabled,
+    builtin: _builtin,
+    label: _label,
+    has_env: _hasEnv,
+    has_headers: _hasHeaders,
+    ...rest
+  } = entry;
   return rest;
+}
+
+function entryLabel(entry: McpEntry | undefined): string {
+  return typeof entry?.label === "string" ? entry.label.trim() : "";
+}
+
+function withLabel(entry: McpEntry, label: string): McpEntry {
+  const base = vendorEntry(entry);
+  const trimmed = label.trim();
+  if (trimmed) return { ...base, label: trimmed };
+  return base;
 }
 
 function parsePaste(text: string): McpMap {
@@ -65,6 +83,10 @@ function isEnabled(entry: McpEntry): boolean {
   return entry.enabled !== false;
 }
 
+function isBuiltin(entry: McpEntry | undefined): boolean {
+  return entry?.builtin === true;
+}
+
 export function McpPage() {
   const { modal } = App.useApp();
   const [servers, setServers] = useState<McpMap>({});
@@ -73,8 +95,17 @@ export function McpPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState(EXAMPLE);
+  const [labelDraft, setLabelDraft] = useState("");
 
-  const names = useMemo(() => Object.keys(servers), [servers]);
+  const names = useMemo(() => {
+    const keys = Object.keys(servers);
+    return keys.sort((a, b) => {
+      const aBuiltin = isBuiltin(servers[a]) ? 0 : 1;
+      const bBuiltin = isBuiltin(servers[b]) ? 0 : 1;
+      if (aBuiltin !== bBuiltin) return aBuiltin - bBuiltin;
+      return a.localeCompare(b);
+    });
+  }, [servers]);
 
   async function load() {
     setLoading(true);
@@ -113,12 +144,18 @@ export function McpPage() {
   function openAdd() {
     setEditing(null);
     setDraft(EXAMPLE);
+    setLabelDraft("");
     setOpen(true);
   }
 
   function openEdit(name: string) {
+    if (isBuiltin(servers[name])) {
+      message.info("内置 Runtime MCP 不可编辑，只能开关");
+      return;
+    }
     setEditing(name);
     setDraft(wrapOne(name, servers[name] || {}));
+    setLabelDraft(entryLabel(servers[name]));
     setOpen(true);
   }
 
@@ -131,6 +168,14 @@ export function McpPage() {
       return;
     }
     const pastedNames = Object.keys(pasted);
+    if (pastedNames.some((name) => isBuiltin(servers[name]) || name === "agentdock")) {
+      message.error("不能添加或覆盖内置 agentdock");
+      return;
+    }
+    if (labelDraft.trim().length > 64) {
+      message.error("名称备注最多 64 个字符");
+      return;
+    }
 
     if (editing === null) {
       const clash = pastedNames.find((name) => name in servers);
@@ -140,7 +185,7 @@ export function McpPage() {
       }
       const next = { ...servers };
       for (const name of pastedNames) {
-        next[name] = { ...vendorEntry(pasted[name]), enabled: true };
+        next[name] = { ...withLabel(pasted[name], labelDraft), enabled: true };
       }
       await persist(next, "已添加");
       return;
@@ -159,7 +204,7 @@ export function McpPage() {
     const next = { ...servers };
     delete next[editing];
     next[nextName] = {
-      ...vendorEntry(pasted[nextName]),
+      ...withLabel(pasted[nextName], labelDraft),
       enabled: isEnabled(previous),
     };
     await persist(next, "已更新");
@@ -176,6 +221,10 @@ export function McpPage() {
   }
 
   function remove(name: string) {
+    if (isBuiltin(servers[name])) {
+      message.info("内置 Runtime MCP 不可删除");
+      return;
+    }
     modal.confirm({
       title: `删除 ${name}？`,
       content: "会从共用菜单里去掉，下次启动助手时生效。",
@@ -191,7 +240,7 @@ export function McpPage() {
   }
 
   return (
-    <div className="page-stack">
+    <div className="page-stack" data-tour="page-mcp">
       <PageHeader title="MCP" />
       {loading ? (
         <Flex align="center" justify="center" style={{ minHeight: 160 }}>
@@ -214,7 +263,11 @@ export function McpPage() {
             </Text>
           </button>
           {names.map((name) => {
-            const enabled = isEnabled(servers[name]);
+            const entry = servers[name];
+            const enabled = isEnabled(entry);
+            const builtin = isBuiltin(entry);
+            const label = entryLabel(entry);
+            const title = label || name;
             return (
               <div
                 key={name}
@@ -222,6 +275,7 @@ export function McpPage() {
                 role="button"
                 tabIndex={0}
                 aria-pressed={enabled}
+                title={label ? name : undefined}
                 onClick={() => {
                   if (saving) return;
                   toggle(name, !enabled);
@@ -237,29 +291,36 @@ export function McpPage() {
                   <ApiOutlined className="pet-add-icon" />
                 </div>
                 <div className="provider-title" style={{ width: "100%" }}>
-                  <Text strong ellipsis className="module-title">
-                    {name}
-                  </Text>
+                  <Flex align="center" gap={6} style={{ minWidth: 0, flex: 1 }}>
+                    <Text strong ellipsis className="module-title">
+                      {title}
+                    </Text>
+                    {builtin ? <Tag style={{ marginInlineEnd: 0 }}>内置</Tag> : null}
+                  </Flex>
                   <div
                     className="provider-title-actions"
                     onClick={(event) => event.stopPropagation()}
                     onKeyDown={(event) => event.stopPropagation()}
                   >
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<EditOutlined />}
-                      aria-label="编辑"
-                      onClick={() => openEdit(name)}
-                    />
-                    <Button
-                      type="text"
-                      size="small"
-                      danger
-                      icon={<DeleteOutlined />}
-                      aria-label="删除"
-                      onClick={() => remove(name)}
-                    />
+                    {!builtin ? (
+                      <>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<EditOutlined />}
+                          aria-label="编辑"
+                          onClick={() => openEdit(name)}
+                        />
+                        <Button
+                          type="text"
+                          size="small"
+                          danger
+                          icon={<DeleteOutlined />}
+                          aria-label="删除"
+                          onClick={() => remove(name)}
+                        />
+                      </>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -285,7 +346,17 @@ export function McpPage() {
         destroyOnClose
       >
         <Flex vertical gap={8}>
-          <Text type="secondary">粘贴服务商提供的 mcpServers JSON。点卡片切换是否载入。</Text>
+          <Text type="secondary">
+            粘贴服务商提供的 mcpServers JSON。点卡片切换是否载入。内置 agentdock
+            由 Runtime 提供，不可删除。
+          </Text>
+          <Input
+            value={labelDraft}
+            onChange={(event) => setLabelDraft(event.target.value)}
+            placeholder="名称备注（可选，如：磁力搜索）"
+            maxLength={64}
+            allowClear
+          />
           <TextArea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}

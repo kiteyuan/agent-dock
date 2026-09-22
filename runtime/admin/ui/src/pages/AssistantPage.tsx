@@ -39,7 +39,7 @@ export function AssistantPage({
   );
 
   return (
-    <div className="page-stack">
+    <div className="page-stack" data-tour="page-assistant">
       <PageHeader title="智能助手" />
       <PanelCard>
         <Flex align="center" justify="space-between" gap={12} wrap="wrap">

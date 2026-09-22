@@ -25,6 +25,8 @@ class DeviceConnection:
     audio_overflow: bool = False
     recording: bool = False
     turn_task: asyncio.Task | None = None
+    # Defaults changed while a turn was in flight; applied when the turn ends.
+    pending_default_kinds: set[str] = field(default_factory=set)
     connected_at: float = field(default_factory=time.time)
 
     async def send(self, data: str | bytes) -> None:

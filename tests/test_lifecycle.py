@@ -44,12 +44,12 @@ def test_lifecycle_runs_service_action_in_job() -> None:
         health=health,
         pet_installer=DummyPetInstaller(),
     )
-    queued = lifecycle.submit("start", "web")
+    queued = lifecycle.submit("start", "runtime")
     assert queued.ok and queued.job_id
     job = wait_job(lifecycle, queued.job_id)
     assert job.state == "done"
     assert job.result and job.result.ok
-    assert "web" in health.invalidated
+    assert "runtime" in health.invalidated
     lifecycle.close()
 
 
@@ -94,8 +94,8 @@ def test_lifecycle_refuses_parallel_jobs_for_same_target() -> None:
         health=health,
         pet_installer=DummyPetInstaller(),
     )
-    first = lifecycle.submit("start", "web")
-    second = lifecycle.submit("start", "web")
+    first = lifecycle.submit("start", "runtime")
+    second = lifecycle.submit("start", "runtime")
     assert first.ok and first.job_id
     assert not second.ok
     assert "already has an active job" in (second.error or "")

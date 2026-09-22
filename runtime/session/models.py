@@ -27,6 +27,9 @@ class Session:
         if self.max_context > 0 and len(self.context) > self.max_context:
             self.context = self.context[-self.max_context :]
 
+    def clear_context(self) -> None:
+        self.context.clear()
+
     def request_cancel(self) -> None:
         self.cancel_event.set()
 

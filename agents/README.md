@@ -10,7 +10,7 @@ agents/
   pi-coding/      # Pi Coding Agent + HTTP 网关（agent id: `pi`）
   codex/          # OpenAI Codex CLI + HTTP 网关（agent id: `codex`）
   claude-code/    # Claude Code CLI + HTTP 网关（agent id: `claude`）
-  gateway.py      # 通用 CLI 网关（含 Qwen/Kimi/CodeBuddy/Qoder）
+  gateway.py      # 通用 CLI 网关（OpenCode/Cline/…/Gemini/Crush/Amp）
   drivers/        # CLI 命令与输出解码差异
   common/         # 网关共用辅助
   check_link.py   # 探测某个 Agent URL 是否可连、能否吐事件
