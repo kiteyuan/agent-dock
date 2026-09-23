@@ -167,7 +167,7 @@ if (keystorePropertiesFile.exists()) {
 def main() -> int:
     android = ROOT / "android"
     if not android.is_dir():
-        print("no android/ — skip signing", file=sys.stderr)
+        print("no android/ - skip signing", file=sys.stderr)
         return 0
     if not BRAND_STORE.is_file() or not BRAND_PROPS.is_file():
         print(

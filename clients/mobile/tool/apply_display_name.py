@@ -56,7 +56,7 @@ def patch_android() -> bool:
         if m:
             strings.write_text(s2, encoding="utf-8")
     manifest.write_text(text2, encoding="utf-8")
-    print(f"android label → {DISPLAY}")
+    print(f"android label -> {DISPLAY}")
     return True
 
 
@@ -81,7 +81,7 @@ def patch_apple(platform: str) -> bool:
             cfg2 = cfg.rstrip() + f"\nPRODUCT_NAME = {DISPLAY}\n"
         xcconfig.write_text(cfg2, encoding="utf-8")
 
-    print(f"{platform} display name → {DISPLAY}")
+    print(f"{platform} display name -> {DISPLAY}")
     return True
 
 
@@ -134,7 +134,7 @@ def patch_windows() -> bool:
         if t2 != t:
             main_cpp.write_text(t2, encoding="utf-8")
 
-    print(f"windows ProductName / BINARY_NAME → {DISPLAY}")
+    print(f"windows ProductName / BINARY_NAME -> {DISPLAY}")
     return True
 
 
