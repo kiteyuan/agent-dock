@@ -25,6 +25,7 @@ def test_request_body_shape() -> None:
         context=[],
         device={"device_id": "d1"},
         workspace=r"E:\Projects\AgentDock\workspace",
+        instructions="【AgentDock Runtime】test",
     )
     body = request_to_http_body(req, stream=True)
     assert body["protocol"] == PROTOCOL_VERSION
@@ -33,12 +34,27 @@ def test_request_body_shape() -> None:
     assert body["stream"] is True
     assert body["device"]["device_id"] == "d1"
     assert body["workspace"] == r"E:\Projects\AgentDock\workspace"
+    assert body["instructions"].startswith("【AgentDock Runtime】")
 
 
 def test_request_body_omits_empty_workspace() -> None:
     req = AgentRequest(session_id="s1", text="hi")
     body = request_to_http_body(req)
     assert "workspace" not in body
+    assert "instructions" not in body
+
+
+def test_agent_brief_mentions_mcp_and_notes() -> None:
+    from runtime.bridge.agent_brief import build_agent_instructions
+
+    text = build_agent_instructions(
+        workspace="/tmp/vault",
+        notes_root="/tmp/vault/notes",
+        assets_port=8766,
+    )
+    assert "agentdock" in text
+    assert "notes_search" in text
+    assert "/tmp/vault" in text
 
 
 def test_parse_canonical_message_speak() -> None:

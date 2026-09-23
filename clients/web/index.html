@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" href="./favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="./icon-128.png" />
   <meta name="theme-color" content="#141414" />
-  <link rel="stylesheet" href="./styles.css?v=10" />
+  <link rel="stylesheet" href="./styles.css?v=11" />
 </head>
 <body>
   <div class="stage" id="stage" data-mood="offline">
@@ -26,11 +26,18 @@
         </button>
       </div>
 
-      <div class="reply-box" id="replyBox" aria-live="polite">
+      <div class="reply-box" id="replyBox" aria-live="polite" title="">
         <p id="reply" class="reply"></p>
         <span id="caret" class="caret"></span>
       </div>
     </div>
+  </div>
+
+  <div id="composer" class="composer" hidden>
+    <form id="composerForm" class="composer-bar" autocomplete="off">
+      <input id="composerInput" type="text" enterkeyhint="send" maxlength="2000" placeholder="说点什么…" />
+      <button type="submit" id="composerSend">发送</button>
+    </form>
   </div>
 
   <dialog id="settings">
@@ -48,6 +55,6 @@
   </dialog>
 
   <script src="./pixel-bot.js?v=4"></script>
-  <script src="./app.js?v=16"></script>
+  <script src="./app.js?v=17"></script>
 </body>
 </html>

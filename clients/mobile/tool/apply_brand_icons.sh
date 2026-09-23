@@ -41,3 +41,7 @@ trap 'rm -f "$CFG"' EXIT
 } >"$CFG"
 
 dart run flutter_launcher_icons -f "$CFG"
+python tool/apply_display_name.py
+if [[ -d android ]]; then
+  python tool/apply_android_signing.py
+fi

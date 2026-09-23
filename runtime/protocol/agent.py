@@ -68,6 +68,8 @@ class AgentRequest(BaseModel):
     agent_id: str | None = None
     # Absolute workspace path for tools/files (shared across agents)
     workspace: str | None = None
+    # Runtime capability brief — gateways should append to system / voice prompt
+    instructions: str | None = None
     cancel_event: Any = None
 
     model_config = {"arbitrary_types_allowed": True}

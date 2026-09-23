@@ -11,7 +11,8 @@ import 'pet_catalog.dart';
 import 'status_badge.dart';
 import 'theme.dart';
 
-/// Layout aligned with clients/web: centered pet + multi-line reply; tap talk / long-press settings.
+/// Layout aligned with clients/web: centered pet + multi-line reply;
+/// tap talk / long-press settings; long-press reply for hidden text input.
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.session});
 
@@ -24,10 +25,13 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late final TextEditingController _url;
   late final TextEditingController _token;
+  late final TextEditingController _compose;
   final _replyScroll = ScrollController();
+  final _composeFocus = FocusNode();
   StreamSubscription? _sub;
   bool _holdOpenedSettings = false;
   Timer? _holdTimer;
+  bool _composerOpen = false;
 
   DeviceSession get s => widget.session;
 
@@ -36,6 +40,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _url = TextEditingController(text: s.url);
     _token = TextEditingController(text: s.token);
+    _compose = TextEditingController();
     _sub = s.changes.listen((_) {
       if (!mounted) return;
       setState(() {});
@@ -179,6 +184,7 @@ class _HomePageState extends State<HomePage> {
       );
 
   Future<void> _onTalk() async {
+    if (_composerOpen) return;
     final mic = await Permission.microphone.request();
     if (!mic.isGranted) {
       s.lastError = '需要麦克风权限';
@@ -186,6 +192,83 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     await s.toggleTalk();
+    await _savePrefs();
+  }
+
+  Future<void> _openComposer() async {
+    if (!s.canComposeText || _composerOpen) return;
+    _compose.text = s.composePrefill;
+    _compose.selection = TextSelection.collapsed(offset: _compose.text.length);
+    setState(() => _composerOpen = true);
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: WebUiTheme.panel,
+      barrierColor: Colors.black54,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.zero,
+        side: BorderSide(color: WebUiTheme.line, width: 2),
+      ),
+      builder: (ctx) {
+        final inset = MediaQuery.viewInsetsOf(ctx).bottom;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(12, 10, 12, 10 + inset),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _compose,
+                  focusNode: _composeFocus,
+                  autofocus: true,
+                  minLines: 1,
+                  maxLines: 4,
+                  style: const TextStyle(color: WebUiTheme.text, fontSize: 14),
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _submitCompose(ctx),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: '说点什么…',
+                    hintStyle: TextStyle(color: WebUiTheme.muted),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                      borderSide: BorderSide(color: WebUiTheme.line),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                      borderSide: BorderSide(color: WebUiTheme.line),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                      borderSide: BorderSide(color: WebUiTheme.accent),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                style: TextButton.styleFrom(
+                  backgroundColor: WebUiTheme.accent,
+                  foregroundColor: const Color(0xFF042016),
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                ),
+                onPressed: () => _submitCompose(ctx),
+                child: const Text('发送'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (mounted) setState(() => _composerOpen = false);
+  }
+
+  Future<void> _submitCompose(BuildContext sheetCtx) async {
+    final text = _compose.text.trim();
+    if (text.isEmpty) return;
+    Navigator.pop(sheetCtx);
+    await s.sendText(text);
     await _savePrefs();
   }
 
@@ -205,6 +288,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _onBotTap() async {
     _holdTimer?.cancel();
+    if (_composerOpen) return;
     if (_holdOpenedSettings) {
       _holdOpenedSettings = false;
       return;
@@ -228,6 +312,8 @@ class _HomePageState extends State<HomePage> {
     _sub?.cancel();
     _url.dispose();
     _token.dispose();
+    _compose.dispose();
+    _composeFocus.dispose();
     _replyScroll.dispose();
     super.dispose();
   }
@@ -296,6 +382,10 @@ class _HomePageState extends State<HomePage> {
                       height: replyH,
                       width: double.infinity,
                       child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onLongPress: () {
+                          if (s.canComposeText) _openComposer();
+                        },
                         onTap: s.canReplay
                             ? () async {
                                 await s.replayLast();

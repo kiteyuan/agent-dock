@@ -51,6 +51,7 @@ Optional discovery:
   },
   "agent_id": "claude",
   "workspace": "E:/Projects/AgentDock/data/vault",
+  "instructions": "【AgentDock Runtime】…",
   "stream": true
 }
 ```
@@ -64,9 +65,12 @@ Optional discovery:
 | `device` | no | Device metadata (never secrets) |
 | `agent_id` | no | Logical id Runtime selected |
 | `workspace` | no | Absolute shared working directory for tools/files (from Runtime `paths.vault`) |
+| `instructions` | no | Runtime capability brief (MCP / vault / notes). Gateways should append to system or voice prompt |
 | `stream` | no | Prefer streaming response (`true` by default from Runtime) |
 
 Do **not** put API keys in `device` or `context`. Auth is only via HTTP headers.
+
+`instructions` explains what AgentDock Runtime provides (workspace, notes, builtin MCP `agentdock`). It is **not** a substitute for each Agent's own voice/style prompt. Optional domain playbooks ("skills") are out of band; prefer MCP tools for discoverable capabilities.
 
 ---
 

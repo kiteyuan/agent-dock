@@ -37,6 +37,8 @@ class DeviceSession {
   String statusLine = '';
   String replyText = '';
   bool captionMode = false;
+  /// Last `stt.final` (or text send) — used to prefill the hidden composer.
+  String lastSttText = '';
 
   String url = 'ws://127.0.0.1:8765';
   String token = '';
@@ -80,6 +82,22 @@ class DeviceSession {
       player.lastTurn.isNotEmpty &&
       replyText.trim().isNotEmpty;
 
+  /// Hidden text entry (long-press reply). Not during speaking / offline.
+  bool get canComposeText =>
+      sessionId != null &&
+      _ws != null &&
+      (state == ClientState.idle ||
+          state == ClientState.busy ||
+          state == ClientState.listening);
+
+  /// Prefill only while the reply still shows the last user utterance (STT).
+  String get composePrefill {
+    final stt = lastSttText.trim();
+    if (stt.isEmpty) return '';
+    if (replyText.trim() == stt) return stt;
+    return '';
+  }
+
   void _notify() {
     if (!_changes.isClosed) _changes.add(null);
   }
@@ -121,12 +139,37 @@ class DeviceSession {
   void _showUserSpeech(String text) {
     final t = _plainReply(text);
     if (t.isEmpty) return;
+    lastSttText = t;
     _stopTypewriter();
     replyText = t;
     _captionLive = false;
     _captionCommitted = '';
     captionMode = false;
     _notify();
+  }
+
+  /// Text turn via `user.message` (same pipeline as STT → agent).
+  Future<void> sendText(String raw) async {
+    final text = raw.trim();
+    if (text.isEmpty || sessionId == null || _ws == null) return;
+    if (state == ClientState.speaking) return;
+    if (state == ClientState.listening) {
+      try {
+        await recorder.cancel();
+      } catch (_) {}
+    }
+    player.clear();
+    _ttsBuf.clear();
+    _awaitingIdle = false;
+    _endCaptionTyping(keepReply: false);
+    _resetThinking();
+    _showUserSpeech(text);
+    _setState(ClientState.busy, status: '…');
+    try {
+      _ws!.sink.add(proto.userMessage(sessionId: sessionId!, text: text));
+    } catch (e) {
+      _failTurn(e.toString());
+    }
   }
 
   void _stopTypewriter() {

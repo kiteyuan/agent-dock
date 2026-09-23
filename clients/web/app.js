@@ -36,6 +36,9 @@ let thinkingBuf = "";
 let lastThinkingFlush = 0;
 const THINKING_MIN_MS = 400;
 const PROCESS_MAX_LEN = 72;
+/** Last user utterance (STT or typed) — composer prefill while reply still matches */
+let lastSttText = "";
+let composerOpen = false;
 
 const PREFS = { url: "ad_url", token: "ad_token", reply: "ad_last_reply", device: "ad_device_id" };
 
@@ -71,7 +74,9 @@ function syncReplayHint() {
     lastTtsSegments.length > 0 &&
     !!$("reply").textContent.trim();
   box.classList.toggle("replayable", canReplay);
-  box.title = canReplay ? "点击重播语音" : "";
+  if (canReplay) box.title = "点击重播 · 长按输入";
+  else if (canComposeText()) box.title = "长按输入文字";
+  else box.title = "";
 }
 
 function clearReply() {
@@ -397,7 +402,10 @@ function onEvent(type, payload = {}) {
   if (type === "stt.final") {
     resetThinkingBuf();
     const t = String(payload.text || payload.content || "").trim();
-    if (t) showLiveReply(t);
+    if (t) {
+      lastSttText = t;
+      showLiveReply(t);
+    }
     enterBusy();
   } else if (type === "agent.start") {
     flushThinking(true);
@@ -587,7 +595,7 @@ async function startTalk() {
   }
 }
 
-async function stopTalk() {
+async function stopTalk({ discard = false } = {}) {
   if (!recording) return;
   recording = false;
 
@@ -597,6 +605,18 @@ async function stopTalk() {
     recStream && recStream.getTracks().forEach((t) => t.stop());
     if (audioCtx) await audioCtx.close();
   } catch (_) {}
+
+  processor = null;
+  sourceNode = null;
+  recStream = null;
+  audioCtx = null;
+
+  if (discard) {
+    pcmChunks = [];
+    if (sessionId) enterIdle();
+    syncReplayHint();
+    return;
+  }
 
   let n = 0;
   pcmChunks.forEach((c) => (n += c.length));
@@ -624,6 +644,7 @@ async function stopTalk() {
 }
 
 async function toggleTalk() {
+  if (composerOpen) return;
   if (recording) {
     await stopTalk();
     return;
@@ -633,6 +654,78 @@ async function toggleTalk() {
     return;
   }
   await startTalk();
+}
+
+function canComposeText() {
+  if (!ws || !sessionId || starting) return false;
+  const mood = $("stage").dataset.mood;
+  // idle / busy / listen — not speak / offline / connecting / err
+  return mood === "idle" || mood === "busy" || mood === "listen";
+}
+
+function composePrefill() {
+  const stt = (lastSttText || "").trim();
+  if (!stt) return "";
+  const shown = ($("reply").textContent || "").trim();
+  return shown === stt ? stt : "";
+}
+
+function openComposer() {
+  if (!canComposeText() || composerOpen) return;
+  composerOpen = true;
+  const el = $("composer");
+  const input = $("composerInput");
+  el.hidden = false;
+  input.value = composePrefill();
+  requestAnimationFrame(() => {
+    input.focus();
+    const n = input.value.length;
+    try {
+      input.setSelectionRange(n, n);
+    } catch (_) {}
+  });
+}
+
+function closeComposer() {
+  if (!composerOpen) return;
+  composerOpen = false;
+  $("composer").hidden = true;
+  $("composerInput").blur();
+}
+
+async function sendUserMessage(raw) {
+  const text = String(raw || "").trim();
+  if (!text || !ws || !sessionId) return;
+  const mood = $("stage").dataset.mood;
+  if (mood === "speak") return;
+  if (recording) {
+    try {
+      await stopTalk({ discard: true });
+    } catch (_) {
+      recording = false;
+    }
+  }
+  ttsPlayQueue = [];
+  ttsChunks = [];
+  turnTtsSegments = [];
+  turnAwaitingIdle = false;
+  resetCaptionState();
+  resetThinkingBuf();
+  if (audioEl) {
+    try {
+      audioEl.pause();
+    } catch (_) {}
+  }
+  ttsPlaying = false;
+  lastSttText = text;
+  showLiveReply(text);
+  enterBusy();
+  syncReplayHint();
+  try {
+    ws.send(msg("user.message", { session_id: sessionId, text }));
+  } catch (_) {
+    enterIdle();
+  }
 }
 
 /** User abort while STT / agent / TTS is in flight. */
@@ -751,11 +844,20 @@ const botEl = $("bot");
 let holdTimer = null;
 let holdOpenedSettings = false;
 const HOLD_MS = 550;
+let replyHoldTimer = null;
+let replyHoldOpenedComposer = false;
 
 function clearHoldTimer() {
   if (holdTimer) {
     clearTimeout(holdTimer);
     holdTimer = null;
+  }
+}
+
+function clearReplyHold() {
+  if (replyHoldTimer) {
+    clearTimeout(replyHoldTimer);
+    replyHoldTimer = null;
   }
 }
 
@@ -791,10 +893,45 @@ botEl.addEventListener("click", (e) => {
   });
 });
 
+$("replyBox").addEventListener("pointerdown", (e) => {
+  if (e.button != null && e.button !== 0) return;
+  replyHoldOpenedComposer = false;
+  clearReplyHold();
+  replyHoldTimer = setTimeout(() => {
+    replyHoldOpenedComposer = true;
+    openComposer();
+  }, HOLD_MS);
+});
+$("replyBox").addEventListener("pointerup", clearReplyHold);
+$("replyBox").addEventListener("pointercancel", clearReplyHold);
+$("replyBox").addEventListener("pointerleave", clearReplyHold);
+$("replyBox").addEventListener("contextmenu", (e) => e.preventDefault());
+
 $("replyBox").addEventListener("click", (e) => {
   e.stopPropagation();
+  clearReplyHold();
+  if (replyHoldOpenedComposer) {
+    replyHoldOpenedComposer = false;
+    return;
+  }
   if (!$("replyBox").classList.contains("replayable")) return;
   replayLastTts();
+});
+
+$("composer").addEventListener("click", (e) => {
+  if (e.target === $("composer")) closeComposer();
+});
+$("composerForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = $("composerInput").value;
+  closeComposer();
+  sendUserMessage(text);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && composerOpen) {
+    e.preventDefault();
+    closeComposer();
+  }
 });
 
 $("btnClose").onclick = () => $("settings").close();

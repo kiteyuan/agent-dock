@@ -71,6 +71,46 @@ class NotesIndexer:
             "content": text,
         }
 
+    def search(self, query: str, *, limit: int = 20) -> dict[str, Any]:
+        """Simple title / path / body substring search over notes."""
+        q = (query or "").strip().lower()
+        if not q:
+            return {"ok": True, "query": "", "hits": [], "total": 0}
+        limit = max(1, min(int(limit or 20), 50))
+        hits: list[dict[str, Any]] = []
+        for path in self._iter_md():
+            try:
+                rel = path.relative_to(self.root).as_posix()
+            except ValueError:
+                continue
+            note_id = rel[:-3] if rel.lower().endswith(".md") else rel
+            title = path.stem
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                text = ""
+            blob = f"{note_id}\n{title}\n{text}".lower()
+            if q not in blob:
+                continue
+            snippet = ""
+            low = text.lower()
+            idx = low.find(q)
+            if idx >= 0:
+                start = max(0, idx - 40)
+                end = min(len(text), idx + len(q) + 80)
+                snippet = text[start:end].replace("\n", " ").strip()
+            hits.append(
+                {
+                    "id": note_id,
+                    "title": title,
+                    "path": rel,
+                    "snippet": snippet,
+                }
+            )
+            if len(hits) >= limit:
+                break
+        return {"ok": True, "query": query, "hits": hits, "total": len(hits)}
+
     def _signature(self) -> tuple[Any, ...]:
         if not self.root.is_dir():
             return ("missing",)

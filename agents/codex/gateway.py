@@ -41,6 +41,7 @@ from common import (  # noqa: E402
     kill_process,
     launch_cli,
     make_write_event,
+    merge_runtime_instructions,
     read_json_request,
     repo_root_from,
     resolve_request_cwd,
@@ -77,13 +78,13 @@ def _system_prompt() -> str:
     )
 
 
-def _build_cmd(prompt: str, *, cwd: Path) -> list[str]:
+def _build_cmd(prompt: str, *, cwd: Path, instructions: str = "") -> list[str]:
     cmd = [BIN, "exec", *codex_args(), "--json", "--sandbox", SANDBOX, "--cd", str(cwd)]
     if SKIP_GIT:
         cmd.append("--skip-git-repo-check")
     if MODEL:
         cmd += ["--model", MODEL]
-    sp = _system_prompt().strip()
+    sp = merge_runtime_instructions(_system_prompt(), {"instructions": instructions}).strip()
     full = f"{sp}\n\n用户请求：{prompt}" if sp else prompt
     cmd.append(full)
     return cmd
@@ -97,11 +98,18 @@ def _item_text(item: dict) -> str:
     return ""
 
 
-def run_codex_turn(session_id: str, text: str, write_event, *, cwd: Path) -> None:
+def run_codex_turn(
+    session_id: str,
+    text: str,
+    write_event,
+    *,
+    cwd: Path,
+    instructions: str = "",
+) -> None:
     if not cwd.is_dir():
         write_event(event("agent.error", session_id, content=f"workspace is not a directory: {cwd}"))
         return
-    cmd = _build_cmd(text, cwd=cwd)
+    cmd = _build_cmd(text, cwd=cwd, instructions=instructions)
     write_event(
         event(
             "agent.thinking",
@@ -247,7 +255,13 @@ class Handler(BaseHTTPRequestHandler):
         write_ndjson_headers(self)
         write_event = make_write_event(self)
         try:
-            run_codex_turn(sid, text, write_event, cwd=cwd)
+            run_codex_turn(
+                sid,
+                text,
+                write_event,
+                cwd=cwd,
+                instructions=str(req.get("instructions") or ""),
+            )
         except BrokenPipeError:
             _PROCESSES.cancel(sid)
         except Exception as exc:  # noqa: BLE001

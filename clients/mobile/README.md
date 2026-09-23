@@ -12,13 +12,20 @@ cd clients/mobile
 flutter create . --project-name agentdock_mobile --org com.agentdock --platforms=android,ios,windows,macos
 # 首次生成平台目录后，确认麦克风权限（见下方）；Android compileSdk/targetSdk 建议 35
 flutter pub get
-# 用 brand/app-icon.png 覆盖已创建平台的默认启动图标（CI 同一步骤）
+# 用 brand/app-icon.png 覆盖已创建平台的默认启动图标，并把桌面显示名设为 AgentDock（CI 同一步骤）
 bash tool/apply_brand_icons.sh
 flutter run
 ```
 
 品牌启动图源：`clients/mobile/brand/app-icon.png`（由 `python scripts/generate_brand_icons.py` 从 `assets/brand` 同步）。
-`tool/apply_brand_icons.sh` 只对已存在的 `android` / `ios` / `windows` / `macos` 目录生成图标；GitHub Actions `Build Clients` 在 `flutter create` + `pub get` 之后会跑该脚本。
+`tool/apply_brand_icons.sh` 会：
+1. 对已存在的 `android` / `ios` / `windows` / `macos` 生成图标  
+2. 跑 `tool/apply_display_name.py`，把安装后显示名统一为 **AgentDock**（包名仍是 `com.agentdock.agentdock_mobile`）  
+3. 若有 `android/`，跑 `tool/apply_android_signing.py`，用固定侧载证书签名（可覆盖安装，无需先卸载）
+
+GitHub Actions `Build Clients` 在 `flutter create` + `pub get` 之后会跑该脚本。
+
+> Android 侧载证书：`brand/android-sideload.p12`（仅侧载/CI，**不要**拿去上架 Play）。已装过「签名不一致」的旧 APK 需**卸一次**，之后同证书即可覆盖更新。
 
 交互与 Web 一致：
 

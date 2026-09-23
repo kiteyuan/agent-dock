@@ -89,16 +89,18 @@ class Runtime:
         self.notes = NotesIndexer(self.notes_root)
         self.installs_root = resolve_installs(cfg, ensure=True)
         self.secrets_dir = resolve_secrets(cfg, ensure=True)
-        self.pipeline = BridgePipeline(
-            self.router,
-            tts_registry=self.tts_registry,
-            workspace=str(self.workspace),
-        )
-        self.pipeline.prepare_turn = self._prepare_turn_sidecars
         server = cfg.get("server", {})
         network = cfg.get("network", {})
         self.pets_root = resolve_pets_root(cfg)
         self.assets_port = int(server.get("assets_port", 8766))
+        self.pipeline = BridgePipeline(
+            self.router,
+            tts_registry=self.tts_registry,
+            workspace=str(self.workspace),
+            notes_root=str(self.notes_root),
+            assets_port=self.assets_port,
+        )
+        self.pipeline.prepare_turn = self._prepare_turn_sidecars
         self.assets_base_url = build_assets_base_url(
             host_hint=server.get("host", "0.0.0.0"),
             port=self.assets_port,

@@ -29,6 +29,8 @@ def request_to_http_body(request: AgentRequest, *, stream: bool = True) -> dict[
     }
     if request.workspace:
         body["workspace"] = request.workspace
+    if request.instructions:
+        body["instructions"] = request.instructions
     return body
 
 

@@ -30,6 +30,7 @@ __all__ = [
     "voice_prompt",
     "which",
     "write_ndjson_headers",
+    "merge_runtime_instructions",
 ]
 
 
@@ -96,6 +97,19 @@ def voice_prompt(here: Path, *, env_append: str, env_replace: str, default: str)
     if append is not None:
         return load_prompt_text(append, fallback=file_default)
     return file_default
+
+
+def merge_runtime_instructions(base: str, req: dict[str, Any] | None) -> str:
+    """Append Runtime ``instructions`` (capability brief) after the voice prompt."""
+    base = (base or "").rstrip()
+    instr = ""
+    if isinstance(req, dict):
+        instr = str(req.get("instructions") or "").strip()
+    if not instr:
+        return base
+    if not base:
+        return instr
+    return f"{base}\n\n{instr}"
 
 
 def event(etype: str, session_id: str, **payload: Any) -> dict[str, Any]:

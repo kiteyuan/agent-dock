@@ -43,6 +43,8 @@ config.local.yaml
 *.p12
 *.jks
 *.keystore
+# Stable Android sideload signing (CI overwrite-install; NOT Play Store)
+!clients/mobile/brand/android-sideload.p12
 
 # ML / voice weights — do not publish (large + often non-redistributable)
 *.ckpt

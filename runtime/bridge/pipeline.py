@@ -7,6 +7,7 @@ import asyncio
 from loguru import logger
 
 from runtime.agent.router import AgentRouter
+from runtime.bridge.agent_brief import build_agent_instructions
 from runtime.bridge.bus import EventBus, client_disconnected
 from runtime.protocol.agent import AgentEventType, AgentRequest, agent_cancel, agent_error
 from runtime.protocol.device import tts_end, tts_start
@@ -28,10 +29,14 @@ class BridgePipeline:
         tts_registry: TTSRegistry | None = None,
         *,
         workspace: str | None = None,
+        notes_root: str | None = None,
+        assets_port: int = 8766,
     ) -> None:
         self.router = router
         self.tts_registry = tts_registry or TTSRegistry()
         self.workspace = workspace
+        self.notes_root = notes_root
+        self.assets_port = assets_port
         self.prepare_turn = None
 
     async def _send(self, bus: EventBus, data: str | bytes) -> bool:
@@ -164,6 +169,11 @@ class BridgePipeline:
         # so agents that echo both ``text`` and ``context`` do not double the prompt.
         session.add_turn("user", text)
         session.agent_id = adapter.info.id
+        instructions = build_agent_instructions(
+            workspace=self.workspace,
+            notes_root=self.notes_root,
+            assets_port=self.assets_port,
+        )
         request = AgentRequest(
             session_id=session.session_id,
             text=text,
@@ -171,6 +181,7 @@ class BridgePipeline:
             device=session.device_info(),
             agent_id=adapter.info.id,
             workspace=self.workspace,
+            instructions=instructions,
             cancel_event=session.cancel_event,
         )
 

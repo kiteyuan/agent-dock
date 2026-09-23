@@ -141,6 +141,43 @@ TOOLS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "notes_graph",
+        "description": "vault/notes 双链图谱摘要：节点/边统计与节点列表（可截断）。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "最多返回多少个节点，默认 40",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "notes_search",
+        "description": "在 vault/notes 里按关键词搜标题/路径/正文。",
+        "inputSchema": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string"},
+                "limit": {"type": "integer", "description": "默认 20，最大 50"},
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "notes_read",
+        "description": "读取一条笔记全文（id 为相对路径、无 .md 后缀）。",
+        "inputSchema": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {"id": {"type": "string", "description": "如 projects/foo"}},
+            "additionalProperties": False,
+        },
+    },
 ]
 
 
@@ -197,7 +234,43 @@ def _dispatch(runtime: Any, name: str, args: dict[str, Any]) -> Any:
         if not ok:
             raise ValueError("job not found")
         return {"ok": True, "job_id": job_id}
+    if name == "notes_graph":
+        return _notes_graph(runtime, args.get("limit"))
+    if name == "notes_search":
+        query = str(args.get("query") or "").strip()
+        if not query:
+            raise ValueError("query 不能为空")
+        indexer = getattr(runtime, "notes", None)
+        if indexer is None:
+            raise ValueError("notes indexer unavailable")
+        return indexer.search(query, limit=int(args.get("limit") or 20))
+    if name == "notes_read":
+        note_id = str(args.get("id") or "").strip()
+        if not note_id:
+            raise ValueError("id 不能为空")
+        indexer = getattr(runtime, "notes", None)
+        if indexer is None:
+            raise ValueError("notes indexer unavailable")
+        return indexer.doc(note_id)
     raise ValueError(f"unknown tool: {name}")
+
+
+def _notes_graph(runtime: Any, limit: Any) -> dict[str, Any]:
+    indexer = getattr(runtime, "notes", None)
+    if indexer is None:
+        raise ValueError("notes indexer unavailable")
+    payload = indexer.graph()
+    nodes = list(payload.get("nodes") or [])
+    edges = list(payload.get("edges") or [])
+    cap = max(1, min(int(limit or 40), 200))
+    return {
+        "ok": True,
+        "root": payload.get("root"),
+        "stats": payload.get("stats"),
+        "nodes": nodes[:cap],
+        "edges": edges[: cap * 3],
+        "truncated": len(nodes) > cap or len(edges) > cap * 3,
+    }
 
 
 def _runtime_status(runtime: Any) -> dict[str, Any]:
@@ -210,8 +283,10 @@ def _runtime_status(runtime: Any) -> dict[str, Any]:
         "defaults": defaults,
         "counts": snap.get("counts"),
         "workspace": (snap.get("meta") or {}).get("workspace"),
+        "notes_root": str(getattr(runtime, "notes_root", "") or ""),
         "admin_url": f"http://127.0.0.1:{runtime.assets_port}/admin/",
         "mcp_url": f"http://127.0.0.1:{runtime.assets_port}/mcp",
+        "hint": "笔记用 notes_search / notes_read / notes_graph；控制面用 set_default / module_lifecycle。",
     }
 
 
@@ -481,7 +556,10 @@ def initialize_result() -> dict[str, Any]:
         "capabilities": {"tools": {"listChanged": False}},
         "serverInfo": {"name": BUILTIN_NAME, "version": "0.1.0"},
         "instructions": (
-            "AgentDock Runtime 控制面。用这些工具切换助手/语音/角色、启停模块、"
-            "管理外置 MCP。内置 agentdock 自身不可删除或改写传输方式。"
+            "AgentDock Runtime 控制面（MCP server: agentdock）。\n"
+            "- 控制：runtime_status、list_modules、set_default、module_lifecycle、mcp_*、jobs_*。\n"
+            "- 笔记（vault/notes）：notes_search、notes_read、notes_graph；也可用 workspace 下文件工具直接读写。\n"
+            "- Admin「图谱」只是可视化；内置 agentdock 不可删除或改写传输方式。\n"
+            "- 默认助手/TTS/STT/角色由 Runtime 管理，勿让用户去客户端配置。"
         ),
     }

@@ -41,6 +41,7 @@ from common import (  # noqa: E402
     kill_process,
     launch_cli,
     make_write_event,
+    merge_runtime_instructions,
     read_json_request,
     repo_root_from,
     resolve_request_cwd,
@@ -81,7 +82,7 @@ def _system_prompt() -> str:
     )
 
 
-def _build_cmd(prompt: str) -> list[str]:
+def _build_cmd(prompt: str, *, instructions: str = "") -> list[str]:
     cmd = [
         BIN,
         "-p",
@@ -97,7 +98,7 @@ def _build_cmd(prompt: str) -> list[str]:
         cmd += ["--model", MODEL]
     if ALLOWED_TOOLS:
         cmd += ["--allowedTools", ",".join(ALLOWED_TOOLS)]
-    sp = _system_prompt().strip()
+    sp = merge_runtime_instructions(_system_prompt(), {"instructions": instructions}).strip()
     if sp:
         cmd += ["--append-system-prompt", sp]
     cmd += claude_args()
@@ -122,11 +123,18 @@ def _result_text(raw: dict) -> str:
     return ""
 
 
-def run_claude_turn(session_id: str, text: str, write_event, *, cwd: Path) -> None:
+def run_claude_turn(
+    session_id: str,
+    text: str,
+    write_event,
+    *,
+    cwd: Path,
+    instructions: str = "",
+) -> None:
     if not cwd.is_dir():
         write_event(event("agent.error", session_id, content=f"workspace is not a directory: {cwd}"))
         return
-    cmd = _build_cmd(text)
+    cmd = _build_cmd(text, instructions=instructions)
     write_event(
         event(
             "agent.thinking",
@@ -300,7 +308,13 @@ class Handler(BaseHTTPRequestHandler):
         write_ndjson_headers(self)
         write_event = make_write_event(self)
         try:
-            run_claude_turn(sid, text, write_event, cwd=cwd)
+            run_claude_turn(
+                sid,
+                text,
+                write_event,
+                cwd=cwd,
+                instructions=str(req.get("instructions") or ""),
+            )
         except BrokenPipeError:
             _PROCESSES.cancel(sid)
         except Exception as exc:  # noqa: BLE001

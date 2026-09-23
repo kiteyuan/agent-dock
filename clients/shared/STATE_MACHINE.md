@@ -19,7 +19,8 @@
 
 - **idle**：点一次开始录音  
 - **listening**：再点 = 结束并发送  
-- **busy / speaking**：再点 = `session.cancel`（清 TTS 队列 → idle）
+- **busy / speaking**：再点 = `session.cancel`（清 TTS 队列 → idle）  
+- **长按回复区**：隐藏文本入口 → 底栏输入 → `user.message`（可预填仍显示在回复区的 `stt.final`）
 
 与 Web / Mobile / Pi 一致。
 

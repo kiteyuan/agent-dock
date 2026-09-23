@@ -82,22 +82,27 @@ def _load_prompt_text(raw: str | None, *, fallback: str) -> str:
     return raw
 
 
-def _system_prompt_args() -> list[str]:
+def _system_prompt_args(*, extra: str = "") -> list[str]:
     """CLI flags for system prompt injection."""
     replace = os.environ.get("PI_SYSTEM_PROMPT")
     if replace is not None and replace.strip() != "":
         text = _load_prompt_text(replace, fallback=_DEFAULT_VOICE_PROMPT)
-        return ["--system-prompt", text] if text else []
-
-    default_file = HERE / "voice_prompt.txt"
-    default = (
-        default_file.read_text(encoding="utf-8").strip()
-        if default_file.is_file()
-        else _DEFAULT_VOICE_PROMPT
-    )
-    append = os.environ.get("PI_APPEND_SYSTEM_PROMPT")
-    text = _load_prompt_text(append, fallback=default) if append is not None else default
-    return ["--append-system-prompt", text] if text else []
+    else:
+        default_file = HERE / "voice_prompt.txt"
+        default = (
+            default_file.read_text(encoding="utf-8").strip()
+            if default_file.is_file()
+            else _DEFAULT_VOICE_PROMPT
+        )
+        append = os.environ.get("PI_APPEND_SYSTEM_PROMPT")
+        text = _load_prompt_text(append, fallback=default) if append is not None else default
+    if extra.strip():
+        text = f"{(text or '').rstrip()}\n\n{extra.strip()}" if text else extra.strip()
+    if not text:
+        return []
+    if replace is not None and replace.strip() != "":
+        return ["--system-prompt", text]
+    return ["--append-system-prompt", text]
 
 
 def _resolve_pi_cmd() -> list[str]:
@@ -218,7 +223,7 @@ def _mcp_extension_args(root: Path | None = None) -> list[str]:
     return ["-e", str(entry)]
 
 
-def _build_pi_cmd(prompt: str, *, pi_key: str) -> list[str]:
+def _build_pi_cmd(prompt: str, *, pi_key: str, instructions: str = "") -> list[str]:
     cmd = [*_resolve_pi_cmd(), "--mode", "json", "--print"]
     if NO_SESSION:
         cmd.append("--no-session")
@@ -236,7 +241,7 @@ def _build_pi_cmd(prompt: str, *, pi_key: str) -> list[str]:
         cmd += ["--model", MODEL]
     if NO_TOOLS:
         cmd += ["--no-tools"]
-    cmd += _system_prompt_args()
+    cmd += _system_prompt_args(extra=instructions)
     if THINKING:
         cmd += ["--thinking", THINKING]
     cmd += _mcp_extension_args()
@@ -314,6 +319,7 @@ def run_pi_turn(
     *,
     device_id: str | None = None,
     cwd: Path | None = None,
+    instructions: str = "",
 ) -> None:
     work_dir = (cwd or FALLBACK_WORK_DIR).resolve()
     if not work_dir.is_dir():
@@ -327,7 +333,7 @@ def run_pi_turn(
         return
     pi_key = _pi_memory_key(session_id=session_id, device_id=device_id)
     sync_pi_mcp(work_dir)
-    cmd = _build_pi_cmd(text, pi_key=pi_key)
+    cmd = _build_pi_cmd(text, pi_key=pi_key, instructions=instructions)
     sid_note = "ephemeral" if NO_SESSION else pi_key
     write_event(
         _event(
@@ -542,7 +548,14 @@ class Handler(BaseHTTPRequestHandler):
                 raise ClientGone(str(exc)) from exc
 
         try:
-            run_pi_turn(sid, text, write_event, device_id=device_id, cwd=cwd)
+            run_pi_turn(
+                sid,
+                text,
+                write_event,
+                device_id=device_id,
+                cwd=cwd,
+                instructions=str(req.get("instructions") or ""),
+            )
         except ClientGone:
             print(f"[pi-gateway] client gone mid-turn session={sid}", flush=True)
         except Exception as exc:  # noqa: BLE001

@@ -43,6 +43,7 @@ modules:
       kind: steps
       steps:
         - {kind: venv}
+        - {kind: command, executable: "{module_python}", args: ["-m", "runtime.transport.speech.ensure_torch"], cwd: "."}
         - {kind: pip, packages: ["funasr==1.4.15", "modelscope>=1.20,<2"]}
         - {kind: command, executable: "{module_python}", args: ["-m", "runtime.transport.speech.prefetch", "--provider", "sensevoice", "--module-dir", "{module_dir}"], cwd: "."}
     licenses:
@@ -62,6 +63,7 @@ modules:
       kind: steps
       steps:
         - {kind: venv}
+        - {kind: command, executable: "{module_python}", args: ["-m", "runtime.transport.speech.ensure_torch"], cwd: "."}
         - {kind: pip, packages: ["funasr==1.4.15", "modelscope>=1.20,<2"]}
         - {kind: command, executable: "{module_python}", args: ["-m", "runtime.transport.speech.prefetch", "--provider", "funasr", "--module-dir", "{module_dir}"], cwd: "."}
     licenses:
