@@ -19,6 +19,7 @@ class DeviceMessageType(str, Enum):
     AUDIO_CHUNK = "audio.chunk"
     AUDIO_END = "audio.end"
     SESSION_CANCEL = "session.cancel"
+    SESSION_RESET = "session.reset"
     DEVICE_STATUS = "device.status"  # reserved; Runtime does not emit/consume
     AGENTS_LIST = "agents.list"
     TTS_LIST = "tts.list"
@@ -28,6 +29,7 @@ class DeviceMessageType(str, Enum):
 
     # Runtime -> Device
     SESSION_ACCEPT = "session.accept"
+    SESSION_RESET_OK = "session.reset.ok"
     AGENTS_LIST_RESULT = "agents.list.result"
     TTS_LIST_RESULT = "tts.list.result"
     TTS_SELECTED = "tts.selected"
@@ -111,6 +113,28 @@ def session_accept(
     if assets_base_url:
         payload["assets_base_url"] = assets_base_url
     return DeviceMessage(type=DeviceMessageType.SESSION_ACCEPT, payload=payload)
+
+
+def session_reset(session_id: str | None = None) -> DeviceMessage:
+    """Client asks Runtime to clear conversation memory for this device."""
+    payload: dict[str, Any] = {}
+    if session_id:
+        payload["session_id"] = session_id
+    return DeviceMessage(type=DeviceMessageType.SESSION_RESET, payload=payload)
+
+
+def session_reset_ok(
+    session_id: str,
+    device_id: str,
+    *,
+    quarantined: list[str] | None = None,
+) -> DeviceMessage:
+    payload: dict[str, Any] = {
+        "session_id": session_id,
+        "device_id": device_id,
+        "quarantined": list(quarantined or []),
+    }
+    return DeviceMessage(type=DeviceMessageType.SESSION_RESET_OK, payload=payload)
 
 
 def agents_list_result(agents: list[dict[str, Any]]) -> DeviceMessage:

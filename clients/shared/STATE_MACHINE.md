@@ -20,7 +20,8 @@
 - **idle**：点一次开始录音  
 - **listening**：再点 = 结束并发送  
 - **busy / speaking**：再点 = `session.cancel`（清 TTS 队列 → idle）  
-- **长按回复区**：隐藏文本入口 → 底栏输入 → `user.message`（可预填仍显示在回复区的 `stt.final`）
+- **长按回复区**：隐藏文本入口 → 底栏输入 → `user.message`（可预填仍显示在回复区的 `stt.final`）  
+- **长按人物 → 设置 → 新开会话**：`session.reset`（清空本设备 Agent 记忆文件；**不断线**）。默认仍按设备续聊。
 
 与 Web / Mobile / Pi 一致。
 
@@ -60,6 +61,7 @@ idle
 | `user.message` | 文本轮（可选） |
 | `audio.start` / 二进制 / `audio.end` | 一轮语音；WAV 建议 16 kHz mono PCM |
 | `session.cancel` | 取消当前轮 |
+| `session.reset` | 新开会话：清 Runtime context + 隔离该设备的 Agent session 文件 |
 | `device.ping` | 心跳 |
 
 > `tts.select` 仅 CLI/调试覆盖；正式瘦客户端不发。TTS / 人物由 Runtime 决定。
@@ -69,6 +71,7 @@ idle
 | type | 作用 |
 |------|------|
 | `session.accept` | `session_id` + Runtime 默认 `tts_id` / `pet_id` / `agent_id` + assets |
+| `session.reset.ok` | 新开会话完成；可带 `quarantined` 文件列表 |
 | `tts.list.result` / `pets.list.result` | 连接后由 Runtime **推送**（也可主动拉取） |
 | `stt.partial` / `stt.final` | 识别 |
 | `agent.thinking` / `tool_*` / `agent.message` | 过程 / 回复；口语常带 `speak: true` |

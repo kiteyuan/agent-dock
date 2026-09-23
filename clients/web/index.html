@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" href="./favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="./icon-128.png" />
   <meta name="theme-color" content="#141414" />
-  <link rel="stylesheet" href="./styles.css?v=11" />
+  <link rel="stylesheet" href="./styles.css?v=13" />
 </head>
 <body>
   <div class="stage" id="stage" data-mood="offline">
@@ -42,19 +42,32 @@
 
   <dialog id="settings">
     <form method="dialog" class="sheet">
-      <h2>连接</h2>
-      <label>Runtime WS</label>
-      <input id="url" type="text" placeholder="ws://192.168.x.x:8765" />
-      <label>Token（可选）</label>
-      <input id="token" type="password" placeholder="token" />
-      <div class="sheet-actions">
-        <button type="submit" id="btnSave" value="save">保存并连接</button>
-        <button type="button" id="btnClose" value="cancel">关闭</button>
+      <div id="settingsMain">
+        <h2>连接</h2>
+        <label>Runtime WS</label>
+        <input id="url" type="text" placeholder="ws://192.168.x.x:8765" />
+        <label>Token（可选）</label>
+        <input id="token" type="password" placeholder="token" />
+        <div class="sheet-actions">
+          <button type="button" id="btnNewSession" value="reset">新开会话</button>
+        </div>
+        <div class="sheet-actions">
+          <button type="submit" id="btnSave" value="save">保存并连接</button>
+          <button type="button" id="btnClose" value="cancel">关闭</button>
+        </div>
+      </div>
+      <div id="settingsResetConfirm" hidden>
+        <h2>新开会话？</h2>
+        <p class="sheet-hint">会清空本设备的 Agent 对话记忆。连接不用重连。</p>
+        <div class="sheet-actions">
+          <button type="button" id="btnResetCancel">取消</button>
+          <button type="button" id="btnResetConfirm">确定</button>
+        </div>
       </div>
     </form>
   </dialog>
 
   <script src="./pixel-bot.js?v=4"></script>
-  <script src="./app.js?v=17"></script>
+  <script src="./app.js?v=19"></script>
 </body>
 </html>

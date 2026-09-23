@@ -86,93 +86,168 @@ class _HomePageState extends State<HomePage> {
       context: context,
       barrierColor: Colors.black54,
       builder: (ctx) {
-        return Dialog(
-          backgroundColor: WebUiTheme.panel,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero,
-            side: BorderSide(color: WebUiTheme.line, width: 2),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text('连接', style: TextStyle(color: WebUiTheme.text, fontSize: 16)),
-                const SizedBox(height: 10),
-                _label('Runtime WS'),
-                TextField(
-                  controller: _url,
-                  style: const TextStyle(color: WebUiTheme.text, fontSize: 13),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: 'ws://192.168.x.x:8765',
-                    hintStyle: TextStyle(color: WebUiTheme.muted),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.zero,
-                      borderSide: BorderSide(color: WebUiTheme.line),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.zero,
-                      borderSide: BorderSide(color: WebUiTheme.line),
-                    ),
+        var confirmingReset = false;
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            final square = RoundedRectangleBorder(
+              borderRadius: BorderRadius.zero,
+              side: const BorderSide(color: WebUiTheme.line, width: 2),
+            );
+            Widget outlinedBtn({
+              required String label,
+              required VoidCallback? onPressed,
+              Color? bg,
+              Color? fg,
+            }) {
+              return TextButton(
+                style: TextButton.styleFrom(
+                  backgroundColor: bg ?? const Color(0xFF2A3340),
+                  foregroundColor: fg ?? WebUiTheme.text,
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: onPressed,
+                child: Text(label),
+              );
+            }
+
+            if (confirmingReset) {
+              return Dialog(
+                backgroundColor: WebUiTheme.panel,
+                shape: square,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text('新开会话？', style: TextStyle(color: WebUiTheme.text, fontSize: 16)),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '会清空本机与这台设备相关的 Agent 对话记忆。连接不用重连。',
+                        style: TextStyle(color: WebUiTheme.muted, fontSize: 13, height: 1.4),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: outlinedBtn(
+                              label: '取消',
+                              onPressed: () => setLocal(() => confirmingReset = false),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: outlinedBtn(
+                              label: '确定',
+                              bg: WebUiTheme.accent,
+                              fg: const Color(0xFF04140C),
+                              onPressed: () async {
+                                if (ctx.mounted) Navigator.pop(ctx);
+                                await s.resetConversation();
+                                await _savePrefs();
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                _label('Token（可选）'),
-                TextField(
-                  controller: _token,
-                  obscureText: true,
-                  style: const TextStyle(color: WebUiTheme.text, fontSize: 13),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.zero,
-                      borderSide: BorderSide(color: WebUiTheme.line),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.zero,
-                      borderSide: BorderSide(color: WebUiTheme.line),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
+              );
+            }
+
+            return Dialog(
+              backgroundColor: WebUiTheme.panel,
+              shape: square,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                          backgroundColor: WebUiTheme.accent,
-                          foregroundColor: const Color(0xFF04140C),
-                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    const Text('连接', style: TextStyle(color: WebUiTheme.text, fontSize: 16)),
+                    const SizedBox(height: 10),
+                    _label('Runtime WS'),
+                    TextField(
+                      controller: _url,
+                      style: const TextStyle(color: WebUiTheme.text, fontSize: 13),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        hintText: 'ws://192.168.x.x:8765',
+                        hintStyle: TextStyle(color: WebUiTheme.muted),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.zero,
+                          borderSide: BorderSide(color: WebUiTheme.line),
                         ),
-                        onPressed: () async {
-                          s.url = _url.text.trim();
-                          s.token = _token.text;
-                          await _savePrefs();
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          await s.connect();
-                        },
-                        child: const Text('保存并连接'),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.zero,
+                          borderSide: BorderSide(color: WebUiTheme.line),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                          backgroundColor: const Color(0xFF2A3340),
-                          foregroundColor: WebUiTheme.text,
-                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    const SizedBox(height: 8),
+                    _label('Token（可选）'),
+                    TextField(
+                      controller: _token,
+                      obscureText: true,
+                      style: const TextStyle(color: WebUiTheme.text, fontSize: 13),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.zero,
+                          borderSide: BorderSide(color: WebUiTheme.line),
                         ),
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('关闭'),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.zero,
+                          borderSide: BorderSide(color: WebUiTheme.line),
+                        ),
                       ),
+                    ),
+                    const SizedBox(height: 14),
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: WebUiTheme.text,
+                        side: const BorderSide(color: WebUiTheme.line, width: 2),
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      onPressed: s.sessionId == null
+                          ? null
+                          : () => setLocal(() => confirmingReset = true),
+                      child: const Text('新开会话'),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: outlinedBtn(
+                            label: '保存并连接',
+                            bg: WebUiTheme.accent,
+                            fg: const Color(0xFF04140C),
+                            onPressed: () async {
+                              s.url = _url.text.trim();
+                              s.token = _token.text;
+                              await _savePrefs();
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              await s.connect();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: outlinedBtn(
+                            label: '关闭',
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );

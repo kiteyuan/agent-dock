@@ -425,6 +425,39 @@ class DeviceSession {
     _setState(ClientState.idle, status: '已取消');
   }
 
+  /// Clear Agent conversation memory for this device (survives reconnect).
+  Future<void> resetConversation() async {
+    if (sessionId == null || _ws == null) {
+      lastError = '未连接';
+      _notify();
+      return;
+    }
+    if (state == ClientState.listening) {
+      try {
+        await recorder.cancel();
+      } catch (_) {}
+    }
+    if (state == ClientState.busy || state == ClientState.speaking) {
+      try {
+        _ws!.sink.add(proto.sessionCancel(sessionId!));
+      } catch (_) {}
+      player.clear();
+      _ttsBuf.clear();
+    }
+    _awaitingIdle = false;
+    _endCaptionTyping(keepReply: false);
+    _resetThinking();
+    lastSttText = '';
+    replyText = '';
+    try {
+      _ws!.sink.add(proto.sessionReset(sessionId));
+    } catch (e) {
+      _failTurn(e.toString());
+      return;
+    }
+    _setState(ClientState.idle, status: '已新开会话');
+  }
+
   Future<void> _startListen() async {
     try {
       await recorder.start();
@@ -537,6 +570,16 @@ class DeviceSession {
       case 'pets.list.result':
         // Catalog apply is async — HomePage listens via petsEpoch.
         _applyPets(payload);
+        break;
+      case 'session.reset.ok':
+        lastSttText = '';
+        replyText = '';
+        _endCaptionTyping(keepReply: false);
+        _resetThinking();
+        player.clear();
+        _ttsBuf.clear();
+        _awaitingIdle = false;
+        _setState(ClientState.idle, status: '已新开会话');
         break;
       case 'error':
       case 'agent.error':

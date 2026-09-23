@@ -501,8 +501,29 @@ function connect() {
       sessionId = p.session_id;
       if (p.pet_id) applyPetFromRuntime(p.pet_id);
       enterIdle();
+      syncNewSessionBtn();
       // Optional pull for older Runtimes; new hosts already push catalogs.
       ws.send(msg("pets.list"));
+      return;
+    }
+    if (m.type === "session.reset.ok") {
+      lastSttText = "";
+      clearReply();
+      resetThinkingBuf();
+      resetCaptionState();
+      ttsPlayQueue = [];
+      ttsChunks = [];
+      turnTtsSegments = [];
+      turnAwaitingIdle = false;
+      lastTtsSegments = [];
+      if (audioEl) {
+        try {
+          audioEl.pause();
+        } catch (_) {}
+      }
+      ttsPlaying = false;
+      enterIdle();
+      syncReplayHint();
       return;
     }
     if (m.type === "pets.list.result") {
@@ -861,9 +882,79 @@ function clearReplyHold() {
   }
 }
 
+function showSettingsMain() {
+  $("settingsMain").hidden = false;
+  $("settingsResetConfirm").hidden = true;
+}
+
+function showSettingsResetConfirm() {
+  $("settingsMain").hidden = true;
+  $("settingsResetConfirm").hidden = false;
+}
+
 function openSettings() {
+  showSettingsMain();
+  syncNewSessionBtn();
   $("settings").showModal();
 }
+
+function syncNewSessionBtn() {
+  const btn = $("btnNewSession");
+  if (!btn) return;
+  btn.disabled = !sessionId || !ws || ws.readyState !== WebSocket.OPEN;
+}
+
+function resetConversation() {
+  if (!ws || !sessionId || ws.readyState !== WebSocket.OPEN) return;
+  if (recording) {
+    stopTalk({ discard: true }).catch(() => {
+      recording = false;
+    });
+  }
+  if (turnLocked) {
+    try {
+      ws.send(msg("session.cancel", { session_id: sessionId }));
+    } catch (_) {}
+    applyLocalCancel();
+  }
+  lastSttText = "";
+  clearReply();
+  resetThinkingBuf();
+  resetCaptionState();
+  try {
+    ws.send(msg("session.reset", { session_id: sessionId }));
+  } catch (_) {}
+  enterIdle();
+  syncReplayHint();
+}
+
+$("btnClose").onclick = () => {
+  showSettingsMain();
+  $("settings").close();
+};
+$("btnNewSession").onclick = (e) => {
+  e.preventDefault();
+  if (!sessionId || !ws || ws.readyState !== WebSocket.OPEN) return;
+  showSettingsResetConfirm();
+};
+$("btnResetCancel").onclick = (e) => {
+  e.preventDefault();
+  showSettingsMain();
+};
+$("btnResetConfirm").onclick = (e) => {
+  e.preventDefault();
+  showSettingsMain();
+  $("settings").close();
+  resetConversation();
+};
+$("btnSave").onclick = (e) => {
+  e.preventDefault();
+  showSettingsMain();
+  $("settings").close();
+  if (ws) ws.close();
+  connect();
+};
+$("settings").addEventListener("close", showSettingsMain);
 
 botEl.addEventListener("pointerdown", (e) => {
   if (e.button != null && e.button !== 0) return;
@@ -933,14 +1024,6 @@ document.addEventListener("keydown", (e) => {
     closeComposer();
   }
 });
-
-$("btnClose").onclick = () => $("settings").close();
-$("btnSave").onclick = (e) => {
-  e.preventDefault();
-  $("settings").close();
-  if (ws) ws.close();
-  connect();
-};
 
 loadPrefs();
 

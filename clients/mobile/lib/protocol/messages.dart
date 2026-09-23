@@ -73,6 +73,14 @@ String audioEnd(String sessionId) =>
 String sessionCancel(String sessionId) =>
     encode('session.cancel', {'session_id': sessionId});
 
+String sessionReset([String? sessionId]) {
+  final payload = <String, dynamic>{};
+  if (sessionId != null && sessionId.isNotEmpty) {
+    payload['session_id'] = sessionId;
+  }
+  return encode('session.reset', payload);
+}
+
 String ttsList() => encode('tts.list');
 
 String petsList() => encode('pets.list');

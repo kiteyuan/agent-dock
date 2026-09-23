@@ -22,12 +22,14 @@ from runtime.protocol.device import (
     pets_list_result,
     pong,
     session_accept,
+    session_reset_ok,
     stt_final,
     tts_list_result,
     tts_selected,
 )
 from runtime.protocol.wire import decode_message, encode_message
 from runtime.security.auth import DeviceAuth
+from runtime.session.agent_memory import quarantine_device_sessions
 from runtime.session.manager import SessionManager
 from runtime.session.models import Session
 from runtime.transport.speech.base import STTProvider
@@ -51,6 +53,7 @@ class DeviceGateway:
         assets_port: int | None = None,
         assets_base_url: str | None = None,
         default_agent_id: str | None = None,
+        sessions_root: Path | None = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -65,6 +68,7 @@ class DeviceGateway:
         self.assets_port = assets_port
         self.assets_base_url = assets_base_url
         self.default_agent_id = default_agent_id
+        self.sessions_root = sessions_root
         self._connections: dict[str, DeviceConnection] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
         # Match websockets.serve max_size so a single frame cannot overshoot the buffer.
@@ -447,6 +451,9 @@ class DeviceGateway:
                         logger.exception("[{}] cancel await failed", sid)
             return None
 
+        if msg.type == DeviceMessageType.SESSION_RESET:
+            return await self._handle_session_reset(conn, turn_task)
+
         if msg.type == DeviceMessageType.USER_MESSAGE:
             sid = msg.payload.get("session_id", "")
             text = msg.payload.get("text", "")
@@ -504,6 +511,70 @@ class DeviceGateway:
             return asyncio.create_task(self._audio_turn(conn, session, sid, audio))
 
         return turn_task
+
+    def reset_device_memory(self, device_id: str) -> dict[str, Any]:
+        """Clear Runtime context + quarantine Agent session files for a device."""
+        did = (device_id or "").strip()
+        if not did:
+            raise ValueError("device_id 不能为空")
+        cleared_live = False
+        conn = self._connections.get(did)
+        if conn and conn.session:
+            conn.session.clear_context()
+            cleared_live = True
+        quarantined: list[str] = []
+        if self.sessions_root is not None:
+            quarantined = quarantine_device_sessions(
+                self.sessions_root,
+                did,
+                reason="reset",
+            )
+        logger.info(
+            "session reset device={} live={} quarantined={}",
+            did,
+            cleared_live,
+            len(quarantined),
+        )
+        return {
+            "ok": True,
+            "device_id": did,
+            "cleared_runtime_context": cleared_live,
+            "quarantined": quarantined,
+        }
+
+    async def _handle_session_reset(
+        self,
+        conn: DeviceConnection,
+        turn_task: asyncio.Task | None,
+    ) -> None:
+        if not conn.device_id or not conn.session:
+            await conn.send(encode_message(error_msg("not connected")))
+            return None
+        # Stop in-flight turn first (same as cancel).
+        if turn_task and not turn_task.done():
+            conn.session.request_cancel()
+            turn_task.cancel()
+            try:
+                await turn_task
+            except asyncio.CancelledError:
+                pass
+            except Exception as exc:  # noqa: BLE001
+                if not client_disconnected(exc):
+                    logger.exception(
+                        "[{}] reset cancel await failed",
+                        conn.session.session_id,
+                    )
+        result = self.reset_device_memory(conn.device_id)
+        await conn.send(
+            encode_message(
+                session_reset_ok(
+                    conn.session.session_id,
+                    conn.device_id,
+                    quarantined=list(result.get("quarantined") or []),
+                )
+            )
+        )
+        return None
 
     async def _audio_turn(
         self,

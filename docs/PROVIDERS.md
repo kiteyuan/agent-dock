@@ -45,7 +45,9 @@ sidecar 仍只获得映射后的环境变量，不会读到其他助手的独立
 Runtime 在 Admin 口（默认 `:8766/mcp`）固定暴露一个不可删除的 HTTP MCP，名称为
 `agentdock`。它会写入共用菜单 `data/state/mcp.json`，随助手启动注入；Admin「MCP」
 页可开关，但不可改传输或删除。工具覆盖：查看状态、切换默认助手/TTS/STT/角色、
-prepare/start/stop 模块、外置 MCP 增删改、查看/取消 job。
+prepare/start/stop 模块、外置 MCP 增删改、查看/取消 job、以及
+`session_reset(device_id)`（隔离该设备的 Agent 会话文件并清在线 Runtime context）。
+对话默认按设备 ID 续聊；污染或异常时也可让用户在客户端长按人物 →「新开会话」。
 
 
 ## TTS

@@ -47,6 +47,7 @@ from runtime.paths import (
     resolve_installs,
     resolve_notes,
     resolve_secrets,
+    resolve_sessions,
     resolve_state,
     resolve_voices,
     resolve_workspace,
@@ -180,6 +181,7 @@ class Runtime:
             assets_port=self.assets_port,
             assets_base_url=self.assets_base_url,
             default_agent_id=self.router.default_agent_id,
+            sessions_root=resolve_sessions(cfg, ensure=True),
         )
         self.snapshot = SnapshotService(
             self,

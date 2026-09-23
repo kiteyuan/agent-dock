@@ -178,6 +178,24 @@ TOOLS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "session_reset",
+        "description": (
+            "清空某设备的 Agent 对话记忆：隔离 Pi 等会话文件，并清掉在线连接的 Runtime context。"
+            "用于截图触发内容风控等「会话被污染」场景。默认续聊按设备 ID；用户也可从客户端设置里新开会话。"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["device_id"],
+            "properties": {
+                "device_id": {
+                    "type": "string",
+                    "description": "设备 id（如 mobile-xxxx；与 session 文件名中的片段一致）",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
 ]
 
 
@@ -252,7 +270,18 @@ def _dispatch(runtime: Any, name: str, args: dict[str, Any]) -> Any:
         if indexer is None:
             raise ValueError("notes indexer unavailable")
         return indexer.doc(note_id)
+    if name == "session_reset":
+        return _session_reset(runtime, str(args.get("device_id") or "").strip())
     raise ValueError(f"unknown tool: {name}")
+
+
+def _session_reset(runtime: Any, device_id: str) -> dict[str, Any]:
+    if not device_id:
+        raise ValueError("device_id 不能为空")
+    gateway = getattr(runtime, "gateway", None)
+    if gateway is None or not hasattr(gateway, "reset_device_memory"):
+        raise ValueError("gateway unavailable")
+    return gateway.reset_device_memory(device_id)
 
 
 def _notes_graph(runtime: Any, limit: Any) -> dict[str, Any]:
@@ -286,7 +315,7 @@ def _runtime_status(runtime: Any) -> dict[str, Any]:
         "notes_root": str(getattr(runtime, "notes_root", "") or ""),
         "admin_url": f"http://127.0.0.1:{runtime.assets_port}/admin/",
         "mcp_url": f"http://127.0.0.1:{runtime.assets_port}/mcp",
-        "hint": "笔记用 notes_search / notes_read / notes_graph；控制面用 set_default / module_lifecycle。",
+        "hint": "笔记用 notes_search / notes_read / notes_graph；控制面用 set_default / module_lifecycle / session_reset。",
     }
 
 
@@ -557,9 +586,10 @@ def initialize_result() -> dict[str, Any]:
         "serverInfo": {"name": BUILTIN_NAME, "version": "0.1.0"},
         "instructions": (
             "AgentDock Runtime 控制面（MCP server: agentdock）。\n"
-            "- 控制：runtime_status、list_modules、set_default、module_lifecycle、mcp_*、jobs_*。\n"
+            "- 控制：runtime_status、list_modules、set_default、module_lifecycle、mcp_*、jobs_*、session_reset。\n"
             "- 笔记（vault/notes）：notes_search、notes_read、notes_graph；也可用 workspace 下文件工具直接读写。\n"
             "- Admin「图谱」只是可视化；内置 agentdock 不可删除或改写传输方式。\n"
-            "- 默认助手/TTS/STT/角色由 Runtime 管理，勿让用户去客户端配置。"
+            "- 默认助手/TTS/STT/角色由 Runtime 管理，勿让用户去客户端配置。\n"
+            "- 对话默认按设备续聊；会话被污染时用 session_reset(device_id)，或让用户在客户端设置里点「新开会话」。"
         ),
     }

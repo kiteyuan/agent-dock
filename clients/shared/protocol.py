@@ -65,6 +65,13 @@ def session_cancel(session_id: str) -> str:
     return make_msg("session.cancel", {"session_id": session_id})
 
 
+def session_reset(session_id: str | None = None) -> str:
+    payload: dict[str, Any] = {}
+    if session_id:
+        payload["session_id"] = session_id
+    return make_msg("session.reset", payload)
+
+
 def tts_list() -> str:
     return make_msg("tts.list")
 
