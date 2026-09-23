@@ -11,7 +11,7 @@ abstract final class WebUiTheme {
 
   static const replySize = 24.0;
   static const replyLh = 1.25;
-  /// Preferred visible lines on a normal phone; shrinks on short screens.
+  /// Preferred visible lines; shrinks on short screens via [replyBoxHeightFor].
   static const replyLines = 6;
   static const replyLinesMin = 3;
   /// Reply box never takes more than this fraction of screen height.

@@ -82,6 +82,72 @@ html, body {
   gap: 1rem;
 }
 
+.bot-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+/* Pixel status spritesheet (16×16 × 4 frames × 7 moods) — scripts/generate_status_icons.py */
+.status-badge {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.status-badge .ico {
+  display: block;
+  width: 32px;
+  height: 32px;
+  background-image: url("./status-icons.png");
+  background-repeat: no-repeat;
+  /* native sheet 64×112 → 2× display */
+  background-size: 128px 224px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+/* row = mood; animate X across 4 frames */
+.stage[data-mood="idle"] .ico {
+  background-position-y: 0;
+  animation: statusFrames 1.4s steps(4) infinite;
+  opacity: 0.75;
+}
+.stage[data-mood="listen"] .ico {
+  background-position-y: -32px;
+  animation: statusFrames 0.55s steps(4) infinite;
+}
+.stage[data-mood="busy"] .ico {
+  background-position-y: -64px;
+  animation: statusFrames 0.7s steps(4) infinite;
+}
+.stage[data-mood="speak"] .ico {
+  background-position-y: -96px;
+  animation: statusFrames 0.55s steps(4) infinite;
+}
+.stage[data-mood="connecting"] .ico {
+  background-position-y: -128px;
+  animation: statusFrames 0.55s steps(4) infinite;
+}
+.stage[data-mood="offline"] .ico {
+  background-position: 0 -160px;
+  animation: none;
+  opacity: 0.85;
+}
+.stage[data-mood="err"] .ico {
+  background-position-y: -192px;
+  animation: statusFrames 0.8s steps(4) infinite;
+}
+@keyframes statusFrames {
+  from { background-position-x: 0; }
+  to { background-position-x: -128px; }
+}
+
 .bot {
   width: 100%;
   border: none;
@@ -236,16 +302,6 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.75); }
   font-size: 12px;
   -webkit-font-smoothing: none;
   font-smooth: never;
-}
-.sheet input[readonly] {
-  color: var(--muted);
-  opacity: 0.9;
-}
-.sheet .hint {
-  margin: 0.4rem 0 0.6rem;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.4;
 }
 .sheet-actions { display: flex; gap: 0.5rem; margin-top: 0.9rem; }
 .sheet-actions button {

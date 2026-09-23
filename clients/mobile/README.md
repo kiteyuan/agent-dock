@@ -11,12 +11,14 @@
 cd clients/mobile
 flutter create . --project-name agentdock_mobile --org com.agentdock --platforms=android,ios,windows,macos
 # 首次生成平台目录后，确认麦克风权限（见下方）；Android compileSdk/targetSdk 建议 35
-# 可选：用 brand/app-icon.png 覆盖各平台默认启动图标后再 pub get / run
 flutter pub get
+# 用 brand/app-icon.png 覆盖已创建平台的默认启动图标（CI 同一步骤）
+bash tool/apply_brand_icons.sh
 flutter run
 ```
 
 品牌启动图源：`clients/mobile/brand/app-icon.png`（由 `python scripts/generate_brand_icons.py` 从 `assets/brand` 同步）。
+`tool/apply_brand_icons.sh` 只对已存在的 `android` / `ios` / `windows` / `macos` 目录生成图标；GitHub Actions `Build Clients` 在 `flutter create` + `pub get` 之后会跑该脚本。
 
 交互与 Web 一致：
 

@@ -21,6 +21,23 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/status-icons.png
+
+# Applied after `flutter create` (CI + local): brand/app-icon.png → platform launchers.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: brand/app-icon.png
+  remove_alpha_ios: true
+  windows:
+    generate: true
+    image_path: brand/app-icon.png
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: brand/app-icon.png

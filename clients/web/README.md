@@ -1,10 +1,6 @@
 # Web 客户端
 
-- 角色可选社区 Codex Pet：
-  - [Monthly salary cat](https://codex-pets.net/#/pets/monthly-salary-cat)
-  - [Arona](https://codex-pets.net/#/pets/arona-v1)
-- 设置里切换「角色」后保存即可
-- 点击角色开/关收音；下方回复流式显示
+桌面预览 UI：点击角色开/关收音；下方回复流式显示。TTS / 角色由主机 Runtime（Admin / `config.yaml`）下发，客户端设置里只配连接。
 
 ```bash
 python -m runtime

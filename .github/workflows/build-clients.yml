@@ -52,6 +52,9 @@ jobs:
           fi
           flutter pub get
 
+      - name: Apply brand launcher icons
+        run: bash tool/apply_brand_icons.sh
+
       - name: Patch Android SDK + permissions
         run: |
           python3 <<'PY'
@@ -175,6 +178,10 @@ jobs:
           fi
           flutter pub get
 
+      - name: Apply brand launcher icons
+        shell: bash
+        run: bash tool/apply_brand_icons.sh
+
       - name: Build Windows release
         shell: bash
         run: flutter build windows --release
@@ -221,6 +228,9 @@ jobs:
             git checkout -- test/widget_test.dart 2>/dev/null || true
           fi
           flutter pub get
+
+      - name: Apply brand launcher icons
+        run: bash tool/apply_brand_icons.sh
 
       - name: Patch macOS mic / network + deployment target
         run: |
@@ -332,6 +342,9 @@ jobs:
             git checkout -- test/widget_test.dart 2>/dev/null || true
           fi
           flutter pub get
+
+      - name: Apply brand launcher icons
+        run: bash tool/apply_brand_icons.sh
 
       - name: Patch iOS microphone + deployment target
         run: |

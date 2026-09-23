@@ -10,16 +10,21 @@
   <link rel="icon" type="image/png" href="./favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="./icon-128.png" />
   <meta name="theme-color" content="#141414" />
-  <link rel="stylesheet" href="./styles.css?v=7" />
+  <link rel="stylesheet" href="./styles.css?v=10" />
 </head>
 <body>
   <div class="stage" id="stage" data-mood="offline">
     <div class="stack">
-      <button type="button" id="bot" class="bot" aria-label="通话，长按打开设置">
-        <div class="sprite-wrap">
-          <canvas id="sprite" class="sprite" width="192" height="208" aria-hidden="true"></canvas>
+      <div class="bot-block">
+        <div class="status-badge" id="statusBadge" aria-hidden="true">
+          <span class="ico"></span>
         </div>
-      </button>
+        <button type="button" id="bot" class="bot" aria-label="通话，长按打开设置">
+          <div class="sprite-wrap">
+            <canvas id="sprite" class="sprite" width="192" height="208" aria-hidden="true"></canvas>
+          </div>
+        </button>
+      </div>
 
       <div class="reply-box" id="replyBox" aria-live="polite">
         <p id="reply" class="reply"></p>
@@ -35,11 +40,6 @@
       <input id="url" type="text" placeholder="ws://192.168.x.x:8765" />
       <label>Token（可选）</label>
       <input id="token" type="password" placeholder="token" />
-      <p class="hint" id="runtimeDefaults">TTS / 角色由 Runtime 下发（Admin / config.yaml）</p>
-      <label>当前 TTS</label>
-      <input id="ttsId" type="text" readonly placeholder="连接后显示" />
-      <label>当前角色</label>
-      <input id="petId" type="text" readonly placeholder="连接后显示" />
       <div class="sheet-actions">
         <button type="submit" id="btnSave" value="save">保存并连接</button>
         <button type="button" id="btnClose" value="cancel">关闭</button>
@@ -48,6 +48,6 @@
   </dialog>
 
   <script src="./pixel-bot.js?v=4"></script>
-  <script src="./app.js?v=14"></script>
+  <script src="./app.js?v=16"></script>
 </body>
 </html>

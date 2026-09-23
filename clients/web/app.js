@@ -369,17 +369,8 @@ function defaultWsUrl() {
   return "ws://127.0.0.1:8765";
 }
 
-function fillTtsSelect(providers, defaultId) {
-  const sel = $("ttsId");
-  const list = Array.isArray(providers) ? providers : [];
-  let pick = defaultId || "";
-  if (!pick && list.length) pick = list[0].id || list[0].name || "";
-  if (sel) sel.value = pick || "";
-}
-
 function applyPetFromRuntime(defaultId) {
   const id = defaultId || "";
-  if ($("petId")) $("petId").value = id;
   if (window.pixelBot && id) {
     window.pixelBot.setPet(id);
     window.pixelBot.reload();
@@ -395,8 +386,6 @@ function loadPrefs() {
   }
   $("url").value = url;
   $("token").value = localStorage.getItem(PREFS.token) || "";
-  if ($("ttsId")) $("ttsId").value = "";
-  if ($("petId")) $("petId").value = "";
 }
 
 function savePrefs() {
@@ -475,7 +464,7 @@ function connect() {
   savePrefs();
   const url = $("url").value.trim();
   if (!url) return;
-  setMood("busy");
+  setMood("connecting");
   turnLocked = true;
   syncBotEnabled();
 
@@ -502,16 +491,10 @@ function connect() {
     const p = m.payload || {};
     if (m.type === "session.accept") {
       sessionId = p.session_id;
-      if (p.tts_id && $("ttsId")) $("ttsId").value = p.tts_id;
       if (p.pet_id) applyPetFromRuntime(p.pet_id);
       enterIdle();
       // Optional pull for older Runtimes; new hosts already push catalogs.
-      ws.send(msg("tts.list"));
       ws.send(msg("pets.list"));
-      return;
-    }
-    if (m.type === "tts.list.result") {
-      fillTtsSelect(p.providers || [], p.default);
       return;
     }
     if (m.type === "pets.list.result") {

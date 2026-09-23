@@ -8,6 +8,7 @@ import '../session/client_state.dart';
 import '../session/device_session.dart';
 import 'pixel_bot.dart';
 import 'pet_catalog.dart';
+import 'status_badge.dart';
 import 'theme.dart';
 
 /// Layout aligned with clients/web: centered pet + multi-line reply; tap talk / long-press settings.
@@ -23,7 +24,6 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late final TextEditingController _url;
   late final TextEditingController _token;
-  // TTS is a dropdown driven by Runtime tts.list — keep selected id on session.
   final _replyScroll = ScrollController();
   StreamSubscription? _sub;
   bool _holdOpenedSettings = false;
@@ -81,10 +81,6 @@ class _HomePageState extends State<HomePage> {
       context: context,
       barrierColor: Colors.black54,
       builder: (ctx) {
-        final ttsLabel = s.ttsId.isEmpty ? (s.ttsDefaultId ?? '—') : s.ttsId;
-        final petLabel = s.petId.isEmpty
-            ? (PetCatalog.defaultId.isEmpty ? '—' : PetCatalog.defaultId)
-            : (PetCatalog.pets[s.petId]?.label ?? s.petId);
         return Dialog(
           backgroundColor: WebUiTheme.panel,
           shape: const RoundedRectangleBorder(
@@ -134,16 +130,6 @@ class _HomePageState extends State<HomePage> {
                       borderSide: BorderSide(color: WebUiTheme.line),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                _label('由 Runtime 下发（只读）'),
-                Text('TTS：$ttsLabel', style: const TextStyle(color: WebUiTheme.muted, fontSize: 13)),
-                const SizedBox(height: 4),
-                Text('角色：$petLabel', style: const TextStyle(color: WebUiTheme.muted, fontSize: 13)),
-                const SizedBox(height: 6),
-                const Text(
-                  '在主机 Admin / config.yaml 修改默认 TTS 与人物',
-                  style: TextStyle(color: WebUiTheme.muted, fontSize: 11),
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -250,7 +236,10 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final reply = s.replyText.trim().isEmpty ? '' : s.replyText;
     final screenH = MediaQuery.sizeOf(context).height;
+    final screenW = MediaQuery.sizeOf(context).width;
     final replyH = WebUiTheme.replyBoxHeightFor(screenH);
+    // Match clients/web `.sprite-wrap`: min(72vw, 280) × aspect, max-height ~52vh.
+    final botW = (screenW * 0.72).clamp(0.0, 280.0);
 
     return Scaffold(
       backgroundColor: WebUiTheme.bg0,
@@ -264,16 +253,22 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         child: SafeArea(
+          // Match clients/web `.stage` + `.stack`: center the (bot + reply) group.
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Expanded(
-                      child: Center(
-                        child: Listener(
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        StatusBadge(state: s.state),
+                        const SizedBox(height: 6),
+                        Listener(
                           onPointerDown: (_) => _onBotPointerDown(),
                           onPointerUp: (_) => _onBotPointerUp(),
                           onPointerCancel: (_) => _onBotPointerUp(),
@@ -283,8 +278,8 @@ class _HomePageState extends State<HomePage> {
                             onLongPress: _openSettings,
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
-                                maxWidth: MediaQuery.sizeOf(context).width * 0.72,
-                                maxHeight: screenH * 0.52,
+                                maxWidth: botW,
+                                maxHeight: (screenH * 0.52).clamp(0.0, 380.0),
                               ),
                               child: PixelBot(
                                 key: ValueKey('${s.petId}-${s.petsEpoch}'),
@@ -294,11 +289,9 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                    // Match clients/web: mood is the pet animation only — no
-                    // second status line that duplicates the reply box.
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     SizedBox(
                       height: replyH,
                       width: double.infinity,
