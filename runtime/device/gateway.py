@@ -35,6 +35,10 @@ from runtime.session.models import Session
 from runtime.transport.speech.base import STTProvider
 from runtime.transport.speech.registry import TTSRegistry
 
+# Bound how long reconnect / cancel may wait on to_thread TTS/STT work.
+_TURN_CANCEL_TIMEOUT_S = 1.5
+_WS_CLOSE_TIMEOUT_S = 2.0
+
 
 class DeviceGateway:
     def __init__(
@@ -90,10 +94,7 @@ class DeviceGateway:
         await self._stop_turn(conn)
         if conn.session:
             conn.session.request_cancel()
-        try:
-            await conn.ws.close()
-        except Exception:  # noqa: BLE001
-            logger.debug("disconnect close failed for {}", device_id)
+        await self._force_close(conn.ws)
         return True
 
     async def broadcast_defaults(self, kind: str | None = None) -> None:
@@ -195,29 +196,63 @@ class DeviceGateway:
         logger.info("[{}] cancel requested (admin)", session_id)
         return True
 
+    @staticmethod
+    async def _force_close(ws: websockets.WebSocketServerProtocol) -> None:
+        """Close with a hard deadline so half-closed peers cannot wedge handlers."""
+        try:
+            await asyncio.wait_for(ws.close(), timeout=_WS_CLOSE_TIMEOUT_S)
+        except Exception:  # noqa: BLE001
+            logger.debug("ws.close timed out or failed; aborting transport")
+        transport = getattr(ws, "transport", None)
+        if transport is not None:
+            try:
+                transport.abort()
+            except Exception:  # noqa: BLE001
+                pass
+
     async def _retire(self, conn: DeviceConnection) -> None:
         await self._stop_turn(conn)
         if conn.session:
             conn.session.request_cancel()
-        try:
-            await conn.ws.close()
-        except Exception:  # noqa: BLE001
-            logger.debug("close previous device socket failed")
+        await self._force_close(conn.ws)
 
     async def _stop_turn(self, conn: DeviceConnection) -> None:
         task = conn.turn_task
-        if task and not task.done():
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-            except Exception as exc:  # noqa: BLE001
-                if client_disconnected(exc):
-                    logger.info("turn ended; client disconnected")
-                else:
-                    logger.exception("turn ended with error during cancel")
         conn.turn_task = None
+        await self._await_cancelled(task, label="turn")
+
+    @staticmethod
+    async def _await_cancelled(
+        task: asyncio.Task | None,
+        *,
+        label: str = "turn",
+    ) -> None:
+        """Cancel a turn task but never block forever on to_thread work.
+
+        Uses ``asyncio.wait`` (not ``wait_for``): the latter cancels the waiter
+        and then still awaits the task to finish, which re-blocks on TTS/STT
+        threads that ignore cancellation until the worker returns.
+        """
+        if task is None or task.done():
+            return
+        task.cancel()
+        _done, pending = await asyncio.wait({task}, timeout=_TURN_CANCEL_TIMEOUT_S)
+        if pending:
+            logger.warning(
+                "{} cancel timed out after {}s; detaching",
+                label,
+                _TURN_CANCEL_TIMEOUT_S,
+            )
+            return
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        except Exception as exc:  # noqa: BLE001
+            if client_disconnected(exc):
+                logger.info("{} ended; client disconnected", label)
+            else:
+                logger.exception("{} ended with error during cancel", label)
 
     def _own_session(self, conn: DeviceConnection, session_id: str) -> Session | None:
         session = self.sessions.get(session_id) if session_id else None
@@ -237,6 +272,9 @@ class DeviceGateway:
             self.host,
             self.port,
             max_size=self._max_audio_bytes,
+            close_timeout=5,
+            ping_interval=20,
+            ping_timeout=20,
         ):
             await asyncio.Future()
 
@@ -283,27 +321,21 @@ class DeviceGateway:
             if conn.session:
                 conn.session.request_cancel()
                 self.sessions.remove(conn.session.session_id)
+            await self._force_close(ws)
 
     @staticmethod
     async def _replace_turn(
         session: Session | None,
         turn_task: asyncio.Task | None,
     ) -> None:
-        """Cancel in-flight turn so a new user/audio turn does not pile up."""
-        if turn_task and not turn_task.done():
-            turn_task.cancel()
-            try:
-                await turn_task
-            except asyncio.CancelledError:
-                pass
-            except Exception as exc:  # noqa: BLE001
-                if client_disconnected(exc):
-                    logger.info("previous turn ended; client disconnected")
-                else:
-                    logger.exception("previous turn ended with error during cancel")
+        """Cancel in-flight turn so a new user/audio turn does not pile up.
+
+        Does not reset_cancel here — pipeline.run_turn clears the flag at turn start.
+        Clearing it immediately would drop cooperative cancel for in-flight TTS.
+        """
+        await DeviceGateway._await_cancelled(turn_task, label="previous turn")
         if session is not None:
             session.request_cancel()
-            session.reset_cancel()
 
     async def _dispatch(
         self,
@@ -323,7 +355,7 @@ class DeviceGateway:
             result = self.auth.authenticate(device_id, token)
             if not result.ok:
                 await conn.send(encode_message(error_msg(result.reason or "auth failed")))
-                await conn.ws.close()
+                await self._force_close(conn.ws)
                 return turn_task
             # Always stop any in-flight turn on this socket before swapping sessions.
             await self._replace_turn(conn.session, turn_task)
@@ -334,7 +366,11 @@ class DeviceGateway:
             conn.device_type = msg.payload.get("device_type", "unknown")
             previous = self._connections.pop(device_id, None)
             if previous is not None and previous is not conn:
-                await self._retire(previous)
+                # Never block hello on old teardown (to_thread TTS / half-closed close).
+                asyncio.create_task(
+                    self._retire(previous),
+                    name=f"retire-{device_id}",
+                )
             conn.session = self.sessions.create(device_id, conn.device_type)
             # Thin clients: Runtime owns TTS/agent/pet defaults (ignore hello.tts_id).
             preferred_tts = self.tts_registry.default_id
@@ -440,15 +476,8 @@ class DeviceGateway:
             if session:
                 session.request_cancel()
                 logger.info("[{}] cancel requested", sid)
-            if turn_task and not turn_task.done():
-                turn_task.cancel()
-                try:
-                    await turn_task
-                except asyncio.CancelledError:
-                    pass
-                except Exception as exc:  # noqa: BLE001
-                    if not client_disconnected(exc):
-                        logger.exception("[{}] cancel await failed", sid)
+            await self._await_cancelled(turn_task, label=f"cancel[{sid}]")
+            conn.turn_task = None
             return None
 
         if msg.type == DeviceMessageType.SESSION_RESET:
@@ -513,7 +542,11 @@ class DeviceGateway:
         return turn_task
 
     def reset_device_memory(self, device_id: str) -> dict[str, Any]:
-        """Clear Runtime context + quarantine Agent session files for a device."""
+        """Clear Runtime context + quarantine Agent session files for a device.
+
+        Safe to call from the Admin/MCP thread. Device WS path should use
+        ``reset_device_memory_async`` so disk work leaves the event loop.
+        """
         did = (device_id or "").strip()
         if not did:
             raise ValueError("device_id 不能为空")
@@ -542,6 +575,38 @@ class DeviceGateway:
             "quarantined": quarantined,
         }
 
+    async def reset_device_memory_async(self, device_id: str) -> dict[str, Any]:
+        """Async variant: clear live context on-loop, quarantine off-loop."""
+        did = (device_id or "").strip()
+        if not did:
+            raise ValueError("device_id 不能为空")
+        cleared_live = False
+        conn = self._connections.get(did)
+        if conn and conn.session:
+            conn.session.clear_context()
+            cleared_live = True
+        quarantined: list[str] = []
+        root = self.sessions_root
+        if root is not None:
+            quarantined = await asyncio.to_thread(
+                quarantine_device_sessions,
+                root,
+                did,
+                reason="reset",
+            )
+        logger.info(
+            "session reset device={} live={} quarantined={}",
+            did,
+            cleared_live,
+            len(quarantined),
+        )
+        return {
+            "ok": True,
+            "device_id": did,
+            "cleared_runtime_context": cleared_live,
+            "quarantined": quarantined,
+        }
+
     async def _handle_session_reset(
         self,
         conn: DeviceConnection,
@@ -550,21 +615,12 @@ class DeviceGateway:
         if not conn.device_id or not conn.session:
             await conn.send(encode_message(error_msg("not connected")))
             return None
-        # Stop in-flight turn first (same as cancel).
+        # Stop in-flight turn first (same as cancel) — bounded wait.
         if turn_task and not turn_task.done():
             conn.session.request_cancel()
-            turn_task.cancel()
-            try:
-                await turn_task
-            except asyncio.CancelledError:
-                pass
-            except Exception as exc:  # noqa: BLE001
-                if not client_disconnected(exc):
-                    logger.exception(
-                        "[{}] reset cancel await failed",
-                        conn.session.session_id,
-                    )
-        result = self.reset_device_memory(conn.device_id)
+        await self._await_cancelled(turn_task, label="reset turn")
+        conn.turn_task = None
+        result = await self.reset_device_memory_async(conn.device_id)
         await conn.send(
             encode_message(
                 session_reset_ok(
