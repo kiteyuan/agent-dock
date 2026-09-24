@@ -19,6 +19,10 @@ htmlcov/
 node_modules/
 agents/**/.agentdock-sessions/
 
+# Playwright MCP page snapshots (cwd-local; not source)
+.playwright-mcp/
+**/.playwright-mcp/
+
 # Personal agent data root (layout v2) — local only
 data/
 # Legacy layout (pre-v2); keep ignored if still present during migration

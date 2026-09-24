@@ -420,6 +420,21 @@ class DeviceGateway:
             await conn.send(encode_message(pong(msg.payload.get("ping_id") or msg.id)))
             return turn_task
 
+        if msg.type in (
+            DeviceMessageType.AGENTS_LIST,
+            DeviceMessageType.TTS_LIST,
+            DeviceMessageType.PETS_LIST,
+            DeviceMessageType.TTS_SELECT,
+            DeviceMessageType.SESSION_CANCEL,
+            DeviceMessageType.SESSION_RESET,
+            DeviceMessageType.USER_MESSAGE,
+            DeviceMessageType.AUDIO_START,
+            DeviceMessageType.AUDIO_END,
+        ):
+            if conn.session is None:
+                await conn.send(encode_message(error_msg("hello required")))
+                return turn_task
+
         if msg.type == DeviceMessageType.AGENTS_LIST:
             await conn.send(encode_message(agents_list_result(self.registry.list_dicts())))
             return turn_task

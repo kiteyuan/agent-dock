@@ -177,7 +177,7 @@ class AgentAdapter:
 Adapter 类型：
 
 ```text
-HTTP / WebSocket / MCP / Local Process / Docker / OpenClaw / Custom
+HTTP / WebSocket / MCP / Local Process / OpenClaw / Custom
 ```
 
 MVP 先落地：`MockAgent`（完整事件流）+ `EchoAgent` + `HTTPAgent`。

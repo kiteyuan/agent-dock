@@ -17,7 +17,6 @@ from typing import Any
 from loguru import logger
 
 from runtime.platform.catalog import ModuleCatalog
-from runtime.platform.environment import running_in_docker
 from runtime.platform.health import tcp_open
 from runtime.platform.types import SidecarSpec
 from runtime.paths import resolve_installs, resolve_logs, resolve_workspace
@@ -78,9 +77,6 @@ class ServiceSupervisor:
             return {"ok": False, "error": f"unknown service: {service_id}"}
         if not spec.managed or spec.spawn is None:
             return {"ok": False, "error": f"{service_id} is not managed"}
-        blocked = self._docker_spawn_blocked(service_id)
-        if blocked:
-            return {"ok": False, "error": blocked, "id": service_id}
         with self._lock:
             state = self.process_state(service_id)
             if state["owned"]:
@@ -128,12 +124,6 @@ class ServiceSupervisor:
             return {"ok": True, "id": service_id}
         if tcp_open("127.0.0.1", spec.port):
             return {"ok": True, "already": True, "id": service_id}
-        blocked = self._docker_spawn_blocked(service_id)
-        if blocked:
-            # Agent gateways are expected on the host (host.docker.internal).
-            if self._is_agent_sidecar(service_id):
-                return {"ok": True, "id": service_id, "external": True}
-            return {"ok": False, "error": blocked, "id": service_id}
         started = self.start(service_id)
         if tcp_open("127.0.0.1", spec.port):
             return {"ok": True, "already": True, "id": service_id}
@@ -149,31 +139,6 @@ class ServiceSupervisor:
             "id": service_id,
             "error": f"{service_id} did not listen on {spec.port}",
         }
-
-    def _is_agent_sidecar(self, service_id: str) -> bool:
-        return any(
-            module.sidecar_id == service_id and module.kind == "agent"
-            for module in self.catalog.modules
-        )
-
-    def _docker_spawn_blocked(self, service_id: str) -> str | None:
-        if not running_in_docker():
-            return None
-        if self._is_agent_sidecar(service_id):
-            return (
-                "Agent gateways cannot be spawned inside the Runtime container. "
-                "Install the CLI on the host, run agents/*/gateway.py there, "
-                "and point agent URL at host.docker.internal"
-            )
-        spec = self.catalog.sidecar(service_id)
-        if spec is not None and spec.spawn is not None:
-            blob = " ".join([spec.spawn.executable, *spec.spawn.args])
-            if "agents/" in blob or "clients/" in blob:
-                return (
-                    f"{service_id} spawn needs repo paths that are not in the "
-                    "Runtime image; run it on the host"
-                )
-        return None
 
     def stop(self, service_id: str) -> dict[str, Any]:
         spec = self.catalog.sidecar(service_id)

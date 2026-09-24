@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
 from loguru import logger
@@ -42,7 +43,6 @@ from runtime.transport.speech.stt_factory import create_stt
 from runtime.transport.speech.voice_catalog import VoiceCatalog
 from runtime.layout_migrate import migrate_layout
 from runtime.notes import NotesIndexer
-from runtime.platform.environment import running_in_docker
 from runtime.paths import (
     resolve_installs,
     resolve_notes,
@@ -69,7 +69,6 @@ class Runtime:
             cfg.get("security") if isinstance(cfg.get("security"), dict) else {},
             state_dir=self.state_dir,
             server_host=str((cfg.get("server") or {}).get("host") or "0.0.0.0"),
-            in_docker=running_in_docker(),
         )
         register_agents(self.registry, cfg.get("agent", {}))
         register_tts(self.tts_registry, cfg.get("tts", {}))
@@ -306,12 +305,83 @@ class Runtime:
         module = self.catalog.module(module_id)
         if module is not None and module.kind == "agent":
             env["AGENTDOCK_MCP_CONFIG"] = str(self.mcp.path)
+        if module_id == "playwright-mcp":
+            env.update(self._playwright_mcp_env())
         return env
+
+    def _playwright_mcp_env(self) -> dict[str, str]:
+        """Extension token lives on the mcp.json entry; agents never see it."""
+        from runtime.platform.mcp_launch import read_servers
+
+        out: dict[str, str] = {}
+        token = os.environ.get("PLAYWRIGHT_MCP_EXTENSION_TOKEN", "").strip()
+        entry = read_servers(self.mcp.path).get("playwright") or {}
+        raw_env = entry.get("env") if isinstance(entry.get("env"), dict) else {}
+        file_token = str(raw_env.get("PLAYWRIGHT_MCP_EXTENSION_TOKEN") or "").strip()
+        if file_token:
+            token = file_token
+        if token:
+            out["PLAYWRIGHT_MCP_EXTENSION_TOKEN"] = token
+        return out
 
     def _prepare_turn_sidecars(self, agent_id: str | None, tts_id: str | None) -> None:
         self._ensure_sidecar(agent_id)
         self._ensure_sidecar(self._tts_engine_id(tts_id))
         self._ensure_sidecar(self._current_stt_id())
+        self._ensure_playwright_mcp()
+
+    def _ensure_playwright_mcp(self) -> None:
+        """Keep HTTP Playwright MCP up across Pi turns (tab group stays attached)."""
+        from runtime.platform.mcp_launch import read_servers
+
+        spec = self.catalog.sidecar("playwright-mcp")
+        if spec is None:
+            return
+        entry = read_servers(self.mcp.path).get("playwright") or {}
+        if entry.get("enabled") is False:
+            return
+        url = str(entry.get("url") or "").strip()
+        if not url:
+            return
+        marker = f":{spec.port}"
+        if marker not in url:
+            return
+        self._ensure_playwright_bridge_deps()
+        result = self.services.ensure_listening("playwright-mcp", timeout=90.0)
+        if not result.get("ok"):
+            raise RuntimeError(
+                result.get("error")
+                or "playwright-mcp failed to start; check data/logs/playwright-mcp.log"
+            )
+
+    def _ensure_playwright_bridge_deps(self) -> None:
+        """npm install once under runtime/platform/playwright_bridge if SDK missing."""
+        import shutil
+        import subprocess
+
+        bridge_dir = self.catalog.root / "runtime" / "platform" / "playwright_bridge"
+        marker = bridge_dir / "node_modules" / "@modelcontextprotocol" / "sdk"
+        if marker.is_dir():
+            return
+        npm = shutil.which("npm") or shutil.which("npm.cmd")
+        if not npm:
+            raise RuntimeError(
+                "playwright bridge needs npm; install Node.js or run "
+                f"`npm install` in {bridge_dir}"
+            )
+        logger.info("installing playwright bridge deps in {}", bridge_dir)
+        result = subprocess.run(
+            [npm, "install", "--omit=dev"],
+            cwd=str(bridge_dir),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0 or not marker.is_dir():
+            detail = (result.stderr or result.stdout or "").strip()[-800:]
+            raise RuntimeError(
+                f"playwright bridge npm install failed (exit {result.returncode}): {detail}"
+            )
 
     def _tts_engine_id(self, tts_id: str | None) -> str | None:
         """Map a voice-pack registry id (e.g. haibara) to its engine module id."""

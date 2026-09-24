@@ -16,15 +16,18 @@ PROTOCOL = "agentdock.agent/1.0"
 __all__ = [
     "PROTOCOL",
     "ProcessTable",
+    "assert_loopback_or_token",
     "device_id_of",
     "event",
     "fallback_work_dir",
+    "gateway_bearer_token",
     "kill_process",
     "launch_cli",
     "load_prompt_text",
     "make_write_event",
     "read_json_request",
     "repo_root_from",
+    "require_gateway_bearer",
     "resolve_request_cwd",
     "send_json",
     "voice_prompt",
@@ -58,12 +61,55 @@ def fallback_work_dir(repo: Path, *, env_cwd: str = "AGENT_CWD", env_workdir: st
 
 
 def resolve_request_cwd(req: dict[str, Any], fallback: Path) -> Path:
+    """Resolve workspace from the request, constrained under ``fallback``.
+
+    Set ``AGENT_ALLOW_ANY_CWD=1`` to accept any existing directory (legacy).
+    """
     raw = req.get("workspace")
-    if raw:
-        path = Path(str(raw)).expanduser().resolve()
-        if path.is_dir():
-            return path
-    return fallback
+    if not raw:
+        return fallback
+    path = Path(str(raw)).expanduser().resolve()
+    if not path.is_dir():
+        return fallback
+    if os.environ.get("AGENT_ALLOW_ANY_CWD", "").strip().lower() in {"1", "true", "yes"}:
+        return path
+    try:
+        path.relative_to(fallback.resolve())
+    except ValueError:
+        return fallback
+    return path
+
+
+def gateway_bearer_token() -> str:
+    return os.environ.get("AGENT_TOKEN", "").strip()
+
+
+def require_gateway_bearer(handler: Any) -> bool:
+    """Return True when the request was rejected (401 already written)."""
+    token = gateway_bearer_token()
+    if not token:
+        return False
+    auth = str(getattr(handler, "headers", {}).get("Authorization") or "")
+    if auth == f"Bearer {token}":
+        return False
+    try:
+        send_json(handler, {"error": "unauthorized"}, status=401)
+    except Exception:  # noqa: BLE001
+        handler.send_error(401)
+    return True
+
+
+def assert_loopback_or_token(host: str) -> None:
+    """Refuse non-loopback binds unless ``AGENT_TOKEN`` is configured."""
+    normalized = (host or "").strip().lower()
+    if normalized in {"127.0.0.1", "::1", "localhost"}:
+        return
+    if gateway_bearer_token():
+        return
+    raise SystemExit(
+        f"Refusing to bind {host!r} without AGENT_TOKEN "
+        "(set AGENT_TOKEN or bind 127.0.0.1)"
+    )
 
 
 def device_id_of(req: dict[str, Any]) -> str | None:

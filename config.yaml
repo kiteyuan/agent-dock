@@ -60,10 +60,10 @@ tts:
 agent:
   default: "pi"
   # 本机助手地址来自 catalog/providers/agents.yaml 的 sidecar 端口。
-  # 只有 Docker 这类远程主机才需要在这里写 url。
+  # 远程 Agent 才需要在这里写 url。
 
 security:
-  # Exposed binds (0.0.0.0 / Docker) auto-require a token stored in data/state/device-auth.json
+  # Exposed binds (0.0.0.0) auto-require a token stored in data/state/device-auth.json
   # when tokens is empty. Set require_token: false only for loopback-only Device binds.
   require_token: true
   tokens: []
@@ -83,6 +83,10 @@ services:
     port: 9880
     autostart: false
     # 整合包解压到 data/vault/GPT-SoVITS/，再在管理页点「检查安装」。
+  playwright-mcp:
+    port: 8931
+    # 首轮对话会 ensure；设 true 可在 Runtime 启动时就拉起（需已配置扩展 token）
+    autostart: false
 
 # Optional installer overrides (catalog path lives under paths.catalog).
 modules:

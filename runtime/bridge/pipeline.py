@@ -141,7 +141,7 @@ class BridgePipeline:
         tts_id: str | None = None,
         tts_model: str | None = None,
     ) -> None:
-        session.reset_cancel()
+        turn_gen, cancel_event = session.begin_turn()
         self._apply_tts_selection(session, tts_id=tts_id, tts_model=tts_model)
 
         if self.prepare_turn is not None:
@@ -182,7 +182,7 @@ class BridgePipeline:
             agent_id=adapter.info.id,
             workspace=self.workspace,
             instructions=instructions,
-            cancel_event=session.cancel_event,
+            cancel_event=cancel_event,
         )
 
         speak_buf = SentenceBuffer()
@@ -194,7 +194,7 @@ class BridgePipeline:
                 item = await speak_q.get()
                 if item is None:
                     break
-                if session.cancel_event.is_set():
+                if cancel_event.is_set():
                     continue
                 await self._synthesize_segment(session, bus, item)
 
@@ -251,7 +251,9 @@ class BridgePipeline:
                         if piece:
                             await enqueue_sentences(speak_buf.push(piece))
         except asyncio.CancelledError:
-            session.request_cancel()
+            # Only affect this turn's token — never the successor after detach.
+            cancel_event.set()
+            session.request_cancel(turn_gen)
             cancelled = True
             terminal = agent_cancel(session.session_id)
             current = asyncio.current_task()
@@ -262,7 +264,7 @@ class BridgePipeline:
         finally:
             if worker:
                 try:
-                    if cancelled or session.cancel_event.is_set():
+                    if cancelled or cancel_event.is_set():
                         cancelled = True
                         worker.cancel()
                         try:
@@ -284,7 +286,7 @@ class BridgePipeline:
                 except Exception:  # noqa: BLE001
                     logger.exception("[{}] TTS worker cleanup failed", session.session_id)
 
-        if cancelled or session.cancel_event.is_set():
+        if cancelled or cancel_event.is_set():
             terminal = agent_cancel(session.session_id)
         elif terminal is None:
             terminal = agent_error(

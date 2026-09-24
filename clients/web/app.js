@@ -452,6 +452,9 @@ function onEvent(type, payload = {}) {
     pumpTts();
   } else if (type === "agent.error" || type === "error") {
     resetThinkingBuf();
+    const detail = String(payload.detail || payload.content || payload.text || "").trim();
+    if (detail) showLiveReply(detail);
+    applyLocalCancel();
     enterErr();
   } else if (type === "agent.done" || type === "agent.cancel") {
     flushThinking(true);
@@ -578,6 +581,23 @@ function encodeWav(samples, sampleRate) {
   return buffer;
 }
 
+/** Browsers often ignore AudioContext({ sampleRate: 16000 }); resample before WAV. */
+function resampleTo16k(samples, fromRate) {
+  const rate = fromRate || 16000;
+  if (Math.abs(rate - 16000) < 1) return samples;
+  const ratio = rate / 16000;
+  const n = Math.max(1, Math.floor(samples.length / ratio));
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const src = i * ratio;
+    const i0 = Math.floor(src);
+    const i1 = Math.min(i0 + 1, samples.length - 1);
+    const frac = src - i0;
+    out[i] = samples[i0] * (1 - frac) + samples[i1] * frac;
+  }
+  return out;
+}
+
 async function startTalk() {
   if (!ws || !sessionId || recording || starting || turnLocked) return;
   starting = true;
@@ -620,6 +640,8 @@ async function stopTalk({ discard = false } = {}) {
   if (!recording) return;
   recording = false;
 
+  const capturedRate = audioCtx ? audioCtx.sampleRate : 16000;
+
   try {
     processor && processor.disconnect();
     sourceNode && sourceNode.disconnect();
@@ -647,7 +669,8 @@ async function stopTalk({ discard = false } = {}) {
     merged.set(c, off);
     off += c.length;
   }
-  const wav = encodeWav(merged, 16000);
+  const pcm16k = resampleTo16k(merged, capturedRate);
+  const wav = encodeWav(pcm16k, 16000);
   enterBusy();
   ttsChunks = [];
   ttsPlayQueue = [];

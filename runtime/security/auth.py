@@ -1,13 +1,14 @@
 """Device authentication.
 
-When the Device WS binds beyond loopback (or runs in Docker) and config does
-not supply tokens, Runtime persists an auto-generated token under state/.
+When the Device WS binds beyond loopback and config does not supply tokens,
+Runtime persists an auto-generated token under state/.
 Explicit ``require_token: false`` is honored only for loopback-only binds.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import secrets
 from dataclasses import dataclass
 from pathlib import Path
@@ -58,11 +59,19 @@ def _persist_token(path: Path, token: str) -> None:
         encoding="utf-8",
     )
     tmp.replace(path)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
 
 
-def _ws_exposed(server_host: str, *, in_docker: bool) -> bool:
-    if in_docker:
-        return True
+def _token_hint(token: str) -> str:
+    if len(token) <= 4:
+        return "****"
+    return f"…{token[-4:]}"
+
+
+def _ws_exposed(server_host: str) -> bool:
     host = (server_host or "0.0.0.0").strip()
     return host in {"0.0.0.0", "::", ""}
 
@@ -72,12 +81,11 @@ def build_device_auth(
     *,
     state_dir: Path,
     server_host: str,
-    in_docker: bool,
 ) -> DeviceAuth:
     """Build DeviceAuth; auto-token when the Device port is network-exposed."""
     tokens = [str(t).strip() for t in (sec.get("tokens") or []) if str(t).strip()]
     explicit = sec.get("require_token")
-    exposed = _ws_exposed(server_host, in_docker=in_docker)
+    exposed = _ws_exposed(server_host)
 
     # Opt-out only when not network-exposed.
     if explicit is False and not exposed:
@@ -95,8 +103,8 @@ def build_device_auth(
         if created or explicit is False:
             logger.warning(
                 "Device token required (WS exposed). Clients must authenticate. "
-                "token={} file={}",
-                token,
+                "token_hint={} file={}",
+                _token_hint(token),
                 path,
             )
         else:

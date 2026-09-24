@@ -9,7 +9,7 @@ def test_admin_accepts_only_loopback_addresses() -> None:
     assert not client_is_loopback("10.0.0.2")
 
 
-def test_admin_peer_rejects_lan_outside_docker(monkeypatch) -> None:
-    monkeypatch.delenv("AGENTDOCK_DOCKER", raising=False)
+def test_admin_peer_rejects_lan() -> None:
     assert admin_peer_allowed("127.0.0.1")
     assert not admin_peer_allowed("192.168.1.20")
+    assert not admin_peer_allowed("172.17.0.1")

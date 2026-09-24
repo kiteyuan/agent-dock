@@ -1,0 +1,20 @@
+schema_version: 2
+
+# Persistent MCP helpers (not Agent Protocol gateways).
+# Sticky bridge on :8931 keeps one upstream Playwright MCP client alive so
+# Pi's per-turn process exit does not tear down the browser tab group.
+# Admin mcp.json URL stays http://localhost:8931/mcp — no change needed.
+
+sidecars:
+  playwright-mcp:
+    name: Playwright MCP
+    port: 8931
+    spawn:
+      executable: "{node}"
+      args:
+        - "{root}/runtime/platform/playwright_bridge/bridge.mjs"
+      cwd: "{root}/runtime/platform/playwright_bridge"
+      env:
+        PUBLIC_PORT: "{port}"
+        INTERNAL_PORT: "18931"
+    health: {kind: tcp, port: 8931}

@@ -72,7 +72,7 @@ LLM 并启动 gateway。声音引擎仍可由 Runtime 隔离安装。
 当前内置国内 CLI 包括 Qwen Code、Kimi Code、CodeBuddy 和 Qoder。
 也可在 `config.yaml` → `services.*.autostart: true` 让 Runtime 起来后自动拉起。
 
-Admin UI/API 仅接受本机访问（Docker 下允许桥接 peer + `Host: localhost`）；设备仍可从局域网访问 `/pets/*` 和 `/health`。Device WS 在 `0.0.0.0` / Docker 下默认需要 token（`data/state/device-auth.json`）。Admin
+Admin UI/API 仅接受本机访问（`Host: localhost` + loopback peer）；设备仍可从局域网访问 `/pets/*` 和 `/health`。Device WS 绑定 `0.0.0.0` 时默认需要 token（`data/state/device-auth.json`）。Admin
 设置的默认 Agent/TTS/STT 保存在 `data/state/runtime-state.json`，不会改写 `config.yaml`。
 安装收据与许可证确认保存在 `data/state/module-state.json`。
 Agent 的公开模型选项保存在 `data/state/agent-settings.json`；统一 LLM 与各 Agent
@@ -80,12 +80,6 @@ Agent 的公开模型选项保存在 `data/state/agent-settings.json`；统一 L
 DPAPI 加密后写入 `data/state/agent-secrets.json`。
 
 首启与模块启停：见 [`docs/ONBOARDING.md`](./docs/ONBOARDING.md)（Admin 总览直接检查/启动 Agent · TTS · STT · 人物）。
-
-Docker（纯 Runtime；Agent / SoVITS 在宿主机）：见 [`docs/DOCKER.md`](./docs/DOCKER.md)。
-
-```bash
-docker compose up --build -d
-```
 
 手动分步：
 

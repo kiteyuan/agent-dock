@@ -80,7 +80,7 @@ class HealthProbe:
                             value = json.loads(raw)
                             if isinstance(value, dict):
                                 data = value
-                    healthy = 200 <= code < 500
+                    healthy = 200 <= code < 300
                     detail = "正常" if healthy else f"HTTP {code}"
                     status = "ready" if healthy else "degraded"
             elif spec.kind == "file":

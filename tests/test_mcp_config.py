@@ -50,7 +50,35 @@ def test_mcp_menu_roundtrip_and_launch_args(tmp_path) -> None:
     assert pi["mcpServers"][BUILTIN_NAME]["url"] == builtin_url(8766)
 
 
-def test_builtin_mcp_cannot_be_deleted_or_rewritten(tmp_path) -> None:
+def test_http_mcp_launch_strips_runtime_only_env(tmp_path) -> None:
+    store = McpConfigStore(tmp_path, admin_port=8766)
+    store.replace(
+        {
+            "mcpServers": {
+                "playwright": {
+                    "type": "http",
+                    "url": "http://127.0.0.1:8931/mcp",
+                    "env": {"PLAYWRIGHT_MCP_EXTENSION_TOKEN": "secret-token"},
+                    "enabled": True,
+                    "label": "浏览器",
+                }
+            }
+        }
+    )
+    launched = launch_servers(store.path)
+    assert launched["playwright"] == {
+        "type": "http",
+        "url": "http://127.0.0.1:8931/mcp",
+    }
+    assert "env" not in launched["playwright"]
+
+    cwd = tmp_path / "project"
+    cwd.mkdir()
+    sync_pi_mcp(cwd, store.path)
+    pi = json.loads((cwd / ".mcp.json").read_text(encoding="utf-8"))
+    assert pi["mcpServers"]["playwright"]["url"] == "http://127.0.0.1:8931/mcp"
+    assert "env" not in pi["mcpServers"]["playwright"]
+
     store = McpConfigStore(tmp_path, admin_port=9001)
     store.ensure_builtin()
     wiped = store.replace([])

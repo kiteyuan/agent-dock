@@ -17,12 +17,15 @@ if str(ROOT) not in sys.path:
 from agents.common import (
     PROTOCOL,
     ProcessTable,
+    assert_loopback_or_token,
     event,
     fallback_work_dir,
     kill_process,
     launch_cli,
     make_write_event,
     read_json_request,
+    require_gateway_bearer,
+    resolve_request_cwd,
     send_json,
     write_ndjson_headers,
 )
@@ -38,18 +41,6 @@ def _redact_secrets(value: str) -> str:
         if key.upper().endswith(suffixes) and len(secret) >= 4:
             result = result.replace(secret, "[redacted]")
     return result
-
-
-def _safe_workspace(request: dict[str, Any], fallback: Path) -> Path:
-    raw = request.get("workspace")
-    if not raw:
-        return fallback
-    candidate = Path(str(raw)).expanduser().resolve()
-    try:
-        candidate.relative_to(fallback)
-    except ValueError:
-        return fallback
-    return candidate if candidate.is_dir() else fallback
 
 
 def _run_turn(
@@ -129,6 +120,8 @@ def handler_for(driver: CLIDriver, workspace: Path) -> type[BaseHTTPRequestHandl
             return
 
         def do_GET(self) -> None:
+            if require_gateway_bearer(self):
+                return
             if self.path.rstrip("/") != "/v1/agent":
                 self.send_error(404)
                 return
@@ -145,6 +138,8 @@ def handler_for(driver: CLIDriver, workspace: Path) -> type[BaseHTTPRequestHandl
             )
 
         def do_POST(self) -> None:
+            if require_gateway_bearer(self):
+                return
             request = read_json_request(self)
             if request is None:
                 return
@@ -168,7 +163,7 @@ def handler_for(driver: CLIDriver, workspace: Path) -> type[BaseHTTPRequestHandl
                     driver,
                     session_id,
                     text,
-                    cwd=_safe_workspace(request, workspace),
+                    cwd=resolve_request_cwd(request, workspace),
                     write_event=write_event,
                 )
             except Exception as exc:  # noqa: BLE001
@@ -183,6 +178,7 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
     args = parser.parse_args()
+    assert_loopback_or_token(args.host)
     driver = create_driver(args.driver)
     workspace = fallback_work_dir(ROOT)
     workspace.mkdir(parents=True, exist_ok=True)

@@ -1,11 +1,7 @@
 """Who may call the Admin API.
 
 Pets stay reachable on the LAN. Admin pages and /api require a localhost Host
-header plus either:
-
-* a loopback TCP peer (native), or
-* a private/Docker-bridge peer when Runtime runs in Docker (published ports
-  show as 172.x / 10.x to the container, not 127.0.0.1).
+header plus a loopback TCP peer.
 
 Optional ``AGENTDOCK_ADMIN_TOKEN``: when set, non-loopback peers must also send
 ``X-AgentDock-Admin-Token``.
@@ -20,8 +16,6 @@ from __future__ import annotations
 import hmac
 import os
 from urllib.parse import urlparse
-
-from runtime.platform.environment import is_private_lan_ip, running_in_docker
 
 
 def client_is_loopback(host: str) -> bool:
@@ -43,12 +37,9 @@ def admin_host_allowed(host_header: str | None) -> bool:
     return name in {"localhost", "127.0.0.1", "::1"} or name.startswith("127.")
 
 
-def admin_peer_allowed(peer: str, *, in_docker: bool | None = None) -> bool:
+def admin_peer_allowed(peer: str) -> bool:
     """TCP peer may reach Admin (still needs Host + optional admin token)."""
-    if client_is_loopback(peer):
-        return True
-    docker = running_in_docker() if in_docker is None else in_docker
-    return bool(docker and is_private_lan_ip(peer))
+    return client_is_loopback(peer)
 
 
 def admin_token_configured() -> str | None:

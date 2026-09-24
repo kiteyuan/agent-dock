@@ -13,6 +13,30 @@ import time
 from pathlib import Path
 
 
+def _session_aliases(device_id: str) -> set[str]:
+    did = (device_id or "").strip()
+    if not did:
+        return set()
+    aliases = {did, f"dev-{did}"}
+    if did.startswith("dev-") and len(did) > 4:
+        aliases.add(did[4:])
+    return {item for item in aliases if item}
+
+
+def _stem_belongs(stem: str, aliases: set[str]) -> bool:
+    """Match whole session-id tokens — never raw substring ``in``."""
+    for alias in aliases:
+        if stem == alias:
+            return True
+        if stem.startswith(f"{alias}-") or stem.startswith(f"{alias}_") or stem.startswith(
+            f"{alias}."
+        ):
+            return True
+        if stem.endswith(f"-{alias}") or stem.endswith(f"_{alias}"):
+            return True
+    return False
+
+
 def quarantine_device_sessions(
     sessions_root: Path,
     device_id: str,
@@ -23,13 +47,9 @@ def quarantine_device_sessions(
 
     Returns relative paths (posix) of moved files.
     """
-    did = (device_id or "").strip()
-    if not did or not sessions_root.is_dir():
+    aliases = _session_aliases(device_id)
+    if not aliases or not sessions_root.is_dir():
         return []
-
-    needles = {did, f"dev-{did}"}
-    if did.startswith("dev-") and len(did) > 4:
-        needles.add(did[4:])
 
     moved: list[str] = []
     stamp = time.strftime("%Y%m%d-%H%M%S")
@@ -41,10 +61,9 @@ def quarantine_device_sessions(
             continue
         if "_quarantine" in path.parts:
             continue
-        name = path.name
-        if not any(n and n in name for n in needles):
+        if not _stem_belongs(path.stem, aliases):
             continue
-        dest = quarantine / f"{reason}_{stamp}_{name}"
+        dest = quarantine / f"{reason}_{stamp}_{path.name}"
         # Avoid clobber if same second
         if dest.exists():
             dest = quarantine / f"{reason}_{stamp}_{path.stem}_{path.suffix.lstrip('.') or 'bin'}"

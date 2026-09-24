@@ -12,7 +12,6 @@ def test_loopback_opt_out_stays_open(tmp_path: Path) -> None:
         {"require_token": False},
         state_dir=tmp_path,
         server_host="127.0.0.1",
-        in_docker=False,
     )
     assert not auth.require_token
     assert auth.authenticate("phone").ok
@@ -23,7 +22,6 @@ def test_exposed_bind_forces_persisted_token(tmp_path: Path) -> None:
         {"require_token": False},
         state_dir=tmp_path,
         server_host="0.0.0.0",
-        in_docker=False,
     )
     assert auth.require_token
     assert (tmp_path / "device-auth.json").is_file()
@@ -32,12 +30,10 @@ def test_exposed_bind_forces_persisted_token(tmp_path: Path) -> None:
     assert auth.authenticate("phone", token).ok
 
 
-def test_docker_forces_token_even_on_localhost_host(tmp_path: Path) -> None:
+def test_loopback_host_does_not_force_token_when_opted_out(tmp_path: Path) -> None:
     auth = build_device_auth(
-        {},
+        {"require_token": False},
         state_dir=tmp_path,
         server_host="127.0.0.1",
-        in_docker=True,
     )
-    assert auth.require_token
-    assert auth.tokens
+    assert not auth.require_token

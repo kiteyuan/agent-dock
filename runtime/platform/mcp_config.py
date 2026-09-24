@@ -7,7 +7,7 @@ import os
 import threading
 from pathlib import Path
 
-from agents.mcp_launch import (
+from runtime.platform.mcp_launch import (
     document,
     merge_server_secrets,
     normalize_document,

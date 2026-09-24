@@ -1,0 +1,16 @@
+{
+  "name": "playwright_bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "bridge.mjs",
+  "scripts": {
+    "start": "node bridge.mjs"
+  },
+  "license": "ISC",
+  "description": "Sticky MCP proxy: ephemeral Pi clients share one Playwright session",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    "express": "^4.22.3"
+  }
+}

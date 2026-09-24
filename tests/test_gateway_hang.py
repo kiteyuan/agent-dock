@@ -68,6 +68,28 @@ async def test_replace_turn_keeps_cancel_event_set() -> None:
 
 
 @pytest.mark.asyncio
+async def test_orphaned_turn_cancel_does_not_poison_new_turn() -> None:
+    """Detached CancelledError must not set the successor turn's cancel token."""
+    session = Session(session_id="s1", device_id="d1")
+    old_gen, old_event = session.begin_turn()
+    new_gen, new_event = session.begin_turn()
+    assert new_gen == old_gen + 1
+    assert old_event is not new_event
+
+    session.request_cancel(old_gen)
+    assert not new_event.is_set()
+    assert not session.cancel_event.is_set()
+
+    old_event.set()
+    session.request_cancel(old_gen)
+    assert not session.cancel_event.is_set()
+
+    session.request_cancel(new_gen)
+    assert new_event.is_set()
+    assert session.cancel_event.is_set()
+
+
+@pytest.mark.asyncio
 async def test_force_close_aborts_when_close_hangs() -> None:
     aborted = {"n": 0}
 

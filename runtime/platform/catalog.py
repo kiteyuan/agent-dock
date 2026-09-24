@@ -170,14 +170,20 @@ class ModuleCatalog:
         return [item for item in self.modules if item.kind == kind]
 
     def context(self, cfg: dict[str, Any] | None = None) -> dict[str, str]:
+        import shutil
+
         config = cfg or {}
         services = (
             config.get("services") if isinstance(config.get("services"), dict) else {}
         )
+        npx = shutil.which("npx") or shutil.which("npx.cmd") or "npx"
+        node = shutil.which("node") or shutil.which("node.exe") or "node"
         values = {
             "python": sys.executable,
             "root": str(self.root),
             "workspace": str(resolve_vault(config)),
+            "npx": npx,
+            "node": node,
         }
         for module in self.modules:
             if module.bundle is None or not module.sidecar_id:

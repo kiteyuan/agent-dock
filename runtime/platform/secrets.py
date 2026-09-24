@@ -2,7 +2,7 @@
 
 Windows uses DPAPI, so the blob can only be opened by the same user.
 Other systems use a Fernet key kept under paths.secrets (default
-``<home>/secrets/credential.key``), outside Docker bind-mounted vaults.
+``<home>/secrets/credential.key``), outside user vault trees.
 """
 
 from __future__ import annotations

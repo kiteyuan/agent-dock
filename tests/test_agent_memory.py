@@ -24,5 +24,15 @@ def test_quarantine_moves_device_files(tmp_path: Path) -> None:
     assert any((root / "_quarantine").iterdir())
 
 
+def test_quarantine_ignores_substring_false_positives(tmp_path: Path) -> None:
+    root = tmp_path / "sessions"
+    root.mkdir()
+    decoy = root / "foabcar-session.jsonl"
+    decoy.write_text("nope", encoding="utf-8")
+    moved = quarantine_device_sessions(root, "abc", reason="reset")
+    assert moved == []
+    assert decoy.exists()
+
+
 def test_quarantine_empty_device_id(tmp_path: Path) -> None:
     assert quarantine_device_sessions(tmp_path, "") == []

@@ -162,8 +162,7 @@ class _AdminHandler(BaseHTTPRequestHandler):
             {
                 "ok": False,
                 "error": (
-                    "Admin requires localhost Host and a loopback peer "
-                    "(or Docker bridge peer when AGENTDOCK_DOCKER=1)"
+                    "Admin requires localhost Host and a loopback peer"
                 ),
             },
         )

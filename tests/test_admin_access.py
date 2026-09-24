@@ -18,13 +18,14 @@ def test_admin_requires_a_localhost_host_header() -> None:
     assert not admin_host_allowed("")
 
 
-def test_admin_peer_allows_docker_bridge_when_flagged(monkeypatch) -> None:
-    monkeypatch.setenv("AGENTDOCK_DOCKER", "1")
-    assert admin_peer_allowed("172.17.0.1")
-    assert admin_peer_allowed("10.0.0.2")
-    assert not admin_peer_allowed("8.8.8.8")
-    monkeypatch.delenv("AGENTDOCK_DOCKER", raising=False)
+def test_admin_peer_allows_only_loopback() -> None:
+    assert admin_peer_allowed("127.0.0.1")
+    assert admin_peer_allowed("127.12.3.4")
+    assert admin_peer_allowed("::1")
     assert not admin_peer_allowed("172.17.0.1")
+    assert not admin_peer_allowed("10.0.0.2")
+    assert not admin_peer_allowed("192.168.1.20")
+    assert not admin_peer_allowed("8.8.8.8")
 
 
 def test_admin_token_gate_for_non_loopback(monkeypatch) -> None:

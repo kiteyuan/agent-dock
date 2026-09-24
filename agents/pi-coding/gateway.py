@@ -34,7 +34,7 @@ from pathlib import Path
 
 PROTOCOL = "agentdock.agent/1.0"
 HOST = os.environ.get("PI_GATEWAY_HOST", "127.0.0.1")
-PORT = int(os.environ.get("PI_GATEWAY_PORT", "9000"))
+PORT = int(os.environ.get("PI_GATEWAY_PORT", "9001"))
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
 DEFAULT_WORKSPACE = REPO_ROOT / "data" / "vault"
@@ -45,6 +45,11 @@ FALLBACK_WORK_DIR = Path(
 _AGENTS = HERE.parent
 if str(_AGENTS) not in sys.path:
     sys.path.insert(0, str(_AGENTS))
+from common import (  # noqa: E402
+    assert_loopback_or_token,
+    require_gateway_bearer,
+    resolve_request_cwd,
+)
 from mcp_launch import sync_pi_mcp  # noqa: E402
 
 PROVIDER = os.environ.get("PI_PROVIDER")  # optional override
@@ -206,13 +211,8 @@ def _pi_memory_key(*, session_id: str, device_id: str | None) -> str:
 
 
 def _resolve_request_cwd(req: dict) -> Path:
-    """Prefer Runtime-provided workspace; else PI_CWD / <repo>/workspace."""
-    raw = req.get("workspace")
-    if raw:
-        path = Path(str(raw)).expanduser().resolve()
-        if path.is_dir():
-            return path
-    return FALLBACK_WORK_DIR
+    """Prefer Runtime-provided workspace under the fallback root."""
+    return resolve_request_cwd(req, FALLBACK_WORK_DIR)
 
 
 def _mcp_extension_args(root: Path | None = None) -> list[str]:
@@ -479,6 +479,8 @@ class Handler(BaseHTTPRequestHandler):
         print(f"[pi-gateway] {self.address_string()} {fmt % args}")
 
     def do_GET(self) -> None:  # noqa: N802
+        if require_gateway_bearer(self):
+            return
         if self.path.rstrip("/") == "/v1/agent":
             body = {
                 "protocol": PROTOCOL,
@@ -500,6 +502,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def do_POST(self) -> None:  # noqa: N802
+        if require_gateway_bearer(self):
+            return
         length = int(self.headers.get("Content-Length", "0"))
         raw_in = self.rfile.read(length) if length else b"{}"
         try:
@@ -586,6 +590,7 @@ def main() -> None:
     except Exception:
         pass
 
+    assert_loopback_or_token(HOST)
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     if not FALLBACK_WORK_DIR.is_dir():
         if FALLBACK_WORK_DIR == DEFAULT_WORKSPACE.resolve():

@@ -35,6 +35,7 @@ from mcp_launch import claude_args  # noqa: E402
 from common import (  # noqa: E402
     PROTOCOL,
     ProcessTable,
+    assert_loopback_or_token,
     device_id_of,
     event,
     fallback_work_dir,
@@ -44,6 +45,7 @@ from common import (  # noqa: E402
     merge_runtime_instructions,
     read_json_request,
     repo_root_from,
+    require_gateway_bearer,
     resolve_request_cwd,
     send_json,
     voice_prompt,
@@ -273,6 +275,8 @@ class Handler(BaseHTTPRequestHandler):
         print(f"[claude-gateway] {self.address_string()} {fmt % args}")
 
     def do_GET(self) -> None:  # noqa: N802
+        if require_gateway_bearer(self):
+            return
         if self.path.rstrip("/") == "/v1/agent":
             send_json(
                 self,
@@ -288,6 +292,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def do_POST(self) -> None:  # noqa: N802
+        if require_gateway_bearer(self):
+            return
         req = read_json_request(self)
         if req is None:
             return
@@ -330,6 +336,7 @@ def main() -> None:
         raise SystemExit(1)
     if not FALLBACK_WORK_DIR.is_dir():
         FALLBACK_WORK_DIR.mkdir(parents=True, exist_ok=True)
+    assert_loopback_or_token(HOST)
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"Claude Code gateway on http://{HOST}:{PORT}", flush=True)
     print(f"  fallback cwd={FALLBACK_WORK_DIR} (request.workspace overrides)", flush=True)
