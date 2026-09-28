@@ -37,6 +37,28 @@ def test_request_body_shape() -> None:
     assert body["instructions"].startswith("【AgentDock Runtime】")
 
 
+def test_request_body_includes_images() -> None:
+    req = AgentRequest(
+        session_id="s1",
+        text="看图",
+        images=[{"mime": "image/png", "data": "abc123"}],
+    )
+    body = request_to_http_body(req)
+    assert body["images"] == [{"mime": "image/png", "data": "abc123"}]
+
+
+def test_request_body_normalizes_data_url_images() -> None:
+    from runtime.protocol.agent_codec import normalize_images
+
+    got = normalize_images(
+        [{"url": "data:image/jpeg;base64,Zm9v"}, "data:image/png;base64,YmFy"]
+    )
+    assert got == [
+        {"mime": "image/jpeg", "data": "Zm9v"},
+        {"mime": "image/png", "data": "YmFy"},
+    ]
+
+
 def test_request_body_omits_empty_workspace() -> None:
     req = AgentRequest(session_id="s1", text="hi")
     body = request_to_http_body(req)

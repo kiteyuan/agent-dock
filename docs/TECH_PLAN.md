@@ -259,7 +259,7 @@ Internet / LAN
 Client → Runtime：
 
 - `device.hello`
-- `user.message`（文本桥，主路径）
+- `user.message`（文本桥，主路径；可选 `images: [{mime, data}]` 识图附件）
 - `agents.list`
 - `audio.start` / `audio.chunk` / `audio.end`（可选）
 - `session.cancel`
@@ -267,7 +267,7 @@ Client → Runtime：
 
 Runtime → Client：
 
-- `session.accept`
+- `session.accept`（可带 `messages`：该 device 已完成的聊天记录）
 - `agents.list.result`
 - `stt.partial` / `stt.final`
 - `agent.start` / `agent.thinking` / `agent.tool_call` / `agent.tool_result`

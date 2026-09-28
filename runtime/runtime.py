@@ -38,6 +38,7 @@ from runtime.security.auth import build_device_auth
 from runtime.security.permissions import PermissionGuard
 from runtime.services import ServiceSupervisor
 from runtime.session.manager import SessionManager
+from runtime.session.transcript import TranscriptStore
 from runtime.transport.speech.registry import TTSRegistry
 from runtime.transport.speech.stt_factory import create_stt
 from runtime.transport.speech.voice_catalog import VoiceCatalog
@@ -93,12 +94,15 @@ class Runtime:
         network = cfg.get("network", {})
         self.pets_root = resolve_pets_root(cfg)
         self.assets_port = int(server.get("assets_port", 8766))
+        sessions_root = resolve_sessions(cfg, ensure=True)
+        self.transcript = TranscriptStore(sessions_root)
         self.pipeline = BridgePipeline(
             self.router,
             tts_registry=self.tts_registry,
             workspace=str(self.workspace),
             notes_root=str(self.notes_root),
             assets_port=self.assets_port,
+            transcript=self.transcript,
         )
         self.pipeline.prepare_turn = self._prepare_turn_sidecars
         self.assets_base_url = build_assets_base_url(
@@ -180,7 +184,8 @@ class Runtime:
             assets_port=self.assets_port,
             assets_base_url=self.assets_base_url,
             default_agent_id=self.router.default_agent_id,
-            sessions_root=resolve_sessions(cfg, ensure=True),
+            sessions_root=sessions_root,
+            transcript=self.transcript,
         )
         self.snapshot = SnapshotService(
             self,

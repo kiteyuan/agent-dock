@@ -4,8 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../pets/pet_catalog.dart';
 import '../session/client_state.dart';
-import 'pet_catalog.dart';
 
 /// Codex Pet atlas — same grid as clients/web/pixel-bot.js
 class PixelBot extends StatefulWidget {
@@ -184,6 +184,9 @@ class _SheetPainter extends CustomPainter {
     final paint = Paint()..filterQuality = FilterQuality.none;
     canvas.drawImageRect(img, src, dst, paint);
   }
+
+  @override
+  bool? hitTest(Offset position) => true;
 
   @override
   bool shouldRepaint(covariant _SheetPainter old) =>

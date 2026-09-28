@@ -223,7 +223,63 @@ def _mcp_extension_args(root: Path | None = None) -> list[str]:
     return ["-e", str(entry)]
 
 
-def _build_pi_cmd(prompt: str, *, pi_key: str, instructions: str = "") -> list[str]:
+def _mime_to_ext(mime: str) -> str:
+    m = (mime or "").lower().split(";")[0].strip()
+    return {
+        "image/png": ".png",
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/gif": ".gif",
+        "image/webp": ".webp",
+        "image/bmp": ".bmp",
+    }.get(m, ".png")
+
+
+def _write_request_images(images: list, *, work_dir: Path, session_id: str) -> list[Path]:
+    """Decode base64 images to temp files under work_dir for ``pi @file``."""
+    import base64
+
+    if not images:
+        return []
+    out_dir = work_dir / ".agentdock-uploads" / _safe_session_id(session_id)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths: list[Path] = []
+    for i, item in enumerate(images):
+        if not isinstance(item, dict):
+            continue
+        mime = str(item.get("mime") or item.get("mimeType") or "image/png")
+        data = str(item.get("data") or item.get("content") or "").strip()
+        if data.startswith("data:") and ";base64," in data:
+            header, data = data.split(";base64,", 1)
+            if not item.get("mime") and not item.get("mimeType"):
+                mime = header[5:].strip() or mime
+        data = data.replace("\n", "").replace("\r", "")
+        if not data:
+            continue
+        try:
+            raw = base64.b64decode(data, validate=False)
+        except Exception:  # noqa: BLE001
+            continue
+        if not raw:
+            continue
+        # Cap single image at 8 MiB decoded
+        if len(raw) > 8 * 1024 * 1024:
+            continue
+        ext = _mime_to_ext(mime)
+        path = out_dir / f"img_{i:02d}_{uuid.uuid4().hex[:8]}{ext}"
+        path.write_bytes(raw)
+        paths.append(path)
+    return paths
+
+
+def _build_pi_cmd(
+    prompt: str,
+    *,
+    pi_key: str,
+    instructions: str = "",
+    image_paths: list[Path] | None = None,
+    work_dir: Path | None = None,
+) -> list[str]:
     cmd = [*_resolve_pi_cmd(), "--mode", "json", "--print"]
     if NO_SESSION:
         cmd.append("--no-session")
@@ -245,7 +301,16 @@ def _build_pi_cmd(prompt: str, *, pi_key: str, instructions: str = "") -> list[s
     if THINKING:
         cmd += ["--thinking", THINKING]
     cmd += _mcp_extension_args()
-    cmd.append(prompt)
+    root = (work_dir or FALLBACK_WORK_DIR).resolve()
+    for p in image_paths or []:
+        # Prefer path relative to Pi cwd so Windows drive letters don't break ``@file``.
+        try:
+            ref = p.resolve().relative_to(root).as_posix()
+        except ValueError:
+            ref = str(p.resolve())
+        cmd.append(f"@{ref}")
+    text = (prompt or "").strip() or ("请查看这些图片。" if image_paths else "")
+    cmd.append(text)
     return cmd
 
 
@@ -320,6 +385,7 @@ def run_pi_turn(
     device_id: str | None = None,
     cwd: Path | None = None,
     instructions: str = "",
+    images: list | None = None,
 ) -> None:
     work_dir = (cwd or FALLBACK_WORK_DIR).resolve()
     if not work_dir.is_dir():
@@ -333,13 +399,25 @@ def run_pi_turn(
         return
     pi_key = _pi_memory_key(session_id=session_id, device_id=device_id)
     sync_pi_mcp(work_dir)
-    cmd = _build_pi_cmd(text, pi_key=pi_key, instructions=instructions)
+    image_paths = _write_request_images(images or [], work_dir=work_dir, session_id=session_id)
+    cmd = _build_pi_cmd(
+        text,
+        pi_key=pi_key,
+        instructions=instructions,
+        image_paths=image_paths,
+        work_dir=work_dir,
+    )
     sid_note = "ephemeral" if NO_SESSION else pi_key
+    n_img = len(image_paths)
     write_event(
         _event(
             "agent.thinking",
             session_id,
-            content=f"pi[{sid_note}] cwd={work_dir}: {' '.join(cmd[:6])} …",
+            content=(
+                f"pi[{sid_note}] cwd={work_dir}"
+                + (f" images={n_img}" if n_img else "")
+                + f": {' '.join(cmd[:6])} …"
+            ),
         )
     )
     try:
@@ -470,6 +548,11 @@ def run_pi_turn(
         raise
     finally:
         _kill_proc(proc)
+        for p in image_paths:
+            try:
+                p.unlink(missing_ok=True)
+            except Exception:  # noqa: BLE001
+                pass
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -486,7 +569,7 @@ class Handler(BaseHTTPRequestHandler):
                 "protocol": PROTOCOL,
                 "id": "pi",
                 "name": "Pi Coding Agent",
-                "capabilities": ["coding", "bash", "filesystem"],
+                "capabilities": ["coding", "bash", "filesystem", "vision"],
                 "description": (
                     "Gateway over @earendil-works/pi-coding-agent "
                     "(--mode json, Pi memory by device_id)"
@@ -536,6 +619,7 @@ class Handler(BaseHTTPRequestHandler):
         device = req.get("device") if isinstance(req.get("device"), dict) else {}
         device_id = str(device.get("id") or device.get("device_id") or "").strip() or None
         cwd = _resolve_request_cwd(req)
+        images = req.get("images") if isinstance(req.get("images"), list) else []
 
         self.send_response(200)
         self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
@@ -559,6 +643,7 @@ class Handler(BaseHTTPRequestHandler):
                 device_id=device_id,
                 cwd=cwd,
                 instructions=str(req.get("instructions") or ""),
+                images=images,
             )
         except ClientGone:
             print(f"[pi-gateway] client gone mid-turn session={sid}", flush=True)

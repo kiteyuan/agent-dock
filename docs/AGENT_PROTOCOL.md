@@ -52,6 +52,9 @@ Optional discovery:
   "agent_id": "claude",
   "workspace": "E:/Projects/AgentDock/data/vault",
   "instructions": "【AgentDock Runtime】…",
+  "images": [
+    {"mime": "image/png", "data": "<base64>"}
+  ],
   "stream": true
 }
 ```
@@ -60,7 +63,8 @@ Optional discovery:
 |-------|----------|-------------|
 | `protocol` | yes | Must be `agentdock.agent/1.0` (or accepted by Agent) |
 | `session_id` | yes | Turn / session correlation id |
-| `text` | yes | Current user utterance (after STT if voice) |
+| `text` | yes | Current user utterance (after STT if voice). May be a short placeholder when only `images` are sent. |
+| `images` | no | Vision attachments: `[{ "mime": "image/png", "data": "<base64>" }]`. Raw base64 (no `data:` prefix). Gateways that support vision (e.g. Pi `@file`) should consume these. |
 | `context` | no | Prior turns Runtime holds |
 | `device` | no | Device metadata (never secrets) |
 | `agent_id` | no | Logical id Runtime selected |

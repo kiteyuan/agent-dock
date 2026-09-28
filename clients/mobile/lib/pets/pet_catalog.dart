@@ -110,6 +110,12 @@ class PetCatalog {
     return pets.keys.isEmpty ? '' : pets.keys.first;
   }
 
+  static String labelFor(String? id) {
+    final resolved = resolveId(id);
+    if (resolved.isEmpty) return '';
+    return pets[resolved]?.label ?? resolved;
+  }
+
   static Future<Directory> _cacheRoot() async {
     final support = await getApplicationSupportDirectory();
     final dir = Directory('${support.path}/pets');

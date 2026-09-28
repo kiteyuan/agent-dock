@@ -16,6 +16,51 @@ from runtime.protocol.agent import (
 )
 
 
+def normalize_images(raw: Any) -> list[dict[str, str]]:
+    """Normalize device/agent image payloads to ``[{mime, data}]`` (raw base64)."""
+    if not raw:
+        return []
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, str]] = []
+    for item in raw:
+        mime = ""
+        data = ""
+        if isinstance(item, str):
+            s = item.strip()
+            if s.startswith("data:") and ";base64," in s:
+                header, data = s.split(";base64,", 1)
+                mime = header[5:].strip() or "image/png"
+            else:
+                continue
+        elif isinstance(item, dict):
+            mime = str(
+                item.get("mime")
+                or item.get("mimeType")
+                or item.get("content_type")
+                or ""
+            ).strip()
+            data = str(item.get("data") or item.get("content") or "").strip()
+            url = str(item.get("url") or "").strip()
+            if (not data) and url.startswith("data:") and ";base64," in url:
+                header, data = url.split(";base64,", 1)
+                mime = mime or header[5:].strip() or "image/png"
+            if data.startswith("data:") and ";base64," in data:
+                header, data = data.split(";base64,", 1)
+                mime = mime or header[5:].strip() or "image/png"
+        else:
+            continue
+        data = data.replace("\n", "").replace("\r", "").strip()
+        if not data:
+            continue
+        if not mime:
+            mime = "image/png"
+        if not mime.startswith("image/"):
+            continue
+        out.append({"mime": mime, "data": data})
+    return out
+
+
 def request_to_http_body(request: AgentRequest, *, stream: bool = True) -> dict[str, Any]:
     """Canonical POST body Runtime sends to a public Agent."""
     body: dict[str, Any] = {
@@ -31,6 +76,9 @@ def request_to_http_body(request: AgentRequest, *, stream: bool = True) -> dict[
         body["workspace"] = request.workspace
     if request.instructions:
         body["instructions"] = request.instructions
+    images = normalize_images(request.images)
+    if images:
+        body["images"] = images
     return body
 
 

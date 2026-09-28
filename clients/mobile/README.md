@@ -29,9 +29,12 @@ GitHub Actions `Build Clients` 在 `flutter create` + `pub get` 之后会跑该�
 
 交互与 Web 一致：
 
-- **点按角色**：开始 / 结束录音
-- **长按角色**：打开设置（仅 Runtime URL / Token；TTS/人物由主机下发）
-- **下方三行回复**：按句字幕；空闲时可点回复重播
+- **顶栏头像**：打开连接设置
+- **输入框上方人物**：点按 = 快捷录音（同麦键）
+- **底栏麦**：点按开始 / 结束录音（STT）；忙或播报时再点取消 / 打断
+- **底栏常显**：文本输入 + 发送；助手文字即时显示，TTS 异步
+- **菜单**：新开会话
+- **点最后一条助手气泡旁重播**：空闲时可重播上一轮 TTS
 
 ## Android 权限
 
@@ -67,7 +70,9 @@ flutter build ios --release --no-codesign   # 再打成 Payload/*.ipa
 ```text
 lib/
   protocol/   # Device Protocol 编解码
-  session/    # WS + 状态机
+  session/    # WS + 状态机（DeviceSession）
+  models/     # ChatMessage 等
+  pets/       # Runtime 角色目录缓存
   audio/      # 录音 WAV / 播 TTS
-  ui/         # 点按通话 UI
+  ui/         # 聊天壳 / PixelBot / 状态徽标
 ```

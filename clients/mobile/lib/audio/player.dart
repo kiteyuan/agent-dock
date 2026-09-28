@@ -18,7 +18,6 @@ class TtsPlayer {
   List<TtsSegment> lastTurn = [];
   final List<TtsSegment> _turnBuf = [];
   bool _playing = false;
-  void Function(String text)? onCaption;
   void Function()? onBecameIdle;
   void Function()? onQueueChanged;
 
@@ -71,7 +70,6 @@ class TtsPlayer {
     try {
       while (_queue.isNotEmpty) {
         final seg = _queue.removeAt(0);
-        onCaption?.call(seg.text);
         final dir = await getTemporaryDirectory();
         final isWav = seg.bytes.length >= 4 &&
             seg.bytes[0] == 0x52 &&

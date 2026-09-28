@@ -94,6 +94,55 @@ def test_run_turn_emits_error_when_agent_omits_terminal() -> None:
     assert "agent.error" in types
 
 
+def test_run_turn_persists_completed_transcript(tmp_path) -> None:
+    from runtime.session.transcript import TranscriptStore
+
+    agent = _ScriptedAgent(
+        [
+            AgentEvent(
+                type=AgentEventType.MESSAGE, session_id="s", content="答", speak=False
+            ),
+            AgentEvent(type=AgentEventType.DONE, session_id="s"),
+        ]
+    )
+    store = TranscriptStore(tmp_path)
+    registry = AgentRegistry()
+    registry.register(agent)
+    router = AgentRouter(registry, default_agent_id=agent.info.id)
+    pipeline = BridgePipeline(router, tts_registry=TTSRegistry(), transcript=store)
+    session = Session(session_id="s", device_id="dev-x")
+    bus = EventBus(_CollectBus().send)
+
+    asyncio.run(pipeline.run_turn(session, "问", bus))
+
+    msgs = store.load("dev-x")
+    assert [m["text"] for m in msgs] == ["问", "答"]
+
+
+def test_run_turn_skips_persist_on_cancel(tmp_path) -> None:
+    from runtime.session.transcript import TranscriptStore
+
+    agent = _ScriptedAgent(
+        [
+            AgentEvent(
+                type=AgentEventType.MESSAGE, session_id="s", content="半截", speak=False
+            ),
+            AgentEvent(type=AgentEventType.CANCEL, session_id="s"),
+        ]
+    )
+    store = TranscriptStore(tmp_path)
+    registry = AgentRegistry()
+    registry.register(agent)
+    router = AgentRouter(registry, default_agent_id=agent.info.id)
+    pipeline = BridgePipeline(router, tts_registry=TTSRegistry(), transcript=store)
+    session = Session(session_id="s", device_id="dev-y")
+    bus = EventBus(_CollectBus().send)
+
+    asyncio.run(pipeline.run_turn(session, "问", bus))
+
+    assert store.load("dev-y") == []
+
+
 def test_tts_model_clears_when_provider_changes() -> None:
     pipeline = _pipeline(
         _ScriptedAgent([AgentEvent(type=AgentEventType.DONE, session_id="s")])

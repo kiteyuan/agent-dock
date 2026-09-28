@@ -70,6 +70,8 @@ class AgentRequest(BaseModel):
     workspace: str | None = None
     # Runtime capability brief — gateways should append to system / voice prompt
     instructions: str | None = None
+    # Optional vision attachments: [{mime, data}] base64 (no data: prefix)
+    images: list[dict[str, Any]] = Field(default_factory=list)
     cancel_event: Any = None
 
     model_config = {"arbitrary_types_allowed": True}

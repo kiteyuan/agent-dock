@@ -1,148 +1,125 @@
-import 'dart:async';
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../session/client_state.dart';
+import 'theme.dart';
 
-/// Pixel status glyphs above the pet — same sheet as clients/web/status-icons.png.
-class StatusBadge extends StatefulWidget {
+/// ChatGPT-like status pill in the top chrome.
+class StatusBadge extends StatelessWidget {
   const StatusBadge({super.key, required this.state});
 
   final ClientState state;
 
-  static const assetPath = 'assets/status-icons.png';
-  static const cell = 16.0;
-  static const frames = 4;
-  static const displaySize = 32.0;
-
-  /// Row order must match scripts/generate_status_icons.py ROWS.
-  static int rowFor(ClientState s) => switch (s) {
-        ClientState.idle => 0,
-        ClientState.listening => 1,
-        ClientState.busy => 2,
-        ClientState.speaking => 3,
-        ClientState.connecting => 4,
-        ClientState.offline => 5,
-        ClientState.error => 6,
+  static String labelFor(ClientState s) => switch (s) {
+        ClientState.offline => '未连接',
+        ClientState.connecting => '连接中…',
+        ClientState.idle => '在线',
+        ClientState.listening => '听着…',
+        ClientState.busy => '处理中…',
+        ClientState.speaking => '播报中',
+        ClientState.error => '出错了',
       };
 
-  static Duration periodFor(ClientState s) => switch (s) {
-        ClientState.idle => const Duration(milliseconds: 1400),
-        ClientState.offline => const Duration(milliseconds: 1 << 30),
-        ClientState.error => const Duration(milliseconds: 800),
-        ClientState.busy => const Duration(milliseconds: 700),
-        _ => const Duration(milliseconds: 550),
+  static Color dotFor(ClientState s) => switch (s) {
+        ClientState.idle || ClientState.speaking => const Color(0xFF34A853),
+        ClientState.listening => WebUiTheme.accent,
+        ClientState.busy => const Color(0xFFF9AB00),
+        ClientState.connecting => const Color(0xFFA142F4),
+        ClientState.error => const Color(0xFFEA4335),
+        ClientState.offline => const Color(0xFF9AA0A6),
       };
 
   @override
-  State<StatusBadge> createState() => _StatusBadgeState();
+  Widget build(BuildContext context) {
+    final pulse = state == ClientState.listening ||
+        state == ClientState.busy ||
+        state == ClientState.speaking ||
+        state == ClientState.connecting ||
+        state == ClientState.error;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _Dot(color: dotFor(state), pulse: pulse),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            labelFor(state),
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: state == ClientState.idle
+                  ? WebUiTheme.text
+                  : state == ClientState.listening
+                      ? WebUiTheme.accent
+                      : WebUiTheme.muted,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              height: 1.2,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class _StatusBadgeState extends State<StatusBadge> {
-  ui.Image? _sheet;
-  int _tick = 0;
-  Timer? _timer;
+class _Dot extends StatefulWidget {
+  const _Dot({required this.color, required this.pulse});
+  final Color color;
+  final bool pulse;
+
+  @override
+  State<_Dot> createState() => _DotState();
+}
+
+class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
 
   @override
   void initState() {
     super.initState();
-    _load();
-    _armTimer();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    if (widget.pulse) _c.repeat(reverse: true);
   }
 
   @override
-  void didUpdateWidget(covariant StatusBadge oldWidget) {
+  void didUpdateWidget(covariant _Dot oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.state != widget.state) {
-      _tick = 0;
-      _armTimer();
-    }
-  }
-
-  void _armTimer() {
-    _timer?.cancel();
-    final period = StatusBadge.periodFor(widget.state);
-    if (widget.state == ClientState.offline) return;
-    final frameMs = (period.inMilliseconds / StatusBadge.frames).round().clamp(80, 400);
-    _timer = Timer.periodic(Duration(milliseconds: frameMs), (_) {
-      if (!mounted) return;
-      setState(() => _tick++);
-    });
-  }
-
-  Future<void> _load() async {
-    try {
-      final data = await rootBundle.load(StatusBadge.assetPath);
-      final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
-      final frame = await codec.getNextFrame();
-      if (!mounted) {
-        frame.image.dispose();
-        return;
-      }
-      setState(() {
-        _sheet?.dispose();
-        _sheet = frame.image;
-      });
-    } catch (e) {
-      debugPrint('StatusBadge load failed: $e');
+    if (widget.pulse && !_c.isAnimating) {
+      _c.repeat(reverse: true);
+    } else if (!widget.pulse && _c.isAnimating) {
+      _c.stop();
+      _c.value = 1;
     }
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _sheet?.dispose();
+    _c.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final sheet = _sheet;
-    final row = StatusBadge.rowFor(widget.state);
-    final frame = widget.state == ClientState.offline
-        ? 0
-        : _tick % StatusBadge.frames;
-    final opacity = widget.state == ClientState.idle ? 0.75 : 1.0;
-
-    return SizedBox(
-      height: 36,
-      width: StatusBadge.displaySize,
-      child: sheet == null
-          ? const SizedBox.shrink()
-          : Opacity(
-              opacity: opacity,
-              child: CustomPaint(
-                size: const Size(StatusBadge.displaySize, StatusBadge.displaySize),
-                painter: _StatusPainter(sheet: sheet, row: row, frame: frame),
-              ),
-            ),
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) {
+        final t = widget.pulse ? 0.45 + 0.55 * _c.value : 1.0;
+        return Opacity(opacity: t, child: child);
+      },
+      child: Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+      ),
     );
   }
 }
 
-class _StatusPainter extends CustomPainter {
-  _StatusPainter({
-    required this.sheet,
-    required this.row,
-    required this.frame,
-  });
-
-  final ui.Image sheet;
-  final int row;
-  final int frame;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const c = StatusBadge.cell;
-    final src = Rect.fromLTWH(frame * c, row * c, c, c);
-    final dst = Offset.zero & size;
-    final paint = Paint()..filterQuality = FilterQuality.none;
-    canvas.drawImageRect(sheet, src, dst, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _StatusPainter old) =>
-      old.sheet != sheet || old.row != row || old.frame != frame;
+/// Tiny helper used by HomePage copy action.
+Future<void> copyText(String text) async {
+  await Clipboard.setData(ClipboardData(text: text));
 }

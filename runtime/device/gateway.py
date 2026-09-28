@@ -15,6 +15,7 @@ from runtime.bridge.pipeline import BridgePipeline
 from runtime.device.connection import DeviceConnection
 from runtime.pets import list_pets
 from runtime.protocol.agent import agent_cancel
+from runtime.protocol.agent_codec import normalize_images
 from runtime.protocol.device import (
     DeviceMessageType,
     agents_list_result,
@@ -32,6 +33,7 @@ from runtime.security.auth import DeviceAuth
 from runtime.session.agent_memory import quarantine_device_sessions
 from runtime.session.manager import SessionManager
 from runtime.session.models import Session
+from runtime.session.transcript import TranscriptStore
 from runtime.transport.speech.base import STTProvider
 from runtime.transport.speech.registry import TTSRegistry
 
@@ -58,6 +60,7 @@ class DeviceGateway:
         assets_base_url: str | None = None,
         default_agent_id: str | None = None,
         sessions_root: Path | None = None,
+        transcript: TranscriptStore | None = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -73,6 +76,7 @@ class DeviceGateway:
         self.assets_base_url = assets_base_url
         self.default_agent_id = default_agent_id
         self.sessions_root = sessions_root
+        self.transcript = transcript or TranscriptStore(sessions_root)
         self._connections: dict[str, DeviceConnection] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
         # Match websockets.serve max_size so a single frame cannot overshoot the buffer.
@@ -372,6 +376,16 @@ class DeviceGateway:
                     name=f"retire-{device_id}",
                 )
             conn.session = self.sessions.create(device_id, conn.device_type)
+            # Seed Runtime context from completed transcript (text only).
+            history = self.transcript.load(device_id)
+            if history:
+                conn.session.context = [
+                    {"role": m["role"], "text": m["text"], "ts": m.get("ts", 0)}
+                    for m in history
+                    if m.get("role") in ("user", "assistant") and m.get("text")
+                ]
+                if conn.session.max_context > 0:
+                    conn.session.context = conn.session.context[-conn.session.max_context :]
             # Thin clients: Runtime owns TTS/agent/pet defaults (ignore hello.tts_id).
             preferred_tts = self.tts_registry.default_id
             if preferred_tts and self.tts_registry.get(preferred_tts):
@@ -394,6 +408,7 @@ class DeviceGateway:
                         agent_id=conn.session.agent_id,
                         assets_port=self.assets_port,
                         assets_base_url=self.assets_base_url,
+                        messages=history,
                     )
                 )
             )
@@ -504,9 +519,15 @@ class DeviceGateway:
             agent_id = msg.payload.get("agent_id")
             tts_id = msg.payload.get("tts_id")
             tts_model = msg.payload.get("tts_model")
+            images = normalize_images(msg.payload.get("images"))
             session = self._own_session(conn, sid)
             if not session:
                 await conn.send(encode_message(error_msg("unknown session")))
+                return turn_task
+            if not str(text or "").strip() and not images:
+                await conn.send(
+                    encode_message(error_msg("empty message; need text or images", sid))
+                )
                 return turn_task
             await self._replace_turn(session, turn_task)
             bus = EventBus(conn.send)
@@ -518,6 +539,7 @@ class DeviceGateway:
                     agent_id=agent_id,
                     tts_id=tts_id,
                     tts_model=tts_model,
+                    images=images,
                 )
             )
 
@@ -570,6 +592,7 @@ class DeviceGateway:
         if conn and conn.session:
             conn.session.clear_context()
             cleared_live = True
+        self.transcript.clear(did)
         quarantined: list[str] = []
         if self.sessions_root is not None:
             quarantined = quarantine_device_sessions(
@@ -600,6 +623,7 @@ class DeviceGateway:
         if conn and conn.session:
             conn.session.clear_context()
             cleared_live = True
+        await asyncio.to_thread(self.transcript.clear, did)
         quarantined: list[str] = []
         root = self.sessions_root
         if root is not None:

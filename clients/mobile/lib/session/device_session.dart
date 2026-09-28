@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:web_socket_channel/io.dart';
@@ -6,9 +7,12 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../audio/player.dart';
 import '../audio/recorder.dart';
+import '../models/chat_message.dart';
+import '../pets/pet_catalog.dart';
 import '../protocol/messages.dart' as proto;
-import '../ui/pet_catalog.dart';
 import 'client_state.dart';
+
+export '../models/chat_message.dart';
 
 class DeviceSession {
   DeviceSession({
@@ -23,7 +27,6 @@ class DeviceSession {
   StreamSubscription? _sub;
   Timer? _heartbeat;
   Timer? _reconnectTimer;
-  /// User/app wants a live session (auto-reconnect until disconnect/dispose).
   bool _wantConnected = false;
   bool _connecting = false;
   bool _intentionalClose = false;
@@ -35,33 +38,38 @@ class DeviceSession {
   String? sessionId;
   String? lastError;
   String statusLine = '';
-  String replyText = '';
-  bool captionMode = false;
-  /// Last `stt.final` (or text send) — used to prefill the hidden composer.
-  String lastSttText = '';
+  /// Agent reply target text this turn (typewriter chases this).
+  String _assistantTurnText = '';
+  Timer? _typeTimer;
+  int _typeToken = 0;
+  /// Draft mirrored into the chat composer (cleared after STT → bubble).
+  String composerText = '';
+  /// Hint for composer placeholder while listening / recognizing.
+  String composerHint = '有问题，随便问';
+
+  /// Chat transcript (persisted by UI).
+  final List<ChatMessage> messages = [];
+  static const msgLimit = 50;
+  String? activeAssistantId;
+  /// Muted one-line process trail for the current turn.
+  String processLine = '';
 
   String url = 'ws://127.0.0.1:8765';
   String token = '';
-  /// Filled from Runtime session.accept / catalog push — not client config.
   String ttsId = '';
   String petId = '';
-  /// From Runtime `tts.list.result` — empty until connected.
   List<Map<String, dynamic>> ttsProviders = const [];
   String? ttsDefaultId;
   String? petDefaultId;
-  /// Bumps when pets catalog is refreshed from Runtime.
   int petsEpoch = 0;
 
   final List<int> _ttsBuf = [];
   String _ttsPendingText = '';
   bool _awaitingIdle = false;
+  /// After barge-in / cancel, ignore late TTS until the next turn starts.
+  bool _dropRemoteTts = false;
   String _thinkingBuf = '';
   DateTime? _lastThinkingFlush;
-  bool _captionLive = false;
-  /// Committed caption so far (full sentences); [replyText] may lag while typing.
-  String _captionCommitted = '';
-  Timer? _typeTimer;
-  int _typeToken = 0;
   static const _thinkingMin = Duration(milliseconds: 400);
   static const _processMaxLen = 72;
 
@@ -73,33 +81,205 @@ class DeviceSession {
       (state == ClientState.idle ||
           state == ClientState.listening ||
           state == ClientState.busy ||
-          state == ClientState.speaking);
+          state == ClientState.speaking ||
+          state == ClientState.error);
 
-  bool get canReplay =>
-      sessionId != null &&
-      state == ClientState.idle &&
-      !player.isBusy &&
-      player.lastTurn.isNotEmpty &&
-      replyText.trim().isNotEmpty;
+  bool get canReplay {
+    ChatMessage? lastAssistant;
+    for (final m in messages.reversed) {
+      if (m.role == ChatRole.assistant) {
+        lastAssistant = m;
+        break;
+      }
+    }
+    return sessionId != null &&
+        !player.isBusy &&
+        player.lastTurn.isNotEmpty &&
+        lastAssistant != null &&
+        lastAssistant.text.trim().isNotEmpty;
+  }
 
-  /// Hidden text entry (long-press reply). Not during speaking / offline.
   bool get canComposeText =>
       sessionId != null &&
       _ws != null &&
-      (state == ClientState.idle ||
-          state == ClientState.busy ||
-          state == ClientState.listening);
-
-  /// Prefill only while the reply still shows the last user utterance (STT).
-  String get composePrefill {
-    final stt = lastSttText.trim();
-    if (stt.isEmpty) return '';
-    if (replyText.trim() == stt) return stt;
-    return '';
-  }
+      state != ClientState.offline &&
+      state != ClientState.connecting &&
+      state != ClientState.error;
 
   void _notify() {
     if (!_changes.isClosed) _changes.add(null);
+  }
+
+  String encodeMessages() => jsonEncode([
+        for (final m in messages.take(msgLimit)) m.toJson(),
+      ]);
+
+  void loadMessagesJson(String? raw) {
+    messages.clear();
+    activeAssistantId = null;
+    if (raw == null || raw.isEmpty) return;
+    try {
+      final parsed = jsonDecode(raw);
+      if (parsed is! List) return;
+      for (final item in parsed) {
+        if (item is! Map) continue;
+        final m = ChatMessage.fromJson(Map<String, dynamic>.from(item));
+        if (m != null) messages.add(m);
+      }
+      if (messages.length > msgLimit) {
+        messages.removeRange(0, messages.length - msgLimit);
+      }
+    } catch (_) {
+      messages.clear();
+    }
+  }
+
+  void clearMessages() {
+    _stopTypewriter();
+    messages.clear();
+    activeAssistantId = null;
+    processLine = '';
+    _assistantTurnText = '';
+    _notify();
+  }
+
+  void _trimMessages() {
+    if (messages.length > msgLimit) {
+      messages.removeRange(0, messages.length - msgLimit);
+    }
+  }
+
+  void _appendUser(String text) {
+    final t = _plainReply(text);
+    if (t.isEmpty) return;
+    _stopTypewriter();
+    activeAssistantId = null;
+    _assistantTurnText = '';
+    processLine = '';
+    messages.add(ChatMessage(id: newChatId(), role: ChatRole.user, text: t));
+    _trimMessages();
+    _notify();
+  }
+
+  ChatMessage _ensureAssistant() {
+    if (activeAssistantId != null) {
+      for (final m in messages) {
+        if (m.id == activeAssistantId) return m;
+      }
+    }
+    final id = newChatId();
+    activeAssistantId = id;
+    final msg = ChatMessage(id: id, role: ChatRole.assistant, text: '');
+    messages.add(msg);
+    _trimMessages();
+    return msg;
+  }
+
+  void _setAssistantText(String text) {
+    _stopTypewriter();
+    final msg = _ensureAssistant();
+    msg.text = text;
+    _notify();
+  }
+
+  void _appendAssistantChunk(String raw) {
+    final t = raw.replaceAll('\r\n', '\n');
+    if (t.trim().isEmpty) return;
+    final sep = _assistantTurnText.isEmpty
+        ? ''
+        : _joinSep(_assistantTurnText, t);
+    _assistantTurnText = '$_assistantTurnText$sep$t';
+    _clearProcessLine();
+    _ensureAssistant();
+    _ensureTypewriterRunning();
+  }
+
+  void _stopTypewriter({bool snap = false}) {
+    _typeToken++;
+    _typeTimer?.cancel();
+    _typeTimer = null;
+    if (snap && activeAssistantId != null && _assistantTurnText.isNotEmpty) {
+      for (final m in messages) {
+        if (m.id == activeAssistantId) {
+          m.text = _assistantTurnText;
+          break;
+        }
+      }
+      _notify();
+    }
+  }
+
+  void _finishTypewriter() => _stopTypewriter(snap: true);
+
+  Duration _typeInterval(int behind) {
+    if (behind > 60) return const Duration(milliseconds: 10);
+    if (behind > 24) return const Duration(milliseconds: 16);
+    return const Duration(milliseconds: 22);
+  }
+
+  int _charsThisTick(int behind) {
+    if (behind > 48) return 3;
+    if (behind > 18) return 2;
+    return 1;
+  }
+
+  void _ensureTypewriterRunning() {
+    if (_typeTimer != null) return;
+    final my = ++_typeToken;
+    void tick() {
+      if (my != _typeToken) return;
+      final id = activeAssistantId;
+      final target = _assistantTurnText;
+      if (id == null || target.isEmpty) {
+        _stopTypewriter();
+        return;
+      }
+      ChatMessage? msg;
+      for (final m in messages) {
+        if (m.id == id) {
+          msg = m;
+          break;
+        }
+      }
+      if (msg == null) {
+        _stopTypewriter();
+        return;
+      }
+      final cur = msg.text;
+      if (cur.length >= target.length) {
+        _stopTypewriter();
+        return;
+      }
+      final behind = target.length - cur.length;
+      final n = _charsThisTick(behind);
+      msg.text = target.substring(0, cur.length + n);
+      _notify();
+      _typeTimer?.cancel();
+      if (my != _typeToken) return;
+      if (msg.text.length >= target.length) {
+        _typeTimer = null;
+        return;
+      }
+      _typeTimer = Timer(_typeInterval(behind - n), tick);
+    }
+
+    _typeTimer = Timer(Duration.zero, tick);
+  }
+
+  String _joinSep(String prev, String next) {
+    if (prev.isEmpty) return '';
+    final last = prev[prev.length - 1];
+    if (RegExp(r'\s').hasMatch(last)) return '';
+    if (RegExp(
+      r'[\u3000-\u303F\u4E00-\u9FFF\uFF00-\uFFEF。！？…」』）】]',
+    ).hasMatch(last)) {
+      return '';
+    }
+    if (next.isNotEmpty &&
+        RegExp(r'[，。！？、；：…」』）】,.!?;:]').hasMatch(next[0])) {
+      return '';
+    }
+    return ' ';
   }
 
   String _clipProcess(String s) {
@@ -122,48 +302,48 @@ class DeviceSession {
     return '';
   }
 
-  /// One-line native process text from the agent event. No invented labels.
   void _showProcessLine(String line) {
+    if (_assistantTurnText.isNotEmpty) {
+      _setState(ClientState.busy);
+      return;
+    }
     final s = _clipProcess(line);
     if (s.isEmpty) return;
-    if (!_captionLive) {
-      replyText = s;
-    }
-    // statusLine is not rendered (web parity); mood carries listen/busy/speak.
+    processLine = s;
     _setState(ClientState.busy);
   }
 
-  String _plainReply(String raw) =>
-      raw.replaceAll(RegExp(r'\s+'), ' ').trim();
-
-  void _showUserSpeech(String text) {
-    final t = _plainReply(text);
-    if (t.isEmpty) return;
-    lastSttText = t;
-    _stopTypewriter();
-    replyText = t;
-    _captionLive = false;
-    _captionCommitted = '';
-    captionMode = false;
+  void _clearProcessLine() {
+    if (processLine.isEmpty) return;
+    processLine = '';
     _notify();
   }
 
-  /// Text turn via `user.message` (same pipeline as STT → agent).
+  String _plainReply(String raw) =>
+      raw.replaceAll('\r\n', '\n').trim();
+
   Future<void> sendText(String raw) async {
     final text = raw.trim();
     if (text.isEmpty || sessionId == null || _ws == null) return;
-    if (state == ClientState.speaking) return;
     if (state == ClientState.listening) {
       try {
         await recorder.cancel();
       } catch (_) {}
     }
-    player.clear();
-    _ttsBuf.clear();
+    if (state == ClientState.busy ||
+        state == ClientState.speaking ||
+        player.isBusy) {
+      try {
+        _ws!.sink.add(proto.sessionCancel(sessionId!));
+      } catch (_) {}
+    }
+    _armDropRemoteTts();
     _awaitingIdle = false;
-    _endCaptionTyping(keepReply: false);
     _resetThinking();
-    _showUserSpeech(text);
+    _clearProcessLine();
+    composerText = '';
+    composerHint = '有问题，随便问';
+    _appendUser(text);
     _setState(ClientState.busy, status: '…');
     try {
       _ws!.sink.add(proto.userMessage(sessionId: sessionId!, text: text));
@@ -172,84 +352,6 @@ class DeviceSession {
     }
   }
 
-  void _stopTypewriter() {
-    _typeToken++;
-    _typeTimer?.cancel();
-    _typeTimer = null;
-  }
-
-  /// Stop typing; optionally snap UI to the last committed caption.
-  void _endCaptionTyping({bool keepReply = true}) {
-    _stopTypewriter();
-    if (keepReply && _captionCommitted.isNotEmpty) {
-      replyText = _captionCommitted;
-    }
-    _captionLive = false;
-    _captionCommitted = '';
-    captionMode = false;
-  }
-
-  int _typewriterMs(int len) => len > 80
-      ? 12
-      : len > 30
-          ? 18
-          : 28;
-
-  /// Join spoken sentences into one paragraph (no forced line breaks).
-  String _captionSep(String prev, String next) {
-    if (prev.isEmpty) return '';
-    final last = prev[prev.length - 1];
-    if (RegExp(r'\s').hasMatch(last)) return '';
-    if (RegExp(
-      r'[\u3000-\u303F\u4E00-\u9FFF\uFF00-\uFFEF。！？…」』）】]',
-    ).hasMatch(last)) {
-      return '';
-    }
-    if (next.isNotEmpty &&
-        RegExp(r'[，。！？、；：…」』）】,.!?;:]').hasMatch(next[0])) {
-      return '';
-    }
-    return ' ';
-  }
-
-  /// Typewriter caption: spoken sentences flow as one paragraph.
-  void _appendCaptionTypewriter(String line) {
-    final s = _plainReply(line);
-    if (s.isEmpty) return;
-    _typeToken++;
-    final my = _typeToken;
-    _typeTimer?.cancel();
-    _typeTimer = null;
-
-    if (!_captionLive) {
-      _captionLive = true;
-      _captionCommitted = '';
-      replyText = '';
-    } else {
-      replyText = _captionCommitted;
-    }
-
-    final sep = _captionSep(_captionCommitted, s);
-    final addition = '$sep$s';
-    final base = _captionCommitted;
-    _captionCommitted = '$base$addition';
-
-    var i = 0;
-    final ms = _typewriterMs(s.length);
-    _typeTimer = Timer.periodic(Duration(milliseconds: ms), (t) {
-      if (my != _typeToken) {
-        t.cancel();
-        return;
-      }
-      i += 1;
-      replyText = base + addition.substring(0, i);
-      _notify();
-      if (i >= addition.length) {
-        t.cancel();
-        _typeTimer = null;
-      }
-    });
-  }
 
   void _resetThinking() {
     _thinkingBuf = '';
@@ -297,7 +399,8 @@ class DeviceSession {
         _onData,
         onError: (Object e) {
           lastError = e.toString();
-          replyText = lastError!;
+          activeAssistantId = null;
+          _setAssistantText(lastError!);
           _setState(ClientState.error, status: lastError);
           if (!_intentionalClose) _scheduleReconnect();
         },
@@ -323,16 +426,13 @@ class DeviceSession {
           }
         }
       });
-      player.onCaption = (t) {
-        final line = t.trim();
-        if (line.isEmpty) return;
-        if (captionMode) {
-          _appendCaptionTypewriter(line);
+      player.onBecameIdle = () {
+        if (state == ClientState.speaking && !player.isBusy) {
+          _setState(ClientState.idle, status: '在线');
         } else {
           _notify();
         }
       };
-      player.onBecameIdle = _maybeIdle;
       player.onQueueChanged = _notify;
     } catch (e) {
       lastError = e.toString();
@@ -343,7 +443,6 @@ class DeviceSession {
     }
   }
 
-  /// Call when app returns to foreground — recover from OS-killed sockets.
   Future<void> onAppResumed() async {
     if (!_wantConnected) return;
     if (sessionId == null ||
@@ -400,32 +499,47 @@ class DeviceSession {
       await _stopAndSend();
       return;
     }
-    if (state == ClientState.busy || state == ClientState.speaking) {
+    if (state == ClientState.busy) {
       await cancelTurn();
       return;
     }
-    if (state != ClientState.idle || sessionId == null) return;
+    if (state == ClientState.speaking || player.isBusy) {
+      // Cancel server turn so late TTS cannot refill while we listen.
+      await cancelTurn();
+    }
+    if (sessionId == null) return;
+    if (state != ClientState.idle && state != ClientState.error) return;
     await _startListen();
   }
 
   Future<void> replayLast() => player.replayLast();
+
+  void _armDropRemoteTts() {
+    _dropRemoteTts = true;
+    player.clear();
+    _ttsBuf.clear();
+  }
+
+  void _clearDropRemoteTts() {
+    _dropRemoteTts = false;
+  }
 
   Future<void> cancelTurn() async {
     if (sessionId == null || _ws == null) return;
     try {
       _ws!.sink.add(proto.sessionCancel(sessionId!));
     } catch (_) {}
-    player.clear();
-    _ttsBuf.clear();
+    _armDropRemoteTts();
     _awaitingIdle = false;
-    _endCaptionTyping(keepReply: true);
+    _stopTypewriter();
     _resetThinking();
+    _clearProcessLine();
+    composerText = '';
+    composerHint = '有问题，随便问';
     await recorder.cancel();
-    // Keep current reply; mood returns to idle (same as clients/web).
     _setState(ClientState.idle, status: '已取消');
   }
 
-  /// Clear Agent conversation memory for this device (survives reconnect).
   Future<void> resetConversation() async {
     if (sessionId == null || _ws == null) {
       lastError = '未连接';
@@ -445,10 +559,8 @@ class DeviceSession {
       _ttsBuf.clear();
     }
     _awaitingIdle = false;
-    _endCaptionTyping(keepReply: false);
     _resetThinking();
-    lastSttText = '';
-    replyText = '';
+    clearMessages();
     try {
       _ws!.sink.add(proto.sessionReset(sessionId));
     } catch (e) {
@@ -461,13 +573,13 @@ class DeviceSession {
   Future<void> _startListen() async {
     try {
       await recorder.start();
-      _ttsBuf.clear();
-      player.clear();
+      _armDropRemoteTts();
       player.beginTurn();
       _awaitingIdle = false;
-      _endCaptionTyping(keepReply: true);
-      _resetThinking();
-      // Keep previous reply visible (same as clients/web) until STT / agent text arrives.
+        _resetThinking();
+      _clearProcessLine();
+      composerText = '';
+      composerHint = '正在听…';
       _setState(ClientState.listening, status: '正在录音…');
     } catch (e) {
       _failTurn(e.toString());
@@ -479,14 +591,17 @@ class DeviceSession {
     try {
       bytes = await recorder.stop();
     } catch (e) {
+      composerHint = '有问题，随便问';
       _failTurn(e.toString());
       return;
     }
     if (bytes == null || bytes.isEmpty || _ws == null || sessionId == null) {
+      composerHint = '有问题，随便问';
       _setState(ClientState.idle, status: '空录音');
       return;
     }
-    // Previous reply stays on screen until stt.final replaces it.
+    composerText = '';
+    composerHint = '识别中…';
     _setState(ClientState.busy, status: '识别中…');
     try {
       _ws!.sink.add(proto.audioStart(sessionId!));
@@ -497,21 +612,22 @@ class DeviceSession {
       }
       _ws!.sink.add(proto.audioEnd(sessionId!));
     } catch (e) {
+      composerHint = '有问题，随便问';
       _failTurn(e.toString());
     }
   }
 
-  /// Turn failures stay recoverable: keep the session and let the next tap record.
   void _failTurn(String detail) {
     final text = detail.trim().isEmpty ? '出错了' : detail.trim();
     lastError = text;
-    _endCaptionTyping(keepReply: false);
-    replyText = text;
-    _ttsBuf.clear();
+    activeAssistantId = null;
+    _setAssistantText(text);
+    _armDropRemoteTts();
     _awaitingIdle = false;
     _resetThinking();
+    _clearProcessLine();
     if (sessionId != null && _ws != null) {
-      _setState(ClientState.idle, status: text);
+      _setState(ClientState.error, status: text);
       return;
     }
     _setState(ClientState.error, status: text);
@@ -528,7 +644,7 @@ class DeviceSession {
 
   void _onMessage(dynamic data) {
     if (data is List<int>) {
-      _ttsBuf.addAll(data);
+      if (!_dropRemoteTts) _ttsBuf.addAll(data);
       return;
     }
     if (data is! String) return;
@@ -546,8 +662,8 @@ class DeviceSession {
         final acceptPet = (payload['pet_id'] as String?)?.trim() ?? '';
         if (acceptTts.isNotEmpty) ttsId = acceptTts;
         if (acceptPet.isNotEmpty) petId = acceptPet;
-        _setState(ClientState.idle, status: '点按角色通话');
-        // Catalogs are pushed by Runtime after accept; keep optional pull for older hosts.
+        _clearDropRemoteTts();
+        _setState(ClientState.idle, status: '在线');
         _ws?.sink.add(proto.ttsList());
         _ws?.sink.add(proto.petsList());
         break;
@@ -568,16 +684,14 @@ class DeviceSession {
         _notify();
         break;
       case 'pets.list.result':
-        // Catalog apply is async — HomePage listens via petsEpoch.
         _applyPets(payload);
         break;
       case 'session.reset.ok':
-        lastSttText = '';
-        replyText = '';
-        _endCaptionTyping(keepReply: false);
-        _resetThinking();
+            clearMessages();
+            _resetThinking();
         player.clear();
         _ttsBuf.clear();
+        _dropRemoteTts = false;
         _awaitingIdle = false;
         _setState(ClientState.idle, status: '已新开会话');
         break;
@@ -588,16 +702,26 @@ class DeviceSession {
         );
         break;
       case 'stt.final':
+        _clearDropRemoteTts();
         _resetThinking();
-        _captionLive = false;
-        _showUserSpeech('${payload['text'] ?? payload['content'] ?? ''}');
+            final stt = '${payload['text'] ?? payload['content'] ?? ''}'.trim();
+        if (stt.isNotEmpty) {
+          composerText = '';
+          composerHint = '有问题，随便问';
+          _appendUser(stt);
+        } else {
+          composerText = '';
+          composerHint = '有问题，随便问';
+        }
         _setState(ClientState.busy);
         break;
       case 'agent.start':
+        _clearDropRemoteTts();
         _flushThinking(finalFlush: true);
         _setState(ClientState.busy);
         break;
       case 'agent.thinking':
+        if (_dropRemoteTts) return;
         final chunk = '${payload['content'] ?? payload['text'] ?? ''}';
         if (chunk.isNotEmpty) {
           _thinkingBuf += chunk;
@@ -608,6 +732,7 @@ class DeviceSession {
         break;
       case 'agent.tool_call':
       case 'agent.tool_result':
+        if (_dropRemoteTts) return;
         _flushThinking(finalFlush: true);
         final line = _nativeProcessText(type, payload);
         if (line.isNotEmpty) {
@@ -617,25 +742,27 @@ class DeviceSession {
         }
         break;
       case 'agent.message':
+        if (_dropRemoteTts) return;
         _flushThinking(finalFlush: true);
-        final speak = payload['speak'] != false;
-        final t = (payload['content'] ?? payload['text'] ?? '').toString().trim();
+        final t =
+            (payload['content'] ?? payload['text'] ?? '').toString().trim();
         if (t.isNotEmpty) {
-          _showProcessLine(t);
+          _appendAssistantChunk(t);
         }
-        if (speak) {
-          captionMode = true;
-        }
+        _setState(ClientState.busy);
         break;
       case 'tts.start':
+        if (_dropRemoteTts) return;
         _ttsBuf.clear();
         _ttsPendingText = (payload['text'] as String? ?? '').trim();
-        _setState(
-          ClientState.speaking,
-          status: _ttsPendingText.isEmpty ? null : _clipProcess(_ttsPendingText),
-        );
+        _setState(ClientState.speaking);
         break;
       case 'tts.end':
+        if (_dropRemoteTts) {
+          _ttsBuf.clear();
+          _ttsPendingText = '';
+          return;
+        }
         if (_ttsBuf.isNotEmpty) {
           player.enqueue(TtsSegment(
             bytes: Uint8List.fromList(_ttsBuf),
@@ -646,24 +773,39 @@ class DeviceSession {
         }
         break;
       case 'agent.done':
+        if (_dropRemoteTts || state == ClientState.listening) {
+          _ttsBuf.clear();
+          _ttsPendingText = '';
+          return;
+        }
         _flushThinking(finalFlush: true);
-        if (_ttsBuf.isNotEmpty) {
+        if (!_dropRemoteTts && _ttsBuf.isNotEmpty) {
           player.enqueue(TtsSegment(
             bytes: Uint8List.fromList(_ttsBuf),
             text: _ttsPendingText,
           ));
           _ttsBuf.clear();
           _ttsPendingText = '';
+        } else {
+          _ttsBuf.clear();
+          _ttsPendingText = '';
         }
         _awaitingIdle = true;
+        _finishTypewriter();
         _maybeIdle();
         break;
       case 'agent.cancel':
-        player.clear();
-        _ttsBuf.clear();
+        // Ignore late cancel from a replaced turn after we already barged in.
+        if (_dropRemoteTts) {
+          player.clear();
+          _ttsBuf.clear();
+          return;
+        }
+        _armDropRemoteTts();
         _awaitingIdle = false;
-        _endCaptionTyping(keepReply: true);
+        _stopTypewriter();
         _resetThinking();
+        _clearProcessLine();
         _setState(ClientState.idle, status: '已取消');
         break;
       case 'device.pong':
@@ -674,23 +816,20 @@ class DeviceSession {
   }
 
   void _maybeIdle() {
-    if (_awaitingIdle && !player.isBusy && _ttsBuf.isEmpty) {
-      _awaitingIdle = false;
-      player.commitTurn();
-      _stopTypewriter();
-      if (_captionCommitted.isNotEmpty) {
-        replyText = _captionCommitted;
-      }
-      _captionCommitted = '';
-      captionMode = false;
-      _captionLive = false;
-      if (state == ClientState.busy ||
-          state == ClientState.speaking ||
-          state == ClientState.error) {
-        _setState(ClientState.idle, status: '点按角色通话');
-      } else {
-        _notify();
-      }
+    if (!_awaitingIdle) return;
+    _awaitingIdle = false;
+    player.commitTurn();
+    _assistantTurnText = '';
+    activeAssistantId = null;
+    _clearProcessLine();
+    if (player.isBusy) {
+      _setState(ClientState.speaking, status: '播报中');
+    } else if (state == ClientState.busy ||
+        state == ClientState.speaking ||
+        state == ClientState.error) {
+      _setState(ClientState.idle, status: '在线');
+    } else {
+      _notify();
     }
   }
 
@@ -703,7 +842,6 @@ class DeviceSession {
   }
 
   Future<void> dispose() async {
-    _stopTypewriter();
     await disconnect(silent: true);
     await recorder.dispose();
     await player.dispose();

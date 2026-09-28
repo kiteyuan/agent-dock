@@ -10,9 +10,11 @@ from runtime.agent.router import AgentRouter
 from runtime.bridge.agent_brief import build_agent_instructions
 from runtime.bridge.bus import EventBus, client_disconnected
 from runtime.protocol.agent import AgentEventType, AgentRequest, agent_cancel, agent_error
+from runtime.protocol.agent_codec import normalize_images
 from runtime.protocol.device import tts_end, tts_start
 from runtime.protocol.wire import encode_message
 from runtime.session.models import Session
+from runtime.session.transcript import TranscriptStore
 from runtime.transport.speech.registry import TTSRegistry
 from runtime.transport.speech.speak_text import SentenceBuffer, is_speakable, speak_text
 
@@ -31,12 +33,14 @@ class BridgePipeline:
         workspace: str | None = None,
         notes_root: str | None = None,
         assets_port: int = 8766,
+        transcript: TranscriptStore | None = None,
     ) -> None:
         self.router = router
         self.tts_registry = tts_registry or TTSRegistry()
         self.workspace = workspace
         self.notes_root = notes_root
         self.assets_port = assets_port
+        self.transcript = transcript
         self.prepare_turn = None
 
     async def _send(self, bus: EventBus, data: str | bytes) -> bool:
@@ -140,6 +144,7 @@ class BridgePipeline:
         agent_id: str | None = None,
         tts_id: str | None = None,
         tts_model: str | None = None,
+        images: list[dict] | None = None,
     ) -> None:
         turn_gen, cancel_event = session.begin_turn()
         self._apply_tts_selection(session, tts_id=tts_id, tts_model=tts_model)
@@ -165,9 +170,15 @@ class BridgePipeline:
             await self._publish(bus, agent_error(session.session_id, str(exc)))
             return
 
+        image_list = normalize_images(images)
+        user_text = str(text or "").strip()
+        if not user_text and image_list:
+            user_text = f"（发送了 {len(image_list)} 张图片）"
+
         # Commit user turn only after routing succeeds; exclude it from context
         # so agents that echo both ``text`` and ``context`` do not double the prompt.
-        session.add_turn("user", text)
+        # Do not store image bytes in context — only a short text note.
+        session.add_turn("user", user_text)
         session.agent_id = adapter.info.id
         instructions = build_agent_instructions(
             workspace=self.workspace,
@@ -176,12 +187,13 @@ class BridgePipeline:
         )
         request = AgentRequest(
             session_id=session.session_id,
-            text=text,
+            text=user_text,
             context=list(session.context[:-1]),
             device=session.device_info(),
             agent_id=adapter.info.id,
             workspace=self.workspace,
             instructions=instructions,
+            images=image_list,
             cancel_event=cancel_event,
         )
 
@@ -218,6 +230,8 @@ class BridgePipeline:
 
         terminal = None
         cancelled = False
+        turn_assistants: list[str] = []
+        agent_finished_ok = False
         try:
             async for event in adapter.run(request):
                 logger.info("[{}] {}", session.session_id, event.type.value)
@@ -241,6 +255,7 @@ class BridgePipeline:
 
                 if event.type == AgentEventType.MESSAGE and event.content:
                     session.add_turn("assistant", event.content)
+                    turn_assistants.append(event.content)
                     # Dual-channel: only speak=True messages go to TTS
                     if event.speak and worker:
                         piece = speak_text(event.content)
@@ -250,6 +265,12 @@ class BridgePipeline:
                             )
                         if piece:
                             await enqueue_sentences(speak_buf.push(piece))
+            # Lock success before TTS cleanup / disconnect can flip cancel.
+            agent_finished_ok = (
+                terminal is not None
+                and terminal.type == AgentEventType.DONE
+                and bool(turn_assistants)
+            )
         except asyncio.CancelledError:
             # Only affect this turn's token — never the successor after detach.
             cancel_event.set()
@@ -285,6 +306,20 @@ class BridgePipeline:
                     worker.cancel()
                 except Exception:  # noqa: BLE001
                     logger.exception("[{}] TTS worker cleanup failed", session.session_id)
+
+        # Persist once Agent finished — even if client dropped during TTS.
+        if agent_finished_ok and self.transcript is not None:
+            try:
+                await asyncio.to_thread(
+                    self.transcript.append_completed,
+                    session.device_id,
+                    user_text=user_text,
+                    assistant_texts=turn_assistants,
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception(
+                    "[{}] failed to persist completed transcript", session.session_id
+                )
 
         if cancelled or cancel_event.is_set():
             terminal = agent_cancel(session.session_id)

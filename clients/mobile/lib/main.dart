@@ -63,11 +63,11 @@ class _AgentDockAppState extends State<AgentDockApp> with WidgetsBindingObserver
       title: 'AgentDock',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        brightness: Brightness.dark,
+        brightness: Brightness.light,
         scaffoldBackgroundColor: WebUiTheme.bg0,
         colorScheme: ColorScheme.fromSeed(
           seedColor: WebUiTheme.accent,
-          brightness: Brightness.dark,
+          brightness: Brightness.light,
         ),
         useMaterial3: true,
       ),

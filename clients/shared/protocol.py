@@ -42,6 +42,7 @@ def user_message(
     agent_id: str | None = None,
     tts_id: str | None = None,
     tts_model: str | None = None,
+    images: list[dict[str, Any]] | None = None,
 ) -> str:
     payload: dict[str, Any] = {"session_id": session_id, "text": text}
     if agent_id:
@@ -50,6 +51,8 @@ def user_message(
         payload["tts_id"] = tts_id
     if tts_model:
         payload["tts_model"] = tts_model
+    if images:
+        payload["images"] = list(images)
     return make_msg("user.message", payload)
 
 

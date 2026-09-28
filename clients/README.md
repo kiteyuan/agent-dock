@@ -28,7 +28,8 @@ python clients/cli/main.py --ui
 # 或：cd clients/web && python serve.py
 ```
 
-**通话**：**点击开始收音 → 再点结束并发送**。
+**交互**：聊天主壳打字发送；麦键直接录音做 STT（点按开始 / 再点结束）。助手文字即时显示，TTS 异步。
+
 
 ## 手机 App（Flutter）
 

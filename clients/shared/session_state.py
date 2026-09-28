@@ -25,8 +25,12 @@ BUSY_EVENTS = frozenset({
     "agent.message",
 })
 
-# Talk button enabled only in these states.
+# Talk / mic: idle+listening start/stop STT; busy/speaking/error also accept
+# a tap to cancel / barge-in (aligned with STATE_MACHINE.md + Web/Mobile).
 CAN_TOGGLE_TALK = frozenset({
     ClientState.IDLE,
     ClientState.LISTENING,
+    ClientState.BUSY,
+    ClientState.SPEAKING,
+    ClientState.ERROR,
 })

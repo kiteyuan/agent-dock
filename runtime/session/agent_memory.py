@@ -61,6 +61,9 @@ def quarantine_device_sessions(
             continue
         if "_quarantine" in path.parts:
             continue
+        # Device chat transcripts are cleared explicitly on reset — not quarantined.
+        if "transcripts" in path.parts:
+            continue
         if not _stem_belongs(path.stem, aliases):
             continue
         dest = quarantine / f"{reason}_{stamp}_{path.name}"

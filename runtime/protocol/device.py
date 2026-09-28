@@ -76,6 +76,7 @@ def user_message(
     agent_id: str | None = None,
     tts_id: str | None = None,
     tts_model: str | None = None,
+    images: list[dict[str, Any]] | None = None,
 ) -> DeviceMessage:
     payload: dict[str, Any] = {"session_id": session_id, "text": text}
     if agent_id:
@@ -84,6 +85,8 @@ def user_message(
         payload["tts_id"] = tts_id
     if tts_model:
         payload["tts_model"] = tts_model
+    if images:
+        payload["images"] = list(images)
     return DeviceMessage(type=DeviceMessageType.USER_MESSAGE, payload=payload)
 
 
@@ -97,6 +100,7 @@ def session_accept(
     agent_id: str | None = None,
     assets_port: int | None = None,
     assets_base_url: str | None = None,
+    messages: list[dict[str, Any]] | None = None,
 ) -> DeviceMessage:
     """Runtime-owned session defaults — clients are shells and should not configure these."""
     payload: dict[str, Any] = {"session_id": session_id, "device_id": device_id}
@@ -112,6 +116,8 @@ def session_accept(
         payload["assets_port"] = int(assets_port)
     if assets_base_url:
         payload["assets_base_url"] = assets_base_url
+    if messages is not None:
+        payload["messages"] = list(messages)
     return DeviceMessage(type=DeviceMessageType.SESSION_ACCEPT, payload=payload)
 
 
