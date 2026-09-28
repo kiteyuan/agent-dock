@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -67,7 +66,7 @@ class PetCatalog {
     }
   }
 
-  /// Derive http://<ws-host>:<assetsPort>/pets from the device WS URL.
+  /// Derive `http://{ws-host}:{assetsPort}/pets` from the device WS URL.
   static String? baseFromWs(String? wsUrl, {int? port, String? serverBase}) {
     final p = port ?? assetsPort;
     final raw = (wsUrl ?? '').trim();

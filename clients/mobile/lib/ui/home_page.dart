@@ -469,7 +469,7 @@ class _HomePageState extends State<HomePage> {
                               : MarkdownBody(
                                   data: m.text,
                                   selectable: true,
-                                  styleSheet: MarkdownStyleSheet.fromFlutterTheme(
+                                  styleSheet: MarkdownStyleSheet.fromTheme(
                                     Theme.of(ctx),
                                   ).copyWith(
                                     p: WebUiTheme.bubbleText,
