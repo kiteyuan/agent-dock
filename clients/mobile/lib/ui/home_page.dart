@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,6 +14,13 @@ import '../session/device_session.dart';
 import 'pixel_bot.dart';
 import 'status_badge.dart';
 import 'theme.dart';
+
+class _PendingImage {
+  _PendingImage({required this.bytes, required this.mime, required this.name});
+  final Uint8List bytes;
+  final String mime;
+  final String name;
+}
 
 /// ChatGPT-like light chat shell (parity with clients/web).
 class HomePage extends StatefulWidget {
@@ -28,8 +38,13 @@ class _HomePageState extends State<HomePage> {
   late final TextEditingController _compose;
   final _chatScroll = ScrollController();
   final _composeFocus = FocusNode();
+  final _picker = ImagePicker();
+  final List<_PendingImage> _pendingImages = [];
   StreamSubscription? _sub;
   String _lastAppliedComposer = '';
+
+  static const _attachLimit = 4;
+  static const _maxImageBytes = 4 * 1024 * 1024;
 
   DeviceSession get s => widget.session;
 
@@ -151,6 +166,7 @@ class _HomePageState extends State<HomePage> {
       borderRadius: BorderRadius.circular(WebUiTheme.radiusSm),
       borderSide: const BorderSide(color: WebUiTheme.line),
     );
+    final online = s.sessionId != null;
     await showDialog<void>(
       context: context,
       barrierColor: const Color(0x59000000),
@@ -209,6 +225,20 @@ class _HomePageState extends State<HomePage> {
                   child: _secondaryBtn('关闭', () => Navigator.pop(ctx)),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: online
+                  ? () async {
+                      Navigator.pop(ctx);
+                      await _confirmNewSession();
+                    }
+                  : null,
+              style: TextButton.styleFrom(
+                foregroundColor: WebUiTheme.muted,
+                disabledForegroundColor: WebUiTheme.muted.withValues(alpha: 0.35),
+              ),
+              child: const Text('新开会话'),
             ),
           ],
         ),
@@ -285,11 +315,80 @@ class _HomePageState extends State<HomePage> {
     await _savePrefs();
   }
 
+  Future<void> _pickImages() async {
+    if (!s.canComposeText) return;
+    try {
+      final room = _attachLimit - _pendingImages.length;
+      if (room <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('最多附 $_attachLimit 张图片'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+      final files = await _picker.pickMultiImage(limit: room);
+      if (files.isEmpty) return;
+      for (final f in files) {
+        if (_pendingImages.length >= _attachLimit) break;
+        final bytes = await f.readAsBytes();
+        if (bytes.length > _maxImageBytes) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${f.name} 过大（上限 4MB）'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          continue;
+        }
+        final mime = _mimeFromName(f.name, f.mimeType);
+        if (!mime.startsWith('image/')) continue;
+        _pendingImages.add(_PendingImage(
+          bytes: bytes,
+          mime: mime,
+          name: f.name,
+        ));
+      }
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('选图失败：$e'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  String _mimeFromName(String name, String? hinted) {
+    final h = (hinted ?? '').trim().toLowerCase();
+    if (h.startsWith('image/')) return h;
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.bmp')) return 'image/bmp';
+    return 'image/png';
+  }
+
   Future<void> _submitCompose() async {
     final text = _compose.text.trim();
-    if (text.isEmpty || !s.canComposeText) return;
+    if ((text.isEmpty && _pendingImages.isEmpty) || !s.canComposeText) return;
+    final pending = List<_PendingImage>.from(_pendingImages);
+    _pendingImages.clear();
     _compose.clear();
-    await s.sendText(text);
+    setState(() {});
+    final images = pending
+        .map((p) => {
+              'mime': p.mime,
+              'data': base64Encode(p.bytes),
+            })
+        .toList();
+    final previews = pending.map((p) => p.bytes).toList();
+    await s.sendText(text, images: images, previewBytes: previews);
     await _savePrefs();
   }
 
@@ -332,7 +431,7 @@ class _HomePageState extends State<HomePage> {
             constraints: const BoxConstraints(maxWidth: 720),
             child: Column(
               children: [
-                _buildHeader(online: online),
+                _buildHeader(),
                 Expanded(child: _buildTranscript(screenW)),
                 _buildComposer(online: online, canType: canType, listening: listening),
               ],
@@ -343,60 +442,22 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildHeader({required bool online}) {
+  Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            onTap: _openSettings,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: WebUiTheme.bg0,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: WebUiTheme.line),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: PixelBot(
-                key: ValueKey('hdr-${s.petId}-${s.petsEpoch}'),
-                mood: s.state,
-                petId: s.petId,
-              ),
+          const Text(
+            '对话',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: WebUiTheme.text,
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '对话',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: WebUiTheme.text,
-                  ),
-                ),
-                StatusBadge(state: s.state),
-              ],
-            ),
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_horiz_rounded, color: WebUiTheme.muted),
-            onSelected: (v) {
-              if (v == 'new') _confirmNewSession();
-            },
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                value: 'new',
-                enabled: online,
-                child: const Text('新开会话'),
-              ),
-            ],
-          ),
+          const SizedBox(height: 2),
+          StatusBadge(state: s.state),
         ],
       ),
     );
@@ -465,7 +526,38 @@ class _HomePageState extends State<HomePage> {
                                 )
                               : null,
                           child: isUser
-                              ? Text(m.text, style: WebUiTheme.bubbleText)
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (m.imageBytes.isNotEmpty)
+                                      Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: m.text.trim().isEmpty ? 0 : 8,
+                                        ),
+                                        child: Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          alignment: WrapAlignment.end,
+                                          children: [
+                                            for (final bytes in m.imageBytes)
+                                              ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                child: Image.memory(
+                                                  bytes,
+                                                  width: 120,
+                                                  height: 120,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    if (m.text.trim().isNotEmpty)
+                                      Text(m.text, style: WebUiTheme.bubbleText),
+                                  ],
+                                )
                               : MarkdownBody(
                                   data: m.text,
                                   selectable: true,
@@ -542,7 +634,8 @@ class _HomePageState extends State<HomePage> {
         children: [
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: _onMicPressed,
+            onTap: online ? _onMicPressed : null,
+            onLongPress: _openSettings,
             child: AnimatedScale(
               scale: listening ? 1.04 : 1.0,
               duration: const Duration(milliseconds: 180),
@@ -558,6 +651,53 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(height: 4),
+          if (_pendingImages.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: SizedBox(
+                height: 72,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _pendingImages.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (ctx, i) {
+                    final item = _pendingImages[i];
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.memory(
+                            item.bytes,
+                            width: 72,
+                            height: 72,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          top: -6,
+                          right: -6,
+                          child: Material(
+                            color: WebUiTheme.bg0,
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => setState(() {
+                                _pendingImages.removeAt(i);
+                              }),
+                              child: const Padding(
+                                padding: EdgeInsets.all(2),
+                                child: Icon(Icons.close, size: 16),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
           Container(
             padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
             decoration: BoxDecoration(
@@ -568,17 +708,7 @@ class _HomePageState extends State<HomePage> {
             child: Row(
               children: [
                 IconButton(
-                  onPressed: canType
-                      ? () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  '移动端图片附件稍后接入；请先用桌面 Web 发送图片'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      : null,
+                  onPressed: canType ? _pickImages : null,
                   color: WebUiTheme.muted,
                   icon: const Icon(Icons.add_rounded),
                   tooltip: '添加图片',
@@ -603,7 +733,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 IconButton(
-                  onPressed: online ? _onMicPressed : _openSettings,
+                  onPressed: online ? _onMicPressed : null,
                   color: listening ? WebUiTheme.accent : WebUiTheme.muted,
                   icon: Icon(
                     listening

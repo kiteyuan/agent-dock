@@ -22,6 +22,8 @@ agents/**/.agentdock-sessions/
 # Playwright MCP page snapshots (cwd-local; not source)
 .playwright-mcp/
 **/.playwright-mcp/
+# Accidental bridge screenshots under the sticky Playwright helper
+runtime/platform/playwright_bridge/*.png
 
 # Personal agent data root (layout v2) — local only
 data/

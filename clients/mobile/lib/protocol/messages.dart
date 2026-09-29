@@ -53,6 +53,7 @@ String userMessage({
   String? agentId,
   String? ttsId,
   String? ttsModel,
+  List<Map<String, String>>? images,
 }) {
   final payload = <String, dynamic>{
     'session_id': sessionId,
@@ -61,6 +62,9 @@ String userMessage({
   if (agentId != null) payload['agent_id'] = agentId;
   if (ttsId != null) payload['tts_id'] = ttsId;
   if (ttsModel != null) payload['tts_model'] = ttsModel;
+  if (images != null && images.isNotEmpty) {
+    payload['images'] = images;
+  }
   return encode('user.message', payload);
 }
 

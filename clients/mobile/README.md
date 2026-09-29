@@ -29,11 +29,12 @@ GitHub Actions `Build Clients` 在 `flutter create` + `pub get` 之后会跑该�
 
 交互与 Web 一致：
 
-- **顶栏头像**：打开连接设置
-- **输入框上方人物**：点按 = 快捷录音（同麦键）
+- **顶栏**：标题「对话」+ Agent 状态（在线 / 听着 / 处理中…）
+- **输入框上方人物**：点按 = 快捷录音（同麦键）；长按 = 打开连接设置
+- **连接设置**：长按人物；弹窗内可「新开会话」
 - **底栏麦**：点按开始 / 结束录音（STT）；忙或播报时再点取消 / 打断
 - **底栏常显**：文本输入 + 发送；助手文字即时显示，TTS 异步
-- **菜单**：新开会话
+- **+ 附图**：相册多选（最多 4 张，单张 ≤4MB），走与 Web 相同的 `user.message.images`
 - **点最后一条助手气泡旁重播**：空闲时可重播上一轮 TTS
 
 ## Android 权限
@@ -43,9 +44,17 @@ GitHub Actions `Build Clients` 在 `flutter create` + `pub get` 之后会跑该�
 ```xml
 <uses-permission android:name="android.permission.INTERNET"/>
 <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
 ```
 
-CI 会在 `flutter create` 后自动补上。
+CI 会在 `flutter create` 后自动补上（相册在 Android 13+ 多用系统 Photo Picker）。
+
+## iOS / macOS 权限文案
+
+CI 会补：
+
+- `NSMicrophoneUsageDescription`
+- `NSPhotoLibraryUsageDescription`
 
 ## 打包（GitHub Actions）
 

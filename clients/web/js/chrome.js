@@ -8,6 +8,8 @@ import {
   resetConversation,
 } from "./session.js";
 
+const PET_LONG_PRESS_MS = 550;
+
 function showSettingsMain() {
   $("settingsMain").hidden = false;
   $("settingsResetConfirm").hidden = true;
@@ -18,53 +20,76 @@ function showSettingsResetConfirm() {
   $("settingsResetConfirm").hidden = false;
 }
 
-export function openSettings() {
-  closeSidebar();
-  showSettingsMain();
+function syncNewSessionButton() {
   const chrome = $("btnChromeNew");
-  if (chrome) {
-    chrome.disabled = !(
-      store.sessionId &&
-      store.ws &&
-      store.ws.readyState === WebSocket.OPEN
-    );
-  }
+  if (!chrome) return;
+  chrome.disabled = !(
+    store.sessionId &&
+    store.ws &&
+    store.ws.readyState === WebSocket.OPEN
+  );
+}
+
+export function openSettings() {
+  showSettingsMain();
+  syncNewSessionButton();
   $("settings").showModal();
 }
 
 function openNewSessionConfirm() {
   if (!store.sessionId || !store.ws || store.ws.readyState !== WebSocket.OPEN) return;
-  closeSidebar();
   showSettingsResetConfirm();
-  $("settings").showModal();
-}
-
-function openSidebar() {
-  $("stage").classList.add("sidebar-open");
-  const bd = $("sidebarBackdrop");
-  if (bd) bd.hidden = false;
-}
-
-function closeSidebar() {
-  $("stage").classList.remove("sidebar-open");
-  const bd = $("sidebarBackdrop");
-  if (bd) bd.hidden = true;
-}
-
-function toggleSidebar() {
-  if ($("stage").classList.contains("sidebar-open")) closeSidebar();
-  else openSidebar();
+  if (!$("settings").open) $("settings").showModal();
 }
 
 function startOrToggleMic() {
-  if (!store.sessionId) {
-    openSettings();
-    return;
-  }
+  if (!store.sessionId) return;
   toggleTalk().catch(() => {
     store.recording = false;
     store.starting = false;
     store.stopping = false;
+  });
+}
+
+function bindPetGestures() {
+  const pet = $("btnComposerPet");
+  if (!pet) return;
+  let longTimer = null;
+  let longFired = false;
+
+  const clearLong = () => {
+    if (longTimer) {
+      clearTimeout(longTimer);
+      longTimer = null;
+    }
+  };
+
+  pet.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    longFired = false;
+    clearLong();
+    longTimer = setTimeout(() => {
+      longTimer = null;
+      longFired = true;
+      openSettings();
+    }, PET_LONG_PRESS_MS);
+  });
+  pet.addEventListener("pointerup", clearLong);
+  pet.addEventListener("pointerleave", clearLong);
+  pet.addEventListener("pointercancel", clearLong);
+  pet.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (longFired) {
+      longFired = false;
+      return;
+    }
+    startOrToggleMic();
+  });
+  pet.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    clearLong();
+    longFired = true;
+    openSettings();
   });
 }
 
@@ -80,7 +105,6 @@ export function bindChrome() {
   $("btnResetCancel").onclick = (e) => {
     e.preventDefault();
     showSettingsMain();
-    $("settings").close();
   };
   $("btnResetConfirm").onclick = (e) => {
     e.preventDefault();
@@ -97,14 +121,7 @@ export function bindChrome() {
   };
   $("settings").addEventListener("close", showSettingsMain);
 
-  $("btnOpenChar").onclick = () => openSettings();
-  $("btnComposerPet").onclick = (e) => {
-    e.preventDefault();
-    startOrToggleMic();
-  };
-  $("btnMenu").onclick = () => toggleSidebar();
-  $("btnCloseSidebar").onclick = () => closeSidebar();
-  $("sidebarBackdrop").onclick = () => closeSidebar();
+  bindPetGestures();
 
   $("btnAttach").onclick = () => {
     if ($("btnAttach").disabled) return;

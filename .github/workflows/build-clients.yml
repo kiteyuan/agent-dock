@@ -71,6 +71,14 @@ jobs:
                       text,
                       count=1,
                   )
+          # Optional gallery read for older Android; Photo Picker on 13+ needs none.
+          if "READ_MEDIA_IMAGES" not in text and "READ_EXTERNAL_STORAGE" not in text:
+              text = re.sub(
+                  r"(<manifest\b[^>]*>)",
+                  r'\1\n    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>',
+                  text,
+                  count=1,
+              )
           # LAN pet assets are served over plain HTTP (:8766)
           if 'android:usesCleartextTraffic=' not in text:
               text = text.replace(
@@ -244,6 +252,7 @@ jobs:
           info = Path("macos/Runner/Info.plist")
           if info.exists():
               text = info.read_text(encoding="utf-8")
+              changed = False
               if "NSMicrophoneUsageDescription" not in text:
                   text = text.replace(
                       "</dict>",
@@ -252,6 +261,17 @@ jobs:
                       "</dict>",
                       1,
                   )
+                  changed = True
+              if "NSPhotoLibraryUsageDescription" not in text:
+                  text = text.replace(
+                      "</dict>",
+                      "\t<key>NSPhotoLibraryUsageDescription</key>\n"
+                      "\t<string>AgentDock needs photo library access to attach images.</string>\n"
+                      "</dict>",
+                      1,
+                  )
+                  changed = True
+              if changed:
                   info.write_text(text, encoding="utf-8")
 
           for ent in (
@@ -357,6 +377,7 @@ jobs:
 
           info = Path("ios/Runner/Info.plist")
           text = info.read_text(encoding="utf-8")
+          changed = False
           if "NSMicrophoneUsageDescription" not in text:
               text = text.replace(
                   "</dict>",
@@ -365,6 +386,17 @@ jobs:
                   "</dict>",
                   1,
               )
+              changed = True
+          if "NSPhotoLibraryUsageDescription" not in text:
+              text = text.replace(
+                  "</dict>",
+                  "\t<key>NSPhotoLibraryUsageDescription</key>\n"
+                  "\t<string>AgentDock needs photo library access to attach images.</string>\n"
+                  "</dict>",
+                  1,
+              )
+              changed = True
+          if changed:
               info.write_text(text, encoding="utf-8")
 
           for pbx in Path("ios").rglob("*.pbxproj"):

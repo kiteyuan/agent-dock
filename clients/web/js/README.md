@@ -16,6 +16,6 @@
 # | `js/mood.js` | mood transitions + control sync |
 # | `js/transcript.js` | bubbles, process line, attachments |
 # | `js/session.js` | WS connect, turn events, talk/send |
-# | `js/chrome.js` | settings / sidebar / composer wiring |
+# | `js/chrome.js` | settings (long-press pet) / composer wiring |
 #
 # Serve with `python serve.py` or `python clients/cli/main.py --ui`.

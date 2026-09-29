@@ -149,14 +149,19 @@ class DeviceSession {
     }
   }
 
-  void _appendUser(String text) {
+  void _appendUser(String text, {List<Uint8List> imageBytes = const []}) {
     final t = _plainReply(text);
-    if (t.isEmpty) return;
+    if (t.isEmpty && imageBytes.isEmpty) return;
     _stopTypewriter();
     activeAssistantId = null;
     _assistantTurnText = '';
     processLine = '';
-    messages.add(ChatMessage(id: newChatId(), role: ChatRole.user, text: t));
+    messages.add(ChatMessage(
+      id: newChatId(),
+      role: ChatRole.user,
+      text: t,
+      imageBytes: List<Uint8List>.from(imageBytes),
+    ));
     _trimMessages();
     _notify();
   }
@@ -322,9 +327,17 @@ class DeviceSession {
   String _plainReply(String raw) =>
       raw.replaceAll('\r\n', '\n').trim();
 
-  Future<void> sendText(String raw) async {
+  Future<void> sendText(
+    String raw, {
+    List<Map<String, String>>? images,
+    List<Uint8List>? previewBytes,
+  }) async {
     final text = raw.trim();
-    if (text.isEmpty || sessionId == null || _ws == null) return;
+    final imgs = images ?? const <Map<String, String>>[];
+    final previews = previewBytes ?? const <Uint8List>[];
+    if ((text.isEmpty && imgs.isEmpty) || sessionId == null || _ws == null) {
+      return;
+    }
     if (state == ClientState.listening) {
       try {
         await recorder.cancel();
@@ -343,10 +356,17 @@ class DeviceSession {
     _clearProcessLine();
     composerText = '';
     composerHint = '有问题，随便问';
-    _appendUser(text);
+    final sendText = text.isNotEmpty
+        ? text
+        : (imgs.isNotEmpty ? '（发送了 ${imgs.length} 张图片）' : '');
+    _appendUser(sendText, imageBytes: previews);
     _setState(ClientState.busy, status: '…');
     try {
-      _ws!.sink.add(proto.userMessage(sessionId: sessionId!, text: text));
+      _ws!.sink.add(proto.userMessage(
+        sessionId: sessionId!,
+        text: sendText,
+        images: imgs.isEmpty ? null : imgs,
+      ));
     } catch (e) {
       _failTurn(e.toString());
     }

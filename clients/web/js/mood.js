@@ -86,8 +86,11 @@ export function syncControls() {
   const pet = $("btnComposerPet");
   if (pet) {
     pet.classList.toggle("listen", listening);
-    pet.setAttribute("aria-label", listening ? "结束录音" : "语音输入");
-    pet.title = listening ? "结束录音" : "语音";
+    pet.setAttribute(
+      "aria-label",
+      listening ? "结束录音" : "语音输入（长按打开设置）"
+    );
+    pet.title = listening ? "结束录音" : "点按录音，长按打开设置";
   }
 
   const chrome = $("btnChromeNew");

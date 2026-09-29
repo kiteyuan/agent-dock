@@ -15,19 +15,11 @@ export function applyPetFromRuntime(defaultId) {
     if (id) b.setPet(id);
     b.reload();
   });
-  const label =
-    (window.pixelBot &&
-      window.pixelBot.listPets().find((p) => p.id === (id || window.pixelBot.getPet()))) ||
-    null;
-  const name = (label && label.label) || id || "AgentDock";
-  if ($("charName")) $("charName").textContent = name;
 }
 
 export async function bootPets() {
-  const canvases = ["spriteComposer", "spriteSidebar"]
-    .map((id) => $(id))
-    .filter(Boolean);
-  store.bots = canvases.map((c) => window.PixelBot.createPixelBot(c, ""));
+  const canvas = $("spriteComposer");
+  store.bots = canvas ? [window.PixelBot.createPixelBot(canvas, "")] : [];
   window.pixelBot = store.bots[0] || null;
   await Promise.all(store.bots.map((b) => b.ready));
   store.bots.forEach((b) => b.start());

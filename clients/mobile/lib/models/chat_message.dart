@@ -1,11 +1,20 @@
+import 'dart:typed_data';
+
 enum ChatRole { user, assistant }
 
 class ChatMessage {
-  ChatMessage({required this.id, required this.role, required this.text});
+  ChatMessage({
+    required this.id,
+    required this.role,
+    required this.text,
+    this.imageBytes = const [],
+  });
 
   final String id;
   final ChatRole role;
   String text;
+  /// Local-only preview bytes (not persisted).
+  final List<Uint8List> imageBytes;
 
   Map<String, dynamic> toJson() => {
         'id': id,

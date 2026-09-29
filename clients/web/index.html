@@ -10,45 +10,24 @@
   <link rel="icon" type="image/png" href="./favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="./icon-128.png" />
   <meta name="theme-color" content="#ffffff" />
-  <link rel="stylesheet" href="./styles.css?v=43" />
+  <link rel="stylesheet" href="./styles.css?v=46" />
 </head>
 <body>
   <div class="app" id="stage" data-mood="offline">
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-top">
-        <button type="button" class="char-card" id="btnOpenChar" aria-label="打开连接设置">
-          <canvas id="spriteSidebar" class="char-avatar" width="192" height="208" aria-hidden="true"></canvas>
-          <div class="char-meta">
-            <div class="char-name" id="charName">AgentDock</div>
-            <div class="char-status">
-              <span class="status-dot" aria-hidden="true"></span>
-              <span class="status-label" id="statusLabel">未连接</span>
-            </div>
-          </div>
-        </button>
-      <button type="button" class="sidebar-close mobile-only" id="btnCloseSidebar" aria-label="收起侧栏">
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
-      </div>
-      <button type="button" class="btn-primary" id="btnChromeNew" disabled>
-        <svg class="ico ico-inline" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        新会话
-      </button>
-      <div class="sidebar-spacer"></div>
-    </aside>
-    <button type="button" class="sidebar-backdrop" id="sidebarBackdrop" aria-label="关闭侧栏" hidden></button>
-
     <main class="main">
-      <button type="button" class="chrome-btn mobile-only" id="btnMenu" aria-label="菜单">
-        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      </button>
-
+      <header class="chat-header">
+        <div class="chat-title">对话</div>
+        <div class="char-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="status-label" id="statusLabel">未连接</span>
+        </div>
+      </header>
       <div class="transcript-wrap">
         <div id="transcript" class="transcript" aria-live="polite"></div>
       </div>
 
       <div class="composer-dock">
-        <button type="button" class="composer-pet" id="btnComposerPet" aria-label="语音输入" title="语音">
+        <button type="button" class="composer-pet" id="btnComposerPet" aria-label="语音输入" title="点按录音，长按打开设置">
           <canvas id="spriteComposer" class="composer-pet-canvas" width="192" height="208" aria-hidden="true"></canvas>
         </button>
         <div id="attachPreview" class="attach-preview" hidden></div>
@@ -81,6 +60,7 @@
           <button type="submit" id="btnSave" value="save">保存并连接</button>
           <button type="button" id="btnClose" value="cancel">关闭</button>
         </div>
+        <button type="button" class="sheet-new" id="btnChromeNew" disabled>新开会话</button>
       </div>
       <div id="settingsResetConfirm" hidden>
         <h2>新开会话？</h2>
@@ -94,6 +74,6 @@
   </dialog>
 
   <script src="./pixel-bot.js?v=5"></script>
-  <script type="module" src="./app.js?v=43"></script>
+  <script type="module" src="./app.js?v=46"></script>
 </body>
 </html>
