@@ -226,7 +226,9 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
+            const Divider(height: 1, thickness: 1, color: WebUiTheme.line),
+            const SizedBox(height: 12),
             TextButton(
               onPressed: online
                   ? () async {
@@ -235,10 +237,21 @@ class _HomePageState extends State<HomePage> {
                     }
                   : null,
               style: TextButton.styleFrom(
-                foregroundColor: WebUiTheme.muted,
-                disabledForegroundColor: WebUiTheme.muted.withValues(alpha: 0.35),
+                backgroundColor: WebUiTheme.panel,
+                foregroundColor: WebUiTheme.text,
+                disabledForegroundColor:
+                    WebUiTheme.text.withValues(alpha: 0.35),
+                disabledBackgroundColor: WebUiTheme.bgSoft.withValues(alpha: 0.5),
+                side: const BorderSide(color: WebUiTheme.line),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(WebUiTheme.radiusSm),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: const Text('新开会话'),
+              child: const Text(
+                '新开会话',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         ),
@@ -450,8 +463,7 @@ class _HomePageState extends State<HomePage> {
         borderRadius: BorderRadius.circular(10),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-          child: Align(
-            alignment: Alignment.centerLeft,
+          child: Center(
             child: StatusBadge(state: s.state),
           ),
         ),
@@ -625,69 +637,101 @@ class _HomePageState extends State<HomePage> {
   }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 16),
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.bottomCenter,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_pendingImages.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: SizedBox(
-                    height: 72,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _pendingImages.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (ctx, i) {
-                        final item = _pendingImages[i];
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.memory(
-                                item.bytes,
-                                width: 72,
-                                height: 72,
-                                fit: BoxFit.cover,
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: online ? _onMicPressed : null,
+            onLongPress: _openSettings,
+            child: AnimatedScale(
+              scale: listening ? 1.04 : 1.0,
+              duration: const Duration(milliseconds: 180),
+              child: SizedBox(
+                width: 64,
+                height: 70,
+                child: ColoredBox(
+                  color: Colors.transparent,
+                  child: PixelBot(
+                    key: ValueKey('composer-${s.petId}-${s.petsEpoch}'),
+                    mood: s.state,
+                    petId: s.petId,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            padding: EdgeInsets.fromLTRB(
+              6,
+              _pendingImages.isNotEmpty ? 10 : 6,
+              6,
+              6,
+            ),
+            decoration: BoxDecoration(
+              color: WebUiTheme.bg0,
+              borderRadius: BorderRadius.circular(
+                _pendingImages.isNotEmpty ? 22 : 999,
+              ),
+              border: Border.all(color: WebUiTheme.line),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_pendingImages.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+                    child: SizedBox(
+                      height: 56,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _pendingImages.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (ctx, i) {
+                          final item = _pendingImages[i];
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.memory(
+                                  item.bytes,
+                                  width: 56,
+                                  height: 56,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
-                            ),
-                            Positioned(
-                              top: -6,
-                              right: -6,
-                              child: Material(
-                                color: WebUiTheme.bg0,
-                                shape: const CircleBorder(),
-                                child: InkWell(
-                                  customBorder: const CircleBorder(),
-                                  onTap: () => setState(() {
-                                    _pendingImages.removeAt(i);
-                                  }),
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(2),
-                                    child: Icon(Icons.close, size: 16),
+                              Positioned(
+                                top: 2,
+                                right: 2,
+                                child: Material(
+                                  color: const Color(0xB30F172A),
+                                  shape: const CircleBorder(),
+                                  child: InkWell(
+                                    customBorder: const CircleBorder(),
+                                    onTap: () => setState(() {
+                                      _pendingImages.removeAt(i);
+                                    }),
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(2),
+                                      child: Icon(
+                                        Icons.close,
+                                        size: 14,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        );
-                      },
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
-                ),
-              const SizedBox(height: 36),
-              Container(
-                padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
-                decoration: BoxDecoration(
-                  color: WebUiTheme.bg0,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: WebUiTheme.line),
-                ),
-                child: Row(
+                Row(
                   children: [
                     IconButton(
                       onPressed: canType ? _pickImages : null,
@@ -743,31 +787,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          Positioned(
-            bottom: 44,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: online ? _onMicPressed : null,
-              onLongPress: _openSettings,
-              child: AnimatedScale(
-                scale: listening ? 1.04 : 1.0,
-                duration: const Duration(milliseconds: 180),
-                child: SizedBox(
-                  width: 56,
-                  height: 60,
-                  child: ColoredBox(
-                    color: Colors.transparent,
-                    child: PixelBot(
-                      key: ValueKey('composer-${s.petId}-${s.petsEpoch}'),
-                      mood: s.state,
-                      petId: s.petId,
-                    ),
-                  ),
-                ),
-              ),
+              ],
             ),
           ),
         ],

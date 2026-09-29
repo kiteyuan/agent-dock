@@ -397,13 +397,19 @@ export function flushThinking(final = false) {
 
 export function renderAttachPreview() {
   const box = $("attachPreview");
+  const bar = $("composerForm");
   if (!box) return;
   box.innerHTML = "";
-  if (!store.pendingAttach.length) {
+  const has = store.pendingAttach.length > 0;
+  if (!has) {
     box.hidden = true;
+    bar?.classList.remove("has-attach");
+    document.querySelector(".main")?.classList.remove("has-attach");
     return;
   }
   box.hidden = false;
+  bar?.classList.add("has-attach");
+  document.querySelector(".main")?.classList.add("has-attach");
   for (const item of store.pendingAttach) {
     const chip = document.createElement("div");
     chip.className = "attach-chip";
