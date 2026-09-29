@@ -124,7 +124,7 @@
   function createPixelBot(canvas, initialPetId) {
     canvas.width = CELL_W;
     canvas.height = CELL_H;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: true });
     ctx.imageSmoothingEnabled = false;
 
     let mood = "offline";

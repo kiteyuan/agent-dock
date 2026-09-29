@@ -144,8 +144,41 @@ jobs:
           print(props.read_text(encoding="utf-8"))
           PY
 
+      # After all gradle rewrites — absolute PKCS12 path + force release signingConfig.
+      - name: Apply stable sideload signing
+        run: python3 tool/apply_android_signing.py
+
       - run: flutter analyze --no-fatal-infos
       - run: flutter build apk --release
+
+      - name: Verify APK uses sideload cert
+        run: |
+          set -euo pipefail
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          test -f "$APK"
+          # Prefer apksigner from Android SDK build-tools; fall back to keytool -printcert.
+          EXPECTED="15:3D:0C:C4:27:7F:4E:D3:09:35:8F:65:26:8E:4B:59:B7:1C:4D:E3:75:18:C1:5C:2A:6B:F2:C9:BB:12:B9:82"
+          EXPECTED_COMPACT="$(echo "$EXPECTED" | tr -d ':')"
+          CERT_OUT="$(mktemp)"
+          if command -v apksigner >/dev/null 2>&1; then
+            apksigner verify --print-certs "$APK" | tee "$CERT_OUT"
+          else
+            # Locate apksigner under ANDROID_HOME / ANDROID_SDK_ROOT
+            SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+            AS="$(find "$SDK/build-tools" -name apksigner 2>/dev/null | sort -V | tail -n 1 || true)"
+            if [[ -n "$AS" ]]; then
+              "$AS" verify --print-certs "$APK" | tee "$CERT_OUT"
+            else
+              keytool -printcert -jarfile "$APK" | tee "$CERT_OUT"
+            fi
+          fi
+          if ! grep -qiE "SHA-?256[^:]*:.*15.?3D.?0C.?C4" "$CERT_OUT" \
+            && ! grep -qi "$EXPECTED_COMPACT" "$CERT_OUT"; then
+            echo "APK cert SHA-256 does not match sideload keystore" >&2
+            cat "$CERT_OUT" >&2
+            exit 1
+          fi
+          echo "sideload cert OK"
 
       - uses: actions/upload-artifact@v6
         with:

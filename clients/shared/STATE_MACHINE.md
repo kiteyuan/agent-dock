@@ -17,8 +17,8 @@
 
 点按交互（Web / Mobile）：
 
-- **聊天主壳**：顶栏状态 + 气泡流 + 底部悬浮胶囊输入（文本 → `user.message`）
-- **连接设置**：长按人物打开（Runtime URL / Token）；弹窗内「新开会话」
+- **聊天主壳**：顶栏状态（可点开设置）+ 气泡流 + 底部悬浮胶囊输入（文本 → `user.message`）
+- **连接设置**：点顶栏状态 / 长按人物打开（Runtime URL / Token）；弹窗内「新开会话」
 - **快捷录音**：会话区人物与麦键相同——idle 开始录音；listening 再点结束发送；busy / speaking 再点取消或打断后续听
 - **文字与 TTS**：`agent.message` 原文进气泡并渲染 Markdown；TTS 在 Runtime 侧剥 markdown/符号后再播
 - **点最后一条助手气泡**（空闲且有可重播 TTS）：重播上一轮语音

@@ -121,6 +121,17 @@ export function bindChrome() {
   };
   $("settings").addEventListener("close", showSettingsMain);
 
+  const header = $("chatHeader");
+  if (header) {
+    header.addEventListener("click", () => openSettings());
+    header.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openSettings();
+      }
+    });
+  }
+
   bindPetGestures();
 
   $("btnAttach").onclick = () => {

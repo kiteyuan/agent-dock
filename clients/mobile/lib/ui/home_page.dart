@@ -443,22 +443,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '对话',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: WebUiTheme.text,
-            ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _openSettings,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: StatusBadge(state: s.state),
           ),
-          const SizedBox(height: 2),
-          StatusBadge(state: s.state),
-        ],
+        ),
       ),
     );
   }
@@ -628,138 +624,150 @@ class _HomePageState extends State<HomePage> {
     required bool listening,
   }) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 0, 10, 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.fromLTRB(10, 0, 10, 16),
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
         children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: online ? _onMicPressed : null,
-            onLongPress: _openSettings,
-            child: AnimatedScale(
-              scale: listening ? 1.04 : 1.0,
-              duration: const Duration(milliseconds: 180),
-              child: SizedBox(
-                width: 72,
-                height: 78,
-                child: PixelBot(
-                  key: ValueKey('composer-${s.petId}-${s.petsEpoch}'),
-                  mood: s.state,
-                  petId: s.petId,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          if (_pendingImages.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: SizedBox(
-                height: 72,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _pendingImages.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (ctx, i) {
-                    final item = _pendingImages[i];
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.memory(
-                            item.bytes,
-                            width: 72,
-                            height: 72,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        Positioned(
-                          top: -6,
-                          right: -6,
-                          child: Material(
-                            color: WebUiTheme.bg0,
-                            shape: const CircleBorder(),
-                            child: InkWell(
-                              customBorder: const CircleBorder(),
-                              onTap: () => setState(() {
-                                _pendingImages.removeAt(i);
-                              }),
-                              child: const Padding(
-                                padding: EdgeInsets.all(2),
-                                child: Icon(Icons.close, size: 16),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_pendingImages.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SizedBox(
+                    height: 72,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _pendingImages.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (ctx, i) {
+                        final item = _pendingImages[i];
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.memory(
+                                item.bytes,
+                                width: 72,
+                                height: 72,
+                                fit: BoxFit.cover,
                               ),
                             ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
-            decoration: BoxDecoration(
-              color: WebUiTheme.bg0,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: WebUiTheme.line),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: canType ? _pickImages : null,
-                  color: WebUiTheme.muted,
-                  icon: const Icon(Icons.add_rounded),
-                  tooltip: '添加图片',
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _compose,
-                    focusNode: _composeFocus,
-                    enabled: canType,
-                    minLines: 1,
-                    maxLines: 4,
-                    style: const TextStyle(
-                        color: WebUiTheme.text, fontSize: 15),
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _submitCompose(),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      hintText: s.composerHint,
-                      hintStyle: const TextStyle(color: WebUiTheme.muted),
+                            Positioned(
+                              top: -6,
+                              right: -6,
+                              child: Material(
+                                color: WebUiTheme.bg0,
+                                shape: const CircleBorder(),
+                                child: InkWell(
+                                  customBorder: const CircleBorder(),
+                                  onTap: () => setState(() {
+                                    _pendingImages.removeAt(i);
+                                  }),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(2),
+                                    child: Icon(Icons.close, size: 16),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),
-                IconButton(
-                  onPressed: online ? _onMicPressed : null,
-                  color: listening ? WebUiTheme.accent : WebUiTheme.muted,
-                  icon: Icon(
-                    listening
-                        ? Icons.stop_rounded
-                        : Icons.mic_none_rounded,
-                  ),
-                  tooltip: '语音',
+              const SizedBox(height: 36),
+              Container(
+                padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+                decoration: BoxDecoration(
+                  color: WebUiTheme.bg0,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: WebUiTheme.line),
                 ),
-                Material(
-                  color: canType ? WebUiTheme.accent : WebUiTheme.bgSoft,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: canType ? _submitCompose : null,
-                    child: SizedBox(
-                      width: 36,
-                      height: 36,
-                      child: Icon(
-                        Icons.arrow_upward_rounded,
-                        size: 20,
-                        color: canType ? Colors.white : WebUiTheme.muted,
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: canType ? _pickImages : null,
+                      color: WebUiTheme.muted,
+                      icon: const Icon(Icons.add_rounded),
+                      tooltip: '添加图片',
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _compose,
+                        focusNode: _composeFocus,
+                        enabled: canType,
+                        minLines: 1,
+                        maxLines: 4,
+                        style: const TextStyle(
+                            color: WebUiTheme.text, fontSize: 15),
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _submitCompose(),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          hintText: s.composerHint,
+                          hintStyle: const TextStyle(color: WebUiTheme.muted),
+                        ),
                       ),
                     ),
+                    IconButton(
+                      onPressed: online ? _onMicPressed : null,
+                      color: listening ? WebUiTheme.accent : WebUiTheme.muted,
+                      icon: Icon(
+                        listening
+                            ? Icons.stop_rounded
+                            : Icons.mic_none_rounded,
+                      ),
+                      tooltip: '语音',
+                    ),
+                    Material(
+                      color: canType ? WebUiTheme.accent : WebUiTheme.bgSoft,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: canType ? _submitCompose : null,
+                        child: SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: Icon(
+                            Icons.arrow_upward_rounded,
+                            size: 20,
+                            color: canType ? Colors.white : WebUiTheme.muted,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Positioned(
+            bottom: 44,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: online ? _onMicPressed : null,
+              onLongPress: _openSettings,
+              child: AnimatedScale(
+                scale: listening ? 1.04 : 1.0,
+                duration: const Duration(milliseconds: 180),
+                child: SizedBox(
+                  width: 56,
+                  height: 60,
+                  child: ColoredBox(
+                    color: Colors.transparent,
+                    child: PixelBot(
+                      key: ValueKey('composer-${s.petId}-${s.petsEpoch}'),
+                      mood: s.state,
+                      petId: s.petId,
+                    ),
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ],

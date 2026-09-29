@@ -773,6 +773,7 @@ class DeviceSession {
         break;
       case 'tts.start':
         if (_dropRemoteTts) return;
+        _clearProcessLine();
         _ttsBuf.clear();
         _ttsPendingText = (payload['text'] as String? ?? '').trim();
         _setState(ClientState.speaking);

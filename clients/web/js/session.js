@@ -311,6 +311,7 @@ function onEvent(type, payload = {}) {
     enterBusy();
   } else if (type === "tts.start") {
     if (store.dropRemoteTts) return;
+    clearProcessLine();
     store.ttsChunks = [];
     store.ttsPendingText = (payload.text || "").trim();
     if (
