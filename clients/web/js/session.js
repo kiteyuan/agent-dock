@@ -28,6 +28,7 @@ import {
   stopTtsPlayback,
   pumpTts,
   replayLastTts,
+  toggleLastTts,
   maybeIdleAfterTurn,
 } from "./tts.js";
 import {
@@ -55,6 +56,10 @@ export function wireSessionHooks() {
   hooks.syncUi = syncControls;
   hooks.replayLastTts = () => {
     replayLastTts();
+    pump();
+  };
+  hooks.toggleLastTts = () => {
+    toggleLastTts();
     pump();
   };
   store._pumpTts = pump;

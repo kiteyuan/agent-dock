@@ -1,6 +1,6 @@
 import { $ } from "./dom.js";
 import { forEachBot } from "./pets.js";
-import { store, runSyncUi } from "./store.js";
+import { store, hooks, runSyncUi } from "./store.js";
 
 const MOOD_LABELS = {
   idle: "在线",
@@ -22,7 +22,7 @@ export function setMood(mood) {
 
 export function restoreComposerPlaceholder() {
   const input = $("composerInput");
-  if (input) input.placeholder = "有问题，随便问";
+  if (input) input.placeholder = "发消息或按住说话";
 }
 
 export function enterIdle() {
@@ -41,7 +41,9 @@ export function enterListen() {
   const input = $("composerInput");
   if (input) {
     input.value = "";
-    input.placeholder = "正在听…";
+    if (!$("composerForm")?.classList.contains("hold-talk")) {
+      input.placeholder = "正在听…";
+    }
   }
   setMood("listen");
 }
@@ -107,16 +109,65 @@ export function syncControls() {
 
 export function syncReplayHint() {
   const last = [...store.messages].reverse().find((m) => m.role === "assistant");
+  const playing =
+    !!store.ttsPlaying ||
+    store.ttsPlayQueue.length > 0 ||
+    document.getElementById("stage")?.dataset.mood === "speak";
   const canReplay =
     !!store.sessionId &&
     !store.turnLocked &&
-    !store.ttsPlaying &&
+    !playing &&
     !store.recording &&
     store.lastTtsSegments.length > 0 &&
     !!last;
   document.querySelectorAll(".bubble.assistant").forEach((el) => {
     const isLast = last && el.dataset.id === last.id;
     el.classList.toggle("replayable", !!(canReplay && isLast));
-    el.title = canReplay && isLast ? "点击重播" : "";
+    el.title = canReplay && isLast ? "点击播报" : "";
   });
+
+  let btn = document.getElementById("btnMsgTts");
+  const wrap = last
+    ? document.querySelector(`.bubble.assistant[data-id="${last.id}"]`)?.closest(".bubble-wrap")
+    : null;
+  const actions = wrap?.querySelector(".msg-actions");
+  const showBtn =
+    !!last &&
+    !!actions &&
+    (store.lastTtsSegments.length > 0 || playing);
+
+  if (!showBtn) {
+    if (btn) btn.remove();
+    actions?.classList.remove("has-playing");
+    return;
+  }
+
+  if (!btn && actions) {
+    btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "msg-action msg-tts";
+    btn.id = "btnMsgTts";
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (hooks.toggleLastTts) hooks.toggleLastTts();
+      else if (hooks.replayLastTts) hooks.replayLastTts();
+    });
+    actions.appendChild(btn);
+  }
+  if (!btn) return;
+
+  btn.classList.toggle("playing", playing);
+  actions.classList.toggle("has-playing", playing);
+  btn.title = playing ? "停止播报" : "播报";
+  btn.setAttribute("aria-label", btn.title);
+  btn.innerHTML = "";
+  const paths = playing
+    ? '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>'
+    : '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>';
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "ico ico-sm");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = paths;
+  btn.appendChild(svg);
 }

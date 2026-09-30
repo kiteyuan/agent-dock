@@ -124,6 +124,7 @@
   function createPixelBot(canvas, initialPetId) {
     canvas.width = CELL_W;
     canvas.height = CELL_H;
+    canvas.style.background = "transparent";
     const ctx = canvas.getContext("2d", { alpha: true });
     ctx.imageSmoothingEnabled = false;
 

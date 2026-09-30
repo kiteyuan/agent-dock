@@ -118,6 +118,8 @@ class _PixelBotState extends State<PixelBot> {
   Widget build(BuildContext context) {
     final phase = (_tick % 2).toDouble();
     Widget sprite = CustomPaint(
+      isComplex: true,
+      willChange: true,
       size: const Size(cellW, cellH),
       painter: _SheetPainter(
         sheet: _sheet,
@@ -169,6 +171,7 @@ class _SheetPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Leave canvas fully clear — no fill behind the sprite cell.
     final img = sheet;
     if (img == null) return;
     final n = frames[row] ?? 1;

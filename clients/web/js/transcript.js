@@ -11,7 +11,9 @@ function nextMsgId() {
 function iconSvg(name, extraClass = "") {
   const paths = {
     copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/>',
-    replay: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
+    volume: '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>',
+    volumePlaying:
+      '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
   };
   const d = paths[name] || "";
@@ -21,6 +23,14 @@ function iconSvg(name, extraClass = "") {
   svg.setAttribute("aria-hidden", "true");
   svg.innerHTML = d;
   return svg;
+}
+
+function isTtsActive() {
+  return !!(
+    store.ttsPlaying ||
+    store.ttsPlayQueue.length ||
+    document.getElementById("stage")?.dataset.mood === "speak"
+  );
 }
 
 export function persistMessages() {
@@ -65,13 +75,21 @@ export function applyServerMessages(messages) {
   store.activeAssistantId = null;
   persistMessages();
   renderTranscript();
+  scrollTranscript({ force: true });
 }
 
-export function scrollTranscript() {
+export function scrollTranscript({ force = false } = {}) {
   const box = $("transcript");
+  if (!box) return;
   requestAnimationFrame(() => {
+    if (!force && !isTranscriptNearBottom(box)) return;
     box.scrollTop = box.scrollHeight;
   });
+}
+
+export function isTranscriptNearBottom(box = $("transcript"), threshold = 80) {
+  if (!box) return true;
+  return box.scrollHeight - box.scrollTop - box.clientHeight < threshold;
 }
 
 export function clearProcessLine() {
@@ -166,17 +184,24 @@ export function renderTranscript() {
         navigator.clipboard?.writeText(m.text).catch(() => {});
       });
       actions.appendChild(copy);
-      if (m.id === lastAssistantId && store.lastTtsSegments.length) {
-        const replay = document.createElement("button");
-        replay.type = "button";
-        replay.className = "msg-action";
-        replay.title = "重播";
-        replay.appendChild(iconSvg("replay", "ico-sm"));
-        replay.addEventListener("click", (e) => {
+      const canSpeakBtn =
+        m.id === lastAssistantId &&
+        (store.lastTtsSegments.length > 0 || isTtsActive());
+      if (canSpeakBtn) {
+        const playing = isTtsActive();
+        const speak = document.createElement("button");
+        speak.type = "button";
+        speak.className = "msg-action msg-tts" + (playing ? " playing" : "");
+        speak.id = "btnMsgTts";
+        speak.title = playing ? "停止播报" : "播报";
+        speak.setAttribute("aria-label", speak.title);
+        speak.appendChild(iconSvg(playing ? "volumePlaying" : "volume", "ico-sm"));
+        speak.addEventListener("click", (e) => {
           e.stopPropagation();
-          if (hooks.replayLastTts) hooks.replayLastTts();
+          if (hooks.toggleLastTts) hooks.toggleLastTts();
         });
-        actions.appendChild(replay);
+        actions.appendChild(speak);
+        if (playing) actions.classList.add("has-playing");
       }
       wrap.appendChild(actions);
     }
@@ -197,7 +222,7 @@ export function renderTranscript() {
     procWrap.appendChild(proc);
     box.appendChild(procWrap);
   }
-  if (stickBottom || !store.messages.length || store.processLineText) scrollTranscript();
+  if (stickBottom || !store.messages.length) scrollTranscript({ force: stickBottom || !store.messages.length });
   syncReplayHint();
 }
 
@@ -316,6 +341,7 @@ export function appendUserMessage(text, images = []) {
   }
   persistMessages();
   renderTranscript();
+  scrollTranscript({ force: true });
 }
 
 function ensureAssistantBubble() {

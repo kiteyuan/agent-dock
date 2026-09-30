@@ -42,9 +42,18 @@ class _HomePageState extends State<HomePage> {
   final List<_PendingImage> _pendingImages = [];
   StreamSubscription? _sub;
   String _lastAppliedComposer = '';
+  bool _stickChatBottom = true;
+  bool _holdTalking = false;
+  bool _holdWillCancel = false;
+  int? _holdPointer;
+  Offset? _holdStartGlobal;
+  Timer? _holdTimer;
 
   static const _attachLimit = 4;
   static const _maxImageBytes = 4 * 1024 * 1024;
+  static const _scrollStickPx = 80.0;
+  static const _holdTalkMs = 380;
+  static const _holdCancelPx = 56.0;
 
   DeviceSession get s => widget.session;
 
@@ -54,15 +63,14 @@ class _HomePageState extends State<HomePage> {
     _url = TextEditingController(text: s.url);
     _token = TextEditingController(text: s.token);
     _compose = TextEditingController();
+    _chatScroll.addListener(_onChatScroll);
     _sub = s.changes.listen((_) {
       if (!mounted) return;
       _syncComposerFromSession();
       setState(() {});
       unawaited(_savePrefs());
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_chatScroll.hasClients) {
-          _chatScroll.jumpTo(_chatScroll.position.maxScrollExtent);
-        }
+        _scrollChatToBottomIfSticky();
       });
     });
     _loadPrefs().then((_) async {
@@ -75,6 +83,19 @@ class _HomePageState extends State<HomePage> {
         await _openSettings();
       }
     });
+  }
+
+  void _onChatScroll() {
+    if (!_chatScroll.hasClients) return;
+    final pos = _chatScroll.position;
+    _stickChatBottom =
+        pos.maxScrollExtent - pos.pixels <= _scrollStickPx;
+  }
+
+  void _scrollChatToBottomIfSticky({bool force = false}) {
+    if (!_chatScroll.hasClients) return;
+    if (!force && !_stickChatBottom) return;
+    _chatScroll.jumpTo(_chatScroll.position.maxScrollExtent);
   }
 
   void _syncComposerFromSession() {
@@ -392,6 +413,7 @@ class _HomePageState extends State<HomePage> {
     if ((text.isEmpty && _pendingImages.isEmpty) || !s.canComposeText) return;
     final pending = List<_PendingImage>.from(_pendingImages);
     _pendingImages.clear();
+    _stickChatBottom = true;
     _compose.clear();
     setState(() {});
     final images = pending
@@ -418,13 +440,92 @@ class _HomePageState extends State<HomePage> {
     await _onTalk();
   }
 
+  void _clearHoldTimer() {
+    _holdTimer?.cancel();
+    _holdTimer = null;
+  }
+
+  Future<void> _beginHoldTalk() async {
+    if (_holdTalking || !mounted) return;
+    if (s.sessionId == null) return;
+    _holdTalking = true;
+    _holdWillCancel = false;
+    _composeFocus.unfocus();
+    setState(() {});
+    try {
+      await s.beginHoldTalk();
+    } catch (_) {
+      _holdTalking = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _finishHoldTalk({required bool cancel}) async {
+    if (!_holdTalking) return;
+    _holdTalking = false;
+    _holdWillCancel = false;
+    _holdPointer = null;
+    _holdStartGlobal = null;
+    if (mounted) setState(() {});
+    await s.endHoldTalk(cancel: cancel);
+  }
+
+  void _onComposePointerDown(PointerDownEvent e) {
+    if (!s.canComposeText && s.sessionId == null) return;
+    if (s.sessionId == null) return;
+    if (_holdTalking || s.state == ClientState.listening) return;
+    // Allow text selection when field already has content.
+    if (_compose.text.trim().isNotEmpty) return;
+    _clearHoldTimer();
+    _holdPointer = e.pointer;
+    _holdStartGlobal = e.position;
+    _holdWillCancel = false;
+    _holdTimer = Timer(const Duration(milliseconds: _holdTalkMs), () {
+      _holdTimer = null;
+      unawaited(_beginHoldTalk());
+    });
+  }
+
+  void _onComposePointerMove(PointerMoveEvent e) {
+    if (_holdPointer != e.pointer) return;
+    if (!_holdTalking || _holdStartGlobal == null) return;
+    final cancel = _holdStartGlobal!.dy - e.position.dy >= _holdCancelPx;
+    if (cancel != _holdWillCancel) {
+      _holdWillCancel = cancel;
+      s.setHoldTalkHint(willCancel: cancel);
+      setState(() {});
+    }
+  }
+
+  void _onComposePointerUp(PointerUpEvent e) {
+    if (_holdPointer != null && e.pointer != _holdPointer) return;
+    _clearHoldTimer();
+    if (_holdTalking) {
+      unawaited(_finishHoldTalk(cancel: _holdWillCancel));
+    }
+    _holdPointer = null;
+    _holdStartGlobal = null;
+  }
+
+  void _onComposePointerCancel(PointerCancelEvent e) {
+    if (_holdPointer != null && e.pointer != _holdPointer) return;
+    _clearHoldTimer();
+    if (_holdTalking) {
+      unawaited(_finishHoldTalk(cancel: true));
+    }
+    _holdPointer = null;
+    _holdStartGlobal = null;
+  }
+
   @override
   void dispose() {
+    _clearHoldTimer();
     _sub?.cancel();
     _url.dispose();
     _token.dispose();
     _compose.dispose();
     _composeFocus.dispose();
+    _chatScroll.removeListener(_onChatScroll);
     _chatScroll.dispose();
     super.dispose();
   }
@@ -437,34 +538,33 @@ class _HomePageState extends State<HomePage> {
     final listening = s.state == ClientState.listening;
 
     return Scaffold(
-      backgroundColor: WebUiTheme.bgSoft,
+      backgroundColor: WebUiTheme.bg0,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
             child: Column(
               children: [
-                _buildHeader(),
-                Expanded(child: _buildTranscript(screenW)),
-                _buildComposer(online: online, canType: canType, listening: listening),
+                Expanded(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _buildTranscript(screenW),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: _buildComposer(
+                          online: online,
+                          canType: canType,
+                          listening: listening,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _openSettings,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-          child: Center(
-            child: StatusBadge(state: s.state),
           ),
         ),
       ),
@@ -479,7 +579,10 @@ class _HomePageState extends State<HomePage> {
           Expanded(
             child: ListView.builder(
               controller: _chatScroll,
-              padding: const EdgeInsets.only(bottom: 12, top: 8),
+              padding: EdgeInsets.only(
+                bottom: _pendingImages.isNotEmpty ? 220 : 160,
+                top: 8,
+              ),
               itemCount: s.messages.length + (s.processLine.isNotEmpty ? 1 : 0),
               itemBuilder: (ctx, i) {
                 if (i >= s.messages.length) {
@@ -607,14 +710,20 @@ class _HomePageState extends State<HomePage> {
                                 icon: const Icon(Icons.copy_outlined),
                                 tooltip: '复制',
                               ),
-                              if (isLastAssistant && s.canReplay)
+                              if (isLastAssistant && s.canShowSpeakAction)
                                 IconButton(
                                   visualDensity: VisualDensity.compact,
                                   iconSize: 18,
-                                  color: WebUiTheme.muted,
-                                  onPressed: () => s.replayLast(),
-                                  icon: const Icon(Icons.replay_rounded),
-                                  tooltip: '重播',
+                                  color: s.isSpeakingTts
+                                      ? const Color(0xFFEC4899)
+                                      : WebUiTheme.muted,
+                                  onPressed: () => s.toggleSpeakOrReplay(),
+                                  icon: Icon(
+                                    s.isSpeakingTts
+                                        ? Icons.volume_up_rounded
+                                        : Icons.volume_up_outlined,
+                                  ),
+                                  tooltip: s.isSpeakingTts ? '停止播报' : '播报',
                                 ),
                             ],
                           ),
@@ -640,154 +749,200 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: online ? _onMicPressed : null,
-            onLongPress: _openSettings,
-            child: AnimatedScale(
-              scale: listening ? 1.04 : 1.0,
-              duration: const Duration(milliseconds: 180),
-              child: SizedBox(
-                width: 64,
-                height: 70,
-                child: ColoredBox(
-                  color: Colors.transparent,
-                  child: PixelBot(
-                    key: ValueKey('composer-${s.petId}-${s.petsEpoch}'),
-                    mood: s.state,
-                    petId: s.petId,
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              StatusBadge(state: s.state),
+              GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: online ? _onMicPressed : null,
+                onLongPress: _openSettings,
+                child: AnimatedScale(
+                  scale: listening ? 1.04 : 1.0,
+                  duration: const Duration(milliseconds: 180),
+                  child: SizedBox(
+                    width: 64,
+                    height: 70,
+                    child: PixelBot(
+                      key: ValueKey('composer-${s.petId}-${s.petsEpoch}'),
+                      mood: s.state,
+                      petId: s.petId,
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
           const SizedBox(height: 4),
-          Container(
-            padding: EdgeInsets.fromLTRB(
-              6,
-              _pendingImages.isNotEmpty ? 10 : 6,
-              6,
-              6,
-            ),
-            decoration: BoxDecoration(
-              color: WebUiTheme.bg0,
+          // Only the input shell is opaque — pet above stays clear over bubbles.
+          Material(
+            color: _holdTalking
+                ? (_holdWillCancel
+                    ? const Color(0xFFFEF2F2)
+                    : const Color(0xFFEFF6FF))
+                : WebUiTheme.bg0,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(
                 _pendingImages.isNotEmpty ? 22 : 999,
               ),
-              border: Border.all(color: WebUiTheme.line),
+              side: BorderSide(
+                color: _holdTalking
+                    ? (_holdWillCancel
+                        ? const Color(0xFFEF4444)
+                        : WebUiTheme.accent)
+                    : WebUiTheme.line,
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_pendingImages.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-                    child: SizedBox(
-                      height: 56,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _pendingImages.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (ctx, i) {
-                          final item = _pendingImages[i];
-                          return Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.memory(
-                                  item.bytes,
-                                  width: 56,
-                                  height: 56,
-                                  fit: BoxFit.cover,
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                6,
+                _pendingImages.isNotEmpty ? 10 : 6,
+                6,
+                6,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_pendingImages.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+                      child: SizedBox(
+                        height: 56,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _pendingImages.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (ctx, i) {
+                            final item = _pendingImages[i];
+                            return Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.memory(
+                                    item.bytes,
+                                    width: 56,
+                                    height: 56,
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
-                              ),
-                              Positioned(
-                                top: 2,
-                                right: 2,
-                                child: Material(
-                                  color: const Color(0xB30F172A),
-                                  shape: const CircleBorder(),
-                                  child: InkWell(
-                                    customBorder: const CircleBorder(),
-                                    onTap: () => setState(() {
-                                      _pendingImages.removeAt(i);
-                                    }),
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(2),
-                                      child: Icon(
-                                        Icons.close,
-                                        size: 14,
-                                        color: Colors.white,
+                                Positioned(
+                                  top: 2,
+                                  right: 2,
+                                  child: Material(
+                                    color: const Color(0xB30F172A),
+                                    shape: const CircleBorder(),
+                                    child: InkWell(
+                                      customBorder: const CircleBorder(),
+                                      onTap: () => setState(() {
+                                        _pendingImages.removeAt(i);
+                                      }),
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(2),
+                                        child: Icon(
+                                          Icons.close,
+                                          size: 14,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: canType ? _pickImages : null,
-                      color: WebUiTheme.muted,
-                      icon: const Icon(Icons.add_rounded),
-                      tooltip: '添加图片',
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _compose,
-                        focusNode: _composeFocus,
-                        enabled: canType,
-                        minLines: 1,
-                        maxLines: 4,
-                        style: const TextStyle(
-                            color: WebUiTheme.text, fontSize: 15),
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _submitCompose(),
-                        decoration: InputDecoration(
-                          isDense: true,
-                          border: InputBorder.none,
-                          hintText: s.composerHint,
-                          hintStyle: const TextStyle(color: WebUiTheme.muted),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ),
-                    IconButton(
-                      onPressed: online ? _onMicPressed : null,
-                      color: listening ? WebUiTheme.accent : WebUiTheme.muted,
-                      icon: Icon(
-                        listening
-                            ? Icons.stop_rounded
-                            : Icons.mic_none_rounded,
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: canType ? _pickImages : null,
+                        color: WebUiTheme.muted,
+                        icon: const Icon(Icons.add_rounded),
+                        tooltip: '添加图片',
                       ),
-                      tooltip: '语音',
-                    ),
-                    Material(
-                      color: canType ? WebUiTheme.accent : WebUiTheme.bgSoft,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: canType ? _submitCompose : null,
-                        child: SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: Icon(
-                            Icons.arrow_upward_rounded,
-                            size: 20,
-                            color: canType ? Colors.white : WebUiTheme.muted,
+                      Expanded(
+                        child: Listener(
+                          onPointerDown: _onComposePointerDown,
+                          onPointerMove: _onComposePointerMove,
+                          onPointerUp: _onComposePointerUp,
+                          onPointerCancel: _onComposePointerCancel,
+                          child: TextField(
+                            controller: _compose,
+                            focusNode: _composeFocus,
+                            enabled: canType && !_holdTalking,
+                            minLines: 1,
+                            maxLines: 4,
+                            readOnly: _holdTalking,
+                            style: TextStyle(
+                              color: _holdTalking
+                                  ? (_holdWillCancel
+                                      ? const Color(0xFFEF4444)
+                                      : WebUiTheme.accent)
+                                  : WebUiTheme.text,
+                              fontSize: 15,
+                              fontWeight: _holdTalking
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                            textAlign: _holdTalking
+                                ? TextAlign.center
+                                : TextAlign.start,
+                            textInputAction: TextInputAction.send,
+                            onSubmitted: (_) => _submitCompose(),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              border: InputBorder.none,
+                              hintText: s.composerHint,
+                              hintStyle: TextStyle(
+                                color: _holdTalking
+                                    ? (_holdWillCancel
+                                        ? const Color(0xFFEF4444)
+                                        : WebUiTheme.accent)
+                                    : WebUiTheme.muted,
+                                fontWeight: _holdTalking
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      IconButton(
+                        onPressed: online ? _onMicPressed : null,
+                        color: listening ? WebUiTheme.accent : WebUiTheme.muted,
+                        icon: Icon(
+                          listening
+                              ? Icons.stop_rounded
+                              : Icons.mic_none_rounded,
+                        ),
+                        tooltip: '语音',
+                      ),
+                      Material(
+                        color: canType ? WebUiTheme.accent : WebUiTheme.bgSoft,
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: canType ? _submitCompose : null,
+                          child: SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: Icon(
+                              Icons.arrow_upward_rounded,
+                              size: 20,
+                              color: canType ? Colors.white : WebUiTheme.muted,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],

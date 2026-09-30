@@ -4,11 +4,13 @@ import 'package:flutter/services.dart';
 import '../session/client_state.dart';
 import 'theme.dart';
 
-/// ChatGPT-like status pill in the top chrome.
+/// Pixel-border status tag (no fill, no dot — mood via border color).
+/// Corners are stair-stepped (pixel soft-round), not CSS/Material radius.
 class StatusBadge extends StatelessWidget {
-  const StatusBadge({super.key, required this.state});
+  const StatusBadge({super.key, required this.state, this.onTap});
 
   final ClientState state;
+  final VoidCallback? onTap;
 
   static String labelFor(ClientState s) => switch (s) {
         ClientState.offline => '未连接',
@@ -20,103 +22,87 @@ class StatusBadge extends StatelessWidget {
         ClientState.error => '出错了',
       };
 
-  static Color dotFor(ClientState s) => switch (s) {
-        ClientState.idle || ClientState.speaking => const Color(0xFF34A853),
+  static Color borderFor(ClientState s) => switch (s) {
+        ClientState.idle => const Color(0xFF22C55E),
+        ClientState.speaking => const Color(0xFFEC4899),
         ClientState.listening => WebUiTheme.accent,
-        ClientState.busy => const Color(0xFFF9AB00),
-        ClientState.connecting => const Color(0xFFA142F4),
-        ClientState.error => const Color(0xFFEA4335),
+        ClientState.busy => const Color(0xFFF59E0B),
+        ClientState.connecting => const Color(0xFFA78BFA),
+        ClientState.error => const Color(0xFFEF4444),
         ClientState.offline => const Color(0xFF9AA0A6),
       };
 
   @override
   Widget build(BuildContext context) {
-    final pulse = state == ClientState.listening ||
-        state == ClientState.busy ||
-        state == ClientState.speaking ||
-        state == ClientState.connecting ||
-        state == ClientState.error;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _Dot(color: dotFor(state), pulse: pulse),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            labelFor(state),
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: state == ClientState.idle
-                  ? WebUiTheme.text
-                  : state == ClientState.listening
-                      ? WebUiTheme.accent
-                      : WebUiTheme.muted,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              height: 1.2,
-            ),
+    final color = borderFor(state);
+    final tag = CustomPaint(
+      painter: _PixelTagBorderPainter(color: color, stroke: 2),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        child: Text(
+          labelFor(state),
+          style: const TextStyle(
+            color: WebUiTheme.text,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
+            letterSpacing: 0.4,
+            fontFamily: 'Courier',
+            fontFamilyFallback: [
+              'Courier New',
+              'Consolas',
+              'monospace',
+            ],
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _Dot extends StatefulWidget {
-  const _Dot({required this.color, required this.pulse});
-  final Color color;
-  final bool pulse;
-
-  @override
-  State<_Dot> createState() => _DotState();
-}
-
-class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    if (widget.pulse) _c.repeat(reverse: true);
-  }
-
-  @override
-  void didUpdateWidget(covariant _Dot oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.pulse && !_c.isAnimating) {
-      _c.repeat(reverse: true);
-    } else if (!widget.pulse && _c.isAnimating) {
-      _c.stop();
-      _c.value = 1;
-    }
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (context, child) {
-        final t = widget.pulse ? 0.45 + 0.55 * _c.value : 1.0;
-        return Opacity(opacity: t, child: child);
-      },
-      child: Container(
-        width: 7,
-        height: 7,
-        decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
       ),
     );
+
+    if (onTap == null) return tag;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: tag,
+    );
   }
+}
+
+/// Draws a 2px outline with 3px stair-step corners (8-bit soft round).
+class _PixelTagBorderPainter extends CustomPainter {
+  _PixelTagBorderPainter({required this.color, required this.stroke});
+
+  final Color color;
+  final double stroke;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final inset = stroke / 2;
+    final s = 3.0; // step size for pixel corner
+    final w = size.width;
+    final h = size.height;
+    final path = Path()
+      ..moveTo(s, inset)
+      ..lineTo(w - s, inset)
+      ..lineTo(w - inset, s)
+      ..lineTo(w - inset, h - s)
+      ..lineTo(w - s, h - inset)
+      ..lineTo(s, h - inset)
+      ..lineTo(inset, h - s)
+      ..lineTo(inset, s)
+      ..close();
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeJoin = StrokeJoin.miter
+      ..isAntiAlias = false;
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PixelTagBorderPainter old) =>
+      old.color != color || old.stroke != stroke;
 }
 
 /// Tiny helper used by HomePage copy action.

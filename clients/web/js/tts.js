@@ -1,5 +1,5 @@
 import { store } from "./store.js";
-import { enterSpeak, setMood, syncReplayHint } from "./mood.js";
+import { enterIdle, enterSpeak, setMood, syncReplayHint } from "./mood.js";
 
 export function stopTtsPlayback() {
   store.ttsPlayQueue = [];
@@ -23,7 +23,7 @@ export function clearDropRemoteTts() {
   store.dropRemoteTts = false;
 }
 
-export function maybeIdleAfterTurn(enterIdle, renderTranscript, clearProcessLine) {
+export function maybeIdleAfterTurn(enterIdleFn, renderTranscript, clearProcessLine) {
   if (!store.turnAwaitingIdle) return;
   if (store.ttsPlaying || store.ttsPlayQueue.length || store.ttsChunks.length) {
     if (document.getElementById("stage")?.dataset.mood !== "speak") {
@@ -40,7 +40,7 @@ export function maybeIdleAfterTurn(enterIdle, renderTranscript, clearProcessLine
   store.activeAssistantId = null;
   renderTranscript();
   clearProcessLine();
-  if (store.sessionId) enterIdle();
+  if (store.sessionId) enterIdleFn();
   syncReplayHint();
 }
 
@@ -96,13 +96,51 @@ export function pumpTts(ctx) {
 }
 
 export function replayLastTts() {
-  if (store.ttsPlaying || store.recording || store.starting) return;
+  if (store.ttsPlaying || store.ttsPlayQueue.length || store.recording || store.starting) {
+    return;
+  }
   if (!store.lastTtsSegments.length) return;
   store.ttsPlayQueue = store.lastTtsSegments.map((s) => ({
     chunks: s.chunks,
     text: "",
   }));
   setMood("speak");
-  // pumpTts wired via hooks after session boot
   if (store._pumpTts) store._pumpTts();
+}
+
+/**
+ * End local/remote TTS. Preserve lastTtsSegments for replay.
+ * Snapshot in-progress turn audio into lastTts before clearing.
+ */
+export function stopSpeakPlayback() {
+  if (store.turnTtsSegments.length) {
+    store.lastTtsSegments = store.turnTtsSegments.slice();
+  }
+  store.dropRemoteTts = true;
+  store.ttsPlayQueue = [];
+  store.ttsChunks = [];
+  store.turnTtsSegments = [];
+  store.turnAwaitingIdle = false;
+  if (store.audioEl) {
+    try {
+      store.audioEl.pause();
+    } catch (_) {}
+  }
+  store.ttsPlaying = false;
+  if (store.sessionId) enterIdle();
+  else setMood("offline");
+  syncReplayHint();
+}
+
+/** Stop current playback, or replay last turn when idle. */
+export function toggleLastTts() {
+  const playing =
+    store.ttsPlaying ||
+    store.ttsPlayQueue.length > 0 ||
+    document.getElementById("stage")?.dataset.mood === "speak";
+  if (playing) {
+    stopSpeakPlayback();
+    return;
+  }
+  replayLastTts();
 }

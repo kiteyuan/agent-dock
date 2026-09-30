@@ -45,7 +45,7 @@ class DeviceSession {
   /// Draft mirrored into the chat composer (cleared after STT → bubble).
   String composerText = '';
   /// Hint for composer placeholder while listening / recognizing.
-  String composerHint = '有问题，随便问';
+  String composerHint = '发消息或按住说话';
 
   /// Chat transcript (persisted by UI).
   final List<ChatMessage> messages = [];
@@ -93,11 +93,28 @@ class DeviceSession {
       }
     }
     return sessionId != null &&
-        !player.isBusy &&
         player.lastTurn.isNotEmpty &&
         lastAssistant != null &&
         lastAssistant.text.trim().isNotEmpty;
   }
+
+  bool get isSpeakingTts =>
+      state == ClientState.speaking || player.isBusy;
+
+  bool get canShowSpeakAction {
+    ChatMessage? lastAssistant;
+    for (final m in messages.reversed) {
+      if (m.role == ChatRole.assistant) {
+        lastAssistant = m;
+        break;
+      }
+    }
+    if (sessionId == null || lastAssistant == null) return false;
+    if (lastAssistant.text.trim().isEmpty) return false;
+    return player.lastTurn.isNotEmpty || isSpeakingTts;
+  }
+
+  static const defaultComposerHint = '发消息或按住说话';
 
   bool get canComposeText =>
       sessionId != null &&
@@ -355,7 +372,7 @@ class DeviceSession {
     _resetThinking();
     _clearProcessLine();
     composerText = '';
-    composerHint = '有问题，随便问';
+    composerHint = DeviceSession.defaultComposerHint;
     final sendText = text.isNotEmpty
         ? text
         : (imgs.isNotEmpty ? '（发送了 ${imgs.length} 张图片）' : '');
@@ -534,6 +551,61 @@ class DeviceSession {
 
   Future<void> replayLast() => player.replayLast();
 
+  /// Stop current TTS, or replay last turn when idle.
+  Future<void> toggleSpeakOrReplay() async {
+    if (isSpeakingTts) {
+      await stopSpeak();
+      return;
+    }
+    await replayLast();
+  }
+
+  Future<void> stopSpeak() async {
+    if (state == ClientState.busy) {
+      await cancelTurn();
+      return;
+    }
+    player.commitTurn();
+    _armDropRemoteTts();
+    _awaitingIdle = false;
+    if (sessionId != null) {
+      _setState(ClientState.idle, status: '已停止播报');
+    }
+  }
+
+  /// Hold-to-talk: begin recording (same as mic start).
+  Future<void> beginHoldTalk() async {
+    if (sessionId == null) return;
+    if (state == ClientState.listening) return;
+    if (state == ClientState.busy) {
+      await cancelTurn();
+    } else if (state == ClientState.speaking || player.isBusy) {
+      await cancelTurn();
+    }
+    if (state != ClientState.idle && state != ClientState.error) return;
+    await _startListen();
+  }
+
+  /// Hold-to-talk: release to send, or cancel without upload.
+  Future<void> endHoldTalk({required bool cancel}) async {
+    if (state != ClientState.listening) return;
+    if (cancel) {
+      try {
+        await recorder.cancel();
+      } catch (_) {}
+      composerHint = DeviceSession.defaultComposerHint;
+      _setState(ClientState.idle, status: '已取消录音');
+      return;
+    }
+    await _stopAndSend();
+  }
+
+  void setHoldTalkHint({required bool willCancel}) {
+    if (state != ClientState.listening) return;
+    composerHint = willCancel ? '松开取消' : '松开发送，上移取消';
+    _notify();
+  }
+
   void _armDropRemoteTts() {
     _dropRemoteTts = true;
     player.clear();
@@ -555,7 +627,7 @@ class DeviceSession {
     _resetThinking();
     _clearProcessLine();
     composerText = '';
-    composerHint = '有问题，随便问';
+    composerHint = DeviceSession.defaultComposerHint;
     await recorder.cancel();
     _setState(ClientState.idle, status: '已取消');
   }
@@ -599,7 +671,7 @@ class DeviceSession {
         _resetThinking();
       _clearProcessLine();
       composerText = '';
-      composerHint = '正在听…';
+      composerHint = '松开发送，上移取消';
       _setState(ClientState.listening, status: '正在录音…');
     } catch (e) {
       _failTurn(e.toString());
@@ -611,12 +683,12 @@ class DeviceSession {
     try {
       bytes = await recorder.stop();
     } catch (e) {
-      composerHint = '有问题，随便问';
+      composerHint = DeviceSession.defaultComposerHint;
       _failTurn(e.toString());
       return;
     }
     if (bytes == null || bytes.isEmpty || _ws == null || sessionId == null) {
-      composerHint = '有问题，随便问';
+      composerHint = DeviceSession.defaultComposerHint;
       _setState(ClientState.idle, status: '空录音');
       return;
     }
@@ -632,7 +704,7 @@ class DeviceSession {
       }
       _ws!.sink.add(proto.audioEnd(sessionId!));
     } catch (e) {
-      composerHint = '有问题，随便问';
+      composerHint = DeviceSession.defaultComposerHint;
       _failTurn(e.toString());
     }
   }
@@ -727,11 +799,11 @@ class DeviceSession {
             final stt = '${payload['text'] ?? payload['content'] ?? ''}'.trim();
         if (stt.isNotEmpty) {
           composerText = '';
-          composerHint = '有问题，随便问';
+          composerHint = DeviceSession.defaultComposerHint;
           _appendUser(stt);
         } else {
           composerText = '';
-          composerHint = '有问题，随便问';
+          composerHint = DeviceSession.defaultComposerHint;
         }
         _setState(ClientState.busy);
         break;

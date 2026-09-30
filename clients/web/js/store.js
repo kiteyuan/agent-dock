@@ -65,6 +65,8 @@ export const hooks = {
   /** @type {(() => void) | null} */
   replayLastTts: null,
   /** @type {(() => void) | null} */
+  toggleLastTts: null,
+  /** @type {(() => void) | null} */
   onMoodChanged: null,
 };
 

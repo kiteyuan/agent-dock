@@ -84,63 +84,75 @@ html, body {
   max-height: 100%;
   overflow: hidden;
   background: var(--bg);
-  /* Room for absolute composer (pet in flow + bar + bottom pad). */
-  --composer-space: 9.5rem;
+  /* Room for absolute composer (status tag + pet + bar + bottom pad). */
+  --composer-space: 11rem;
 }
 .main.has-attach {
-  --composer-space: 14rem;
+  --composer-space: 15.5rem;
 }
 
-.chat-header {
-  flex: 0 0 auto;
-  padding: 0.65rem 1.1rem 0.35rem;
+/* Pixel status tag sits flush above the pet — no shell fill. */
+.composer-pet-stack {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 0;
-  max-width: 56rem;
-  width: 100%;
-  margin: 0 auto;
-  box-sizing: border-box;
-  cursor: pointer;
-  border-radius: 10px;
+  margin: 0 0 0.2rem;
+}
+.status-tag {
+  --tag-c: #9aa0a6;
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-block;
+  margin: 0;
+  padding: 3px 8px;
+  /* No CSS radius — stepped pixel corners via clip-path. */
+  border: 2px solid var(--tag-c);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  /* 2px stair-step = soft pixel round, not bezier radius */
+  clip-path: polygon(
+    3px 0%,
+    calc(100% - 3px) 0%,
+    100% 3px,
+    100% calc(100% - 3px),
+    calc(100% - 3px) 100%,
+    3px 100%,
+    0% calc(100% - 3px),
+    0% 3px
+  );
+  cursor: default;
+  pointer-events: none;
+  font-family: "Sarasa Mono SC", "Cascadia Mono", "Noto Sans Mono CJK SC", "Consolas", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-transform: none;
+  image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
   user-select: none;
-  text-align: center;
+  -webkit-tap-highlight-color: transparent;
 }
-.chat-header:hover {
-  background: rgba(0, 0, 0, 0.03);
+.status-tag:hover,
+.status-tag:active,
+.status-tag:focus {
+  background: transparent;
+  outline: none;
 }
-.chat-header:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+#statusLabel {
+  color: inherit;
 }
-.char-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-}
-.status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #9aa0a6;
-  flex: 0 0 auto;
-}
-.status-label {
-  font-size: 13px;
-  color: var(--muted);
-  font-weight: 500;
-}
-.app[data-mood="idle"] .status-dot { background: #22c55e; }
-.app[data-mood="idle"] .status-label { color: #16a34a; }
-.app[data-mood="listen"] .status-dot { background: var(--listen); animation: pulse 0.9s ease-in-out infinite; }
-.app[data-mood="listen"] .status-label { color: var(--listen); }
-.app[data-mood="busy"] .status-dot { background: #f59e0b; animation: pulse 0.7s ease-in-out infinite; }
-.app[data-mood="speak"] .status-dot { background: var(--speak); animation: pulse 0.55s ease-in-out infinite; }
-.app[data-mood="connecting"] .status-dot { background: #a78bfa; animation: pulse 0.55s ease-in-out infinite; }
-.app[data-mood="err"] .status-dot { background: var(--danger); }
+.app[data-mood="idle"] .status-tag { --tag-c: #22c55e; }
+.app[data-mood="listen"] .status-tag { --tag-c: var(--listen); }
+.app[data-mood="busy"] .status-tag { --tag-c: #f59e0b; }
+.app[data-mood="speak"] .status-tag { --tag-c: var(--speak); }
+.app[data-mood="connecting"] .status-tag { --tag-c: #a78bfa; }
+.app[data-mood="err"] .status-tag { --tag-c: var(--danger); }
+.app[data-mood="offline"] .status-tag { --tag-c: #9aa0a6; }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
@@ -273,7 +285,8 @@ html, body {
   opacity: 0;
   transition: opacity 0.15s;
 }
-.bubble-wrap:hover .msg-actions { opacity: 1; }
+.bubble-wrap:hover .msg-actions,
+.msg-actions.has-playing { opacity: 1; }
 .msg-action {
   border: none;
   background: transparent;
@@ -287,6 +300,16 @@ html, body {
   padding: 0;
 }
 .msg-action:hover { background: var(--bg-soft); color: var(--text); }
+.msg-action.msg-tts.playing {
+  color: var(--speak);
+}
+.msg-action.msg-tts.playing .ico {
+  animation: tts-pulse 0.9s ease-in-out infinite;
+}
+@keyframes tts-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
 .process-line {
   margin: 0;
   padding: 0.15rem 0.25rem;
@@ -322,18 +345,28 @@ html, body {
   width: 64px;
   height: 70px;
   flex: 0 0 auto;
+  appearance: none;
+  -webkit-appearance: none;
   border: none;
   border-radius: 0;
   padding: 0;
-  margin: 0 0 0.2rem;
+  margin: 0;
   background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none;
+  outline: none;
   cursor: pointer;
   overflow: visible;
-  box-shadow: none;
   -webkit-tap-highlight-color: transparent;
 }
-.composer-pet:hover {
+.composer-pet:hover,
+.composer-pet:active,
+.composer-pet:focus {
   border: none;
+  outline: none;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none;
   transform: none;
   opacity: 0.92;
 }
@@ -347,6 +380,7 @@ html, body {
   object-fit: contain;
   image-rendering: pixelated;
   background: transparent !important;
+  background-color: transparent !important;
   pointer-events: none;
 }
 .attach-preview {
@@ -452,7 +486,24 @@ html, body {
   outline: none;
   min-width: 0;
 }
-.composer-bar input:focus { outline: none; }
+.composer-bar.hold-talk {
+  border-color: var(--listen);
+  background: #eff6ff;
+}
+.composer-bar.hold-talk.hold-cancel {
+  border-color: var(--danger);
+  background: #fef2f2;
+}
+.composer-bar.hold-talk input[type="text"] {
+  caret-color: transparent;
+  color: var(--listen);
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+}
+.composer-bar.hold-talk.hold-cancel input[type="text"] {
+  color: var(--danger);
+}
 .composer-mic,
 .composer-send {
   width: 36px;
@@ -572,10 +623,10 @@ dialog::backdrop { background: rgba(15, 23, 42, 0.35); }
     padding-bottom: calc(1rem + var(--safe-b));
   }
   .main {
-    --composer-space: 9rem;
+    --composer-space: 10.5rem;
   }
   .main.has-attach {
-    --composer-space: 13.5rem;
+    --composer-space: 15rem;
   }
   .composer-pet {
     width: 56px;
