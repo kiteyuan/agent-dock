@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-local-device-token"
+description = "Read local Runtime device token from device-auth.json"
+commands.allow = ["local_device_token"]
+
+[[permission]]
+identifier = "allow-fit-pet-window"
+description = "Resize the pet window to hug the character"
+commands.allow = ["fit_pet_window"]

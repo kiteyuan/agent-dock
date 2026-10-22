@@ -1,7 +1,8 @@
-# Stop AgentDock: ask Runtime to stop sidecars, then free well-known ports.
+# Stop AgentDock: ask Runtime to stop sidecars, then free well-known ports
+# (includes desktop pet :8090 unless -KeepWeb).
 #   .\scripts\stop.ps1
 #   .\scripts\stop.ps1 -KeepTts   # leave GPT-SoVITS :9880
-#   .\scripts\stop.ps1 -KeepWeb
+#   .\scripts\stop.ps1 -KeepWeb   # leave desktop pet :8090
 
 param(
     [switch]$KeepTts,

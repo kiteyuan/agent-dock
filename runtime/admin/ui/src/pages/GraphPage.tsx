@@ -206,7 +206,14 @@ export function GraphPage() {
           </Flex>
         ) : empty ? (
           <Flex className="graph-overlay" align="center" justify="center">
-            <Empty description="notes 目录还没有 Markdown 笔记" />
+            <Empty
+              description={
+                <span>
+                  还没有笔记。重启 Runtime 会从 <code>examples/vault-notes</code>{" "}
+                  写入种子；也可直接编辑 <code>data/vault/notes/</code>。
+                </span>
+              }
+            />
           </Flex>
         ) : null}
       </div>

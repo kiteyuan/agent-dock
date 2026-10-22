@@ -20,7 +20,7 @@ def _bundle(folder: Path) -> None:
 def _runtime(tmp_path: Path) -> Runtime:
     return Runtime(
         {
-            "workspace": {"root": str(tmp_path / "workspace")},
+            "paths": {"home": str(tmp_path / "home")},
             "pets": {"root": str(tmp_path / "pets")},
             "stt": {"provider": "none"},
             "tts": {"default": "edge", "providers": {"edge": {"type": "edge"}}},
@@ -35,7 +35,7 @@ def test_placeholder_comes_from_catalog_not_a_hardcoded_name(tmp_path: Path) -> 
     engines = {
         item["id"]: item for item in runtime.snapshot.build().modules["tts"]["engines"]
     }
-    folder = tmp_path / "workspace" / spec.bundle.directory
+    folder = tmp_path / "home" / "installs" / spec.bundle.directory
     assert folder.is_dir()
     assert (folder / spec.bundle.note_file).is_file()
     assert engines["gpt-sovits"]["installed"] is False
@@ -47,12 +47,13 @@ def test_nested_extract_is_detected_from_bundle_marker(tmp_path: Path) -> None:
     spec = ModuleCatalog.load({}).module("gpt-sovits")
     assert spec is not None and spec.bundle is not None
     runtime = _runtime(tmp_path)
-    nested = tmp_path / "workspace" / spec.bundle.directory / "GPT-SoVITS-v2"
+    installs = tmp_path / "home" / "installs"
+    nested = installs / spec.bundle.directory / "GPT-SoVITS-v2"
     _bundle(nested)
     ready, root = runtime.bundle_status("gpt-sovits", refresh=True)
     assert ready is True
     assert root == str(nested.resolve())
-    found = discover_bundle(tmp_path / "workspace", spec.bundle)
+    found = discover_bundle(installs, spec.bundle)
     assert found is not None
     assert found[1].name == "python.exe"
     runtime.lifecycle.close()

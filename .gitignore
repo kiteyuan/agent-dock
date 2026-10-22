@@ -17,6 +17,8 @@ tmp_*
 .coverage
 htmlcov/
 node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
 agents/**/.agentdock-sessions/
 
 # Playwright MCP page snapshots (cwd-local; not source)
@@ -25,15 +27,16 @@ agents/**/.agentdock-sessions/
 # Accidental bridge screenshots under the sticky Playwright helper
 runtime/platform/playwright_bridge/*.png
 
-# Personal agent data root (layout v2) — local only
+# Personal agent data root (layout v3) — local only
 data/
-# Legacy layout (pre-v2); keep ignored if still present during migration
+# Legacy layout leftovers (pre-v2); ignore if still present during migration
 workspace/
 /pets/
 /modules/
 /voices/
 
-# Host personalization packs (local only — not published with the repo)
+# Host personalization packs (local only — not published with the repo).
+# Demo character is seeded from examples/pets/demo at first boot.
 assets/pets/**
 !assets/pets/README.md
 assets/voices/**
@@ -77,9 +80,6 @@ Thumbs.db
 
 # Admin Vite source build cache (committed static/ is the served bundle)
 runtime/admin/ui/dist/
-
-# Local wake-word training scratch (venv + datasets)
-clients/rpi/wakeword/train_workspace/
 
 # Placeholder / never commit empty product shells
 marketplace/

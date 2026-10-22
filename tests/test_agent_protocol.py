@@ -24,7 +24,7 @@ def test_request_body_shape() -> None:
         text="hi",
         context=[],
         device={"device_id": "d1"},
-        workspace=r"E:\Projects\AgentDock\workspace",
+        workspace="/tmp/agentdock-workspace",
         instructions="【AgentDock Runtime】test",
     )
     body = request_to_http_body(req, stream=True)
@@ -33,7 +33,7 @@ def test_request_body_shape() -> None:
     assert body["text"] == "hi"
     assert body["stream"] is True
     assert body["device"]["device_id"] == "d1"
-    assert body["workspace"] == r"E:\Projects\AgentDock\workspace"
+    assert body["workspace"] == "/tmp/agentdock-workspace"
     assert body["instructions"].startswith("【AgentDock Runtime】")
 
 

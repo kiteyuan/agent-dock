@@ -187,7 +187,16 @@ class ModuleLifecycle:
         spec = self.catalog.module(target)
         if spec is None:
             return self._result(False, "prepare", target, error="unknown module")
-        if spec.kind == "agent":
+        # Bundled assistants (install.kind npm/steps) may prepare in-repo.
+        # External PATH-only agents keep install.kind none and fail below.
+        if spec.kind == "agent" and spec.install.kind == "none":
+            installed, detail = agent_installed(
+                spec,
+                root=self.catalog.root,
+                installs_root=getattr(self.supervisor, "installs_root", None),
+            )
+            if installed:
+                return self._result(True, "prepare", target, detail=detail)
             return self._result(
                 False,
                 "prepare",

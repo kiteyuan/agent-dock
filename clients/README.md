@@ -1,68 +1,22 @@
-# Clients（终端）
+# Clients（远程壳）
 
-所有终端共用 **Device Protocol**（权威：`runtime/protocol/device.py`；Python 客户端：`clients/shared/protocol.py`）。  
-`clients/cli` / `clients/rpi` 仅 re-export shared，勿再复制一份。  
-过程显示：[`shared/turn_view.py`](./shared/turn_view.py)。  
-会话状态机：[`shared/STATE_MACHINE.md`](./shared/STATE_MACHINE.md)。
+**本机桌宠不在这里** → 见 [`../desktop/`](../desktop/)，随 Runtime / `scripts/start.*` 启动。
 
-**主机跑大脑**（Runtime / STT / TTS / Agent）；客户端只连 `ws://主机:8765`。
-
-## 目录
+`clients/` 只放 **够不着本机 Runtime 的设备壳**（手机等）和调试工具。
 
 | 路径 | 角色 |
 |------|------|
-| `web/` | **桌面预览 UI**（本机浏览器） |
-| `cli/` | 启动 Web UI + CLI 调试 |
-| `rpi/` | 树莓派随身终端 |
-| `mobile/` | **正式手机端**（Flutter 瘦客户端） |
-| `shared/` | 协议 + TurnView + 状态约定 |
+| `mobile/` | Flutter 手机（CI 也打 Win/mac 窗，语义仍是「壳」） |
+| `cli/` | 调试 CLI；`--ui` 会打开 `desktop/` |
+| `shared/` | Device Protocol helpers |
+| `web/` | 已迁走，仅留跳转说明 |
 
-自定义角色 / 音色：[`CUSTOM_ASSETS.md`](./CUSTOM_ASSETS.md)。
-
-## 推荐：桌面预览
+协议权威：`runtime/protocol/device.py`。自定义角色：[`CUSTOM_ASSETS.md`](./CUSTOM_ASSETS.md)。
 
 ```bash
-python -m runtime   # 另开终端
+# 手机
+cd clients/mobile && flutter run
 
-python clients/cli/main.py --ui
-# 或：cd clients/web && python serve.py
+# 调试
+cd clients/cli && python main.py --chat --agent pi
 ```
-
-**交互**：聊天主壳打字发送；麦键直接录音做 STT（点按开始 / 再点结束）。助手文字即时显示，TTS 异步。
-
-
-## 手机 App（Flutter）
-
-```bash
-cd clients/mobile
-flutter create . --project-name agentdock_mobile --org com.agentdock --platforms=android
-flutter pub get
-flutter run
-```
-
-设置里填 `ws://电脑局域网IP:8765`。CI 打包：仓库 Actions `Build Clients`（Android / Windows / macOS / iOS 巨魔 IPA）。
-
-## CLI（调试）
-
-```bash
-cd clients/cli
-python main.py --chat --agent pi --tts haibara
-```
-
-| 输入 | 作用 |
-|------|------|
-| 文字 + 回车 | 发送文本 |
-| 空行 | 开始录音；再空行结束并发送 |
-| `/r 5` | 定时录音 |
-| `/cancel` | 取消当前轮 |
-| `/q` | 退出 |
-
-## 树莓派（rpi）
-
-```bash
-cd clients/rpi && python -m device
-```
-
-按键 / Enter：**第一次开始录音，第二次结束发送**。
-
-跨网时改各端 Runtime 地址为 Tailscale 或 Tunnel。

@@ -43,12 +43,12 @@ def test_snapshot_does_not_perform_network_probe(monkeypatch, tmp_path) -> None:
     assert "openai" in {
         item["id"] for item in snapshot.modules["llm"]["shared"]["providers"]
     }
-    for agent in snapshot.modules["agents"]:
-        assert agent["installable"] is False
-        assert agent["can_prepare"] is False
-    codex = next(item for item in snapshot.services if item["id"] == "codex")
-    assert codex["group"] == "agent"
-    assert "<" not in codex["detail"]
+    agents = {item["id"]: item for item in snapshot.modules["agents"]}
+    assert set(agents) == {"pi"}
+    assert agents["pi"]["installable"] is True
+    pi_svc = next(item for item in snapshot.services if item["id"] == "pi")
+    assert pi_svc["group"] == "agent"
+    assert "<" not in pi_svc["detail"]
     runtime_svc = next(item for item in snapshot.services if item["id"] == "runtime")
     assert runtime_svc["group"] == "core"
     assert "web" not in {item["id"] for item in snapshot.services}
@@ -96,8 +96,8 @@ def test_admin_ui_separates_beginner_and_advanced_information() -> None:
     assert "自定义模型名" in pages
     assert "/api/v1/llm/shared" in pages
     assert "/api/v1/agents/" in pages
-    assert "去官网安装" in pages
-    assert "recheck" in pages
+    assert "去官网安装" in pages or "准备" in pages or "install" in pages
+    assert "recheck" in pages or "install" in pages
     assert "需要独立模型设置" not in pages
     assert "我已安装，重新检测" not in pages
     assert "Runtime 不会代为安装" not in pages

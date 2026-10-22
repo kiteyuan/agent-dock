@@ -4,7 +4,6 @@ import sys
 from threading import Event
 
 import pytest
-
 from runtime.platform.catalog import ModuleCatalog
 from runtime.platform.installer import InstallCancelled, InstallError, InstallManager
 from runtime.platform.module_state import ModuleState

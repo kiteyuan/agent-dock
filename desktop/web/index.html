@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="pet-mode">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>AgentDock Pet</title>
+  <link rel="icon" href="./favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="./favicon-32.png" sizes="32x32" />
+  <meta name="theme-color" content="#00000000" />
+  <link rel="stylesheet" href="./styles.css?v=108" />
+</head>
+<body>
+  <div class="app pet-shell" id="stage" data-mood="offline">
+    <main class="main pet-main">
+      <div class="transcript-wrap" hidden aria-hidden="true">
+        <div id="transcript" class="transcript"></div>
+      </div>
+
+      <div class="pet-stage">
+        <div id="petBubble" class="pet-bubble" hidden>
+          <div id="petBubbleBody" class="pet-bubble-body"></div>
+          <p id="processLine" class="pet-bubble-foot" hidden></p>
+          <button type="button" id="btnBubbleMute" class="pet-bubble-mute" hidden
+            aria-label="播报" title="播报">
+            <svg class="ico ico-play" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+            <svg class="ico ico-stop" viewBox="0 0 24 24" aria-hidden="true" hidden>
+              <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+              <path d="M22 9l-6 6M16 9l6 6"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="composer-pet-stack" data-tauri-drag-region>
+          <div class="status-tag" id="statusTag" aria-live="polite">
+            <span id="statusLabel">未连接</span>
+          </div>
+          <button type="button" class="composer-pet" id="btnComposerPet"
+            aria-label="点按说话；长按聚焦输入；拖动移动"
+            title="点按说话 · 长按聚焦输入 · 右键只留人物 · 拖动移动">
+            <canvas id="spriteComposer" class="composer-pet-canvas" width="192" height="208" aria-hidden="true"></canvas>
+          </button>
+        </div>
+
+        <form id="composerForm" class="composer-bar pet-composer" autocomplete="off">
+          <div id="attachPreview" class="attach-preview" hidden></div>
+          <div class="composer-row">
+            <button type="button" id="btnStop" class="composer-stop" hidden aria-label="终止" title="终止">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
+            </button>
+            <button type="button" id="micBtn" class="composer-mic" aria-label="语音" title="语音">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg>
+            </button>
+            <input id="composerInput" type="text" enterkeyhint="send" maxlength="2000" placeholder="跟桌宠说…" />
+            <button type="button" id="btnAttach" class="composer-attach" aria-label="添加图片" title="添加图片">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <input id="attachInput" type="file" accept="image/*" multiple hidden />
+            <button type="submit" id="composerSend" class="composer-send" aria-label="发送" title="发送">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="settings">
+    <form method="dialog" class="sheet">
+      <div id="settingsMain">
+        <h2>高级</h2>
+        <p class="sheet-hint">本机桌宠会自动连接，一般不用改。快捷键 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>,</kbd></p>
+        <label>Runtime WS</label>
+        <input id="url" type="text" placeholder="ws://127.0.0.1:8765" />
+        <label>Token（自动注入，可留空）</label>
+        <input id="token" type="password" placeholder="auto" />
+        <div class="sheet-actions">
+          <button type="submit" id="btnSave" value="save">保存并连接</button>
+          <button type="button" id="btnClose" value="cancel">关闭</button>
+        </div>
+        <hr class="sheet-divider" />
+        <button type="button" class="sheet-new" id="btnChromeNew" disabled>新开会话</button>
+      </div>
+      <div id="settingsResetConfirm" hidden>
+        <h2>新开会话？</h2>
+        <p class="sheet-hint">会清空本设备的 Agent 对话记忆与本地气泡。连接不用重连。</p>
+        <div class="sheet-actions">
+          <button type="button" id="btnResetCancel">取消</button>
+          <button type="button" id="btnResetConfirm">确定</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="./pixel-bot.js?v=7"></script>
+  <script type="module" src="./app.js?v=108"></script>
+</body>
+</html>

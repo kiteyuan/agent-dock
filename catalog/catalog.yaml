@@ -1,23 +1,9 @@
 schema_version: 2
 provider_glob: "providers/*.yaml"
 
+# Pi is the only built-in coding assistant. Speech / pets remain optional modules.
 enabled:
   - pi
-  - codex
-  - claude
-  - opencode
-  - cline
-  - openhands
-  - goose
-  - aider
-  - qwen-code
-  - kimi-code
-  - codebuddy
-  - qoder
-  - hermes
-  - gemini
-  - crush
-  - amp
   - edge
   - gpt-sovits
   - whisper

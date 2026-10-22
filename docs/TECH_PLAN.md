@@ -48,7 +48,7 @@ Device → Session → Agent → Event Stream → Device
 5. **Event Stream** — Agent 过程事件如何原样带回 Device
 6. **Security** — Device / Session / Agent / Tool 权限边界
 
-STT、TTS、Pi、OLED 都是插件，不是核心。
+STT、TTS、硬件外设都是插件，不是核心。
 
 ---
 
@@ -333,11 +333,11 @@ Device --text--> AgentDock --events--> Mock Agent --events--> Device
 
 ---
 
-## 8. 第一款硬件（Transport，非核心）
+## 8. 硬件客户端（Transport，非核心）
 
-Pi Zero 2 W + Mic + Speaker + OLED，只跑 `agentdock-client`：
+官方客户端以 **Mobile / Web / CLI** 为主。任意瘦终端只需实现 Device Protocol：
 
-- Audio / WebSocket / Protocol / OLED
+- Audio / WebSocket / Protocol / UI
 - 不跑 LLM / Agent / STT / TTS
 
 ---
@@ -345,7 +345,7 @@ Pi Zero 2 W + Mic + Speaker + OLED，只跑 `agentdock-client`：
 ## 9. 安全模型（第一版就要预留）
 
 ```text
-Pi → Device Token → Runtime → Session Permission → Agent → Tools
+Device → Device Token → Runtime → Session Permission → Agent → Tools
 ```
 
 设备永远不直接持有高权限工具能力。

@@ -1,4 +1,4 @@
-"""Shared Device Protocol helpers (rpi / cli / any Python device)."""
+"""Shared Device Protocol helpers (cli / any Python device)."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def make_msg(msg_type: str, payload: dict[str, Any] | None = None) -> str:
 
 def device_hello(
     device_id: str,
-    device_type: str = "pi",
+    device_type: str = "device",
     token: str | None = None,
     tts_id: str | None = None,
 ) -> str:

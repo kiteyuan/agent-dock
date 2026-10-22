@@ -8,7 +8,6 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-
 from runtime.agent.adapters.http import HTTPAgent
 from runtime.protocol.agent import AgentEventType, AgentRequest
 

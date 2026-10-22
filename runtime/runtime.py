@@ -20,28 +20,6 @@ from runtime.assembly import (
 )
 from runtime.bridge.pipeline import BridgePipeline
 from runtime.device.gateway import DeviceGateway
-from runtime.pets import pets_root as resolve_pets_root
-from runtime.pets.installer import PetInstaller
-from runtime.pets.urls import build_assets_base_url
-from runtime.platform.agent_config import AgentConfigStore
-from runtime.platform.mcp_config import McpConfigStore
-from runtime.platform.assets import AssetIndex
-from runtime.platform.bundles import BundleBinder
-from runtime.platform.catalog import ModuleCatalog
-from runtime.platform.hardware import HardwareStore
-from runtime.platform.health import HealthStore
-from runtime.platform.installer import InstallManager
-from runtime.platform.lifecycle import ModuleLifecycle
-from runtime.platform.module_state import ModuleState
-from runtime.platform.state import RuntimeState
-from runtime.security.auth import build_device_auth
-from runtime.security.permissions import PermissionGuard
-from runtime.services import ServiceSupervisor
-from runtime.session.manager import SessionManager
-from runtime.session.transcript import TranscriptStore
-from runtime.transport.speech.registry import TTSRegistry
-from runtime.transport.speech.stt_factory import create_stt
-from runtime.transport.speech.voice_catalog import VoiceCatalog
 from runtime.layout_migrate import migrate_layout
 from runtime.notes import NotesIndexer
 from runtime.paths import (
@@ -53,6 +31,28 @@ from runtime.paths import (
     resolve_voices,
     resolve_workspace,
 )
+from runtime.pets import pets_root as resolve_pets_root
+from runtime.pets.installer import PetInstaller
+from runtime.pets.urls import build_assets_base_url
+from runtime.platform.agent_config import AgentConfigStore
+from runtime.platform.assets import AssetIndex
+from runtime.platform.bundles import BundleBinder
+from runtime.platform.catalog import ModuleCatalog
+from runtime.platform.hardware import HardwareStore
+from runtime.platform.health import HealthStore
+from runtime.platform.installer import InstallManager
+from runtime.platform.lifecycle import ModuleLifecycle
+from runtime.platform.mcp_config import McpConfigStore
+from runtime.platform.module_state import ModuleState
+from runtime.platform.state import RuntimeState
+from runtime.security.auth import build_device_auth
+from runtime.security.permissions import PermissionGuard
+from runtime.services import ServiceSupervisor
+from runtime.session.manager import SessionManager
+from runtime.session.transcript import TranscriptStore
+from runtime.transport.speech.registry import TTSRegistry
+from runtime.transport.speech.stt_factory import create_stt
+from runtime.transport.speech.voice_catalog import VoiceCatalog
 
 
 class Runtime:
@@ -85,7 +85,9 @@ class Runtime:
             self.registry, default_agent_id=default_id, permissions=self.permissions
         )
         self.stt = create_stt(stt_config(self.catalog, cfg.get("stt", {})))
+        # Protocol field name is still ``workspace`` (= vault on disk).
         self.workspace = resolve_workspace(cfg, ensure=True)
+        self.vault = self.workspace
         self.notes_root = resolve_notes(cfg, ensure=True)
         self.notes = NotesIndexer(self.notes_root)
         self.installs_root = resolve_installs(cfg, ensure=True)
@@ -141,9 +143,10 @@ class Runtime:
             catalog=self.catalog,
         )
         self.state = RuntimeState(self.state_dir)
+        # Engine bundles (GPT-SoVITS, …) live under installs/, not vault/.
         self.bundles = BundleBinder(
             self.catalog,
-            self.workspace,
+            self.installs_root,
             [self.cfg, self.services.cfg],
             self.services.refresh_context,
         )

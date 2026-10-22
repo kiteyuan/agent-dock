@@ -46,8 +46,8 @@ Optional discovery:
     {"role": "assistant", "text": "在的", "ts": 1710000001.0}
   ],
   "device": {
-    "device_id": "pi-01",
-    "device_type": "pi"
+    "device_id": "mobile-01",
+    "device_type": "mobile"
   },
   "agent_id": "claude",
   "workspace": "E:/Projects/AgentDock/data/vault",

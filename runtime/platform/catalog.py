@@ -9,8 +9,8 @@ from urllib.parse import urlsplit, urlunsplit
 
 import yaml
 
-from runtime.platform.types import ModuleSpec, SidecarSpec
 from runtime.paths import repo_root, resolve_catalog_path, resolve_vault
+from runtime.platform.types import ModuleSpec, SidecarSpec
 
 
 def retarget_port(url: str, port: int) -> str:

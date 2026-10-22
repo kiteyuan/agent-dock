@@ -18,19 +18,19 @@ def agent_installed(
 ) -> tuple[bool, str]:
     """Return (installed, detail). Detail is a path or a short reason."""
     del workspace  # legacy kwarg ignored; installs live under installs_root
+    # Bundled assistants (e.g. Pi under agents/pi-coding) win over a global PATH CLI.
+    if spec.local_marker:
+        local = root / spec.local_marker
+        if local.is_dir():
+            return True, str(local)
+    if installs_root is not None and has_receipt:
+        leftover = installs_root / spec.id
+        if leftover.is_dir():
+            return True, str(leftover)
     command = spec.health.command if spec.health.kind == "command" else None
     if command:
         found = shutil.which(command)
         if found:
             return True, found
-    if installs_root is not None and has_receipt:
-        leftover = installs_root / spec.id
-        if leftover.is_dir():
-            return True, str(leftover)
-    if spec.local_marker:
-        local = root / spec.local_marker
-        if local.is_dir():
-            return True, str(local)
-    if command:
-        return False, f"{command} not on PATH"
-    return False, "official CLI not detected"
+        return False, f"{command} not on PATH (and bundled install missing)"
+    return False, "assistant package not detected"

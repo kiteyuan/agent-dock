@@ -7,7 +7,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-
 from runtime.device.connection import DeviceConnection
 from runtime.device.gateway import DeviceGateway
 from runtime.session.models import Session

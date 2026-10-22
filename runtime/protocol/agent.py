@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import AsyncIterator
 from enum import Enum
-from typing import Any, AsyncIterator
+from typing import Any
 
 from pydantic import BaseModel, Field
 

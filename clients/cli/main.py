@@ -1,9 +1,11 @@
 """
-cli-client — CLI + launcher for AgentDock.
+cli-client — debug CLI + optional launcher for the host desktop pet.
 
-Primary UI (all platforms):
-  python main.py              # opens clients/web
-  python main.py --ui
+Host desktop pet (same machine as Runtime):
+  Prefer: cd desktop && npm run dev
+  Fallback: python main.py --ui   # browser UI
+
+Prefer scripts/start.* which starts Runtime + pet together.
 
 CLI (script / debug):
   python main.py --chat [--agent pi] [--tts edge]
@@ -378,10 +380,11 @@ async def _record_until_enter(*, max_seconds: float = 60.0) -> bytes:
 
 
 def _launch_web_ui(*, port: int = 8090, no_open: bool = False) -> None:
-    web_root = Path(__file__).resolve().parents[1] / "web"
-    serve = web_root / "serve.py"
+    # Host pet lives under repo/desktop/ (not clients/).
+    desktop_root = Path(__file__).resolve().parents[2] / "desktop"
+    serve = desktop_root / "serve.py"
     if not serve.is_file():
-        print(f"ERROR: Web UI missing at {web_root}", file=sys.stderr)
+        print(f"ERROR: desktop pet missing at {desktop_root}", file=sys.stderr)
         raise SystemExit(1)
     import runpy
 

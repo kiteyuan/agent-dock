@@ -104,7 +104,6 @@ class HardwareStore:
     def recommendations(self) -> dict[str, Any]:
         hardware = self.snapshot()
         ram = float(hardware.get("ram_gb") or 0)
-        commands = hardware.get("commands") or {}
         current_platform = {
             "win32": "windows",
             "linux": "linux",
@@ -115,7 +114,7 @@ class HardwareStore:
             module = self.catalog.module(module_id)
             return bool(module and current_platform in module.hardware.platforms)
 
-        preferred = "opencode" if commands.get("node") and commands.get("npm") else "aider"
+        preferred = "pi"
         agent = preferred if compatible(preferred) else next(
             (
                 item.id
@@ -151,7 +150,7 @@ class HardwareStore:
                 "stt": [item for item in stt_modules if item != stt],
             },
             "reason": {
-                "agent": "OpenCode is provider-neutral" if agent == "opencode" else "Python fallback",
+                "agent": "bundled Pi Coding Agent" if agent == "pi" else "available agent",
                 "tts": "no local model" if tts in cloud else "local engine",
                 "stt": "SenseVoice prioritizes Chinese" if stt == "sensevoice" else "low-memory fallback",
             },

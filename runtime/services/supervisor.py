@@ -16,10 +16,10 @@ from typing import Any
 
 from loguru import logger
 
+from runtime.paths import resolve_installs, resolve_logs, resolve_workspace
 from runtime.platform.catalog import ModuleCatalog
 from runtime.platform.health import tcp_open
 from runtime.platform.types import SidecarSpec
-from runtime.paths import resolve_installs, resolve_logs, resolve_workspace
 
 
 @dataclass

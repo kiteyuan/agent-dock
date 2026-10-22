@@ -7,7 +7,7 @@
 
 ## 角色（Pet）
 
-**唯一权威：本机 `assets/pets/`（gitignore，不入库）。** 客户端连接后通过 `pets.list.result` 下载并缓存。
+**唯一权威：本机 `assets/pets/`（gitignore）。** 干净 clone 首启会从 `examples/pets/demo` 复制演示角色；之后可自行导入。客户端连接后通过 `pets.list.result` 下载并缓存。
 
 1. 本机放置 `assets/pets/<id>/spritesheet.webp`（可选编辑 `catalog.json`；没有 catalog 时自动扫描子目录）
 2. Runtime 推送 `pets.list.result`（含 `base_url`）
@@ -63,11 +63,12 @@ tts:
 
 | 子目录 | 用途 |
 |--------|------|
-| `vault/` | AgentRequest.workspace（知识库 / Obsidian）；笔记在 `vault/notes/` |
-| `state/` | runtime-state / module-state / agent-* / mcp.json（含不可删内置 `agentdock`） |
+| `vault/` | 协议字段 `workspace` 指向这里（知识库 / Obsidian） |
+| `vault/notes/` | Admin 图谱；首启可从 `examples/vault-notes` 写入种子 |
+| `state/` | runtime-state / module-state / agent-* / mcp.json |
 | `logs/` | sidecar 日志 |
-| `installs/` | 隔离安装产物 |
-| `sessions/` | Agent 会话文件（如 Pi） |
+| `installs/` | 引擎整合包（GPT-SoVITS 等），**不**放在 vault |
+| `sessions/` | Agent 会话文件 |
 | `secrets/` | 非 Windows 凭据密钥 |
 
 ## 客户端只需配什么

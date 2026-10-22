@@ -1,7 +1,7 @@
 # Shared Device Protocol helpers
 #
 # - protocol.py — message builders (align with runtime/protocol/device.py)
-# - turn_view.py — collapse thinking / tools for console & OLED
+# - turn_view.py — collapse thinking / tools for console UI
 # - session_state.py — client UI states
 # - STATE_MACHINE.md — chat shell; hello → listen → busy → speak → idle
 #

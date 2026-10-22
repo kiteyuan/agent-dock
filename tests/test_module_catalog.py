@@ -5,9 +5,10 @@ from runtime.platform.catalog import ModuleCatalog
 
 def test_catalog_loads_unique_declared_modules() -> None:
     catalog = ModuleCatalog.load({})
-    assert {"pi", "codex", "claude", "edge", "gpt-sovits", "whisper", "pets"} <= {
+    assert {"pi", "edge", "gpt-sovits", "whisper", "pets"} <= {
         item.id for item in catalog.modules
     }
+    assert [item.id for item in catalog.modules_by_kind("agent")] == ["pi"]
     assert len(catalog.modules) == len({item.id for item in catalog.modules})
     assert catalog.sidecar("pi").spawn is not None
 

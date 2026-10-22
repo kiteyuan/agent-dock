@@ -3,12 +3,12 @@
 AgentDock does **not** implement a VPN. Cross-network connectivity is:
 
 ```text
-Phone / Pi  --Tailscale-->  Home PC Runtime (ws://100.x.y.z:8765)
+Phone  --Tailscale-->  Home PC Runtime (ws://100.x.y.z:8765)
 ```
 
 ## Setup
 
-1. Install Tailscale on the machine running Runtime and on the phone/Pi.
+1. Install Tailscale on the machine running Runtime and on the phone.
 2. Note the Runtime machine's Tailscale IP (`100.x.y.z`).
 3. Bind Runtime to all interfaces (default):
 
@@ -35,13 +35,13 @@ security:
 ```bash
 export AGENTDOCK_URL=ws://100.x.y.z:8765
 export AGENTDOCK_TOKEN=your-device-token
-python client/main.py --text "你好" --heartbeat
+python clients/cli/main.py --text "你好" --heartbeat
 ```
 
 Or:
 
 ```bash
-python client/main.py --url ws://100.x.y.z:8765 --token your-device-token --text "你好"
+python clients/cli/main.py --url ws://100.x.y.z:8765 --token your-device-token --text "你好"
 ```
 
 ## Notes

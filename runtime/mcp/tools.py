@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from runtime.platform.mcp_launch import read_servers
 from runtime.mcp.builtin import BUILTIN_NAME, is_builtin_name
+from runtime.platform.mcp_launch import read_servers
 
 _PROTOCOL = "2025-03-26"
 

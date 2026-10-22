@@ -4,7 +4,6 @@ import json
 import zipfile
 
 import pytest
-
 from runtime.pets.installer import PetInstaller
 
 

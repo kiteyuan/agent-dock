@@ -10,33 +10,28 @@ AgentDock 是一个开源 **Agent Bridge / Runtime**：通过 Session 与 Event 
 
 公网 Agent 接入规范：[`docs/AGENT_PROTOCOL.md`](./docs/AGENT_PROTOCOL.md)（协议标识 `agentdock.agent/1.0`）。
 
-统一客户端 UI：
+本机桌宠随 Runtime 一起开（不是远程客户端）：
 
-```bash
-python clients/cli/main.py --ui
-# 点击通话开始收音，再点结束
+```powershell
+.\scripts\start.ps1          # Runtime + desktop pet
 ```
 
 ## 目录（按功能）
 
 ```text
-runtime/          # 后端服务（Python 包）：协议、会话、Agent 适配、STT/TTS、网关
-clients/          # 瘦终端（只连 WS；不算模型）
-  web/            # 桌面预览 UI（人物图从 Runtime :8766/pets 下载缓存）
-  cli/            # 启动 Web UI + CLI 调试
-  rpi/            # 树莓派随身终端
-  mobile/         # Flutter 手机 App
-  shared/         # 协议 / 状态机 / TurnView
-agents/           # 本地安装 / 联调外部 Agent（demo + pi-coding + check_link）
-catalog/          # 能力声明（agent / tts / stt）
-assets/
-  brand/          # 项目图标（入库；python scripts/generate_brand_icons.py）
-  pets/           # 本机角色包（gitignore；仓库仅 README）
-  voices/         # 本机音色包（gitignore；仓库仅 README）
-data/             # 用户数据根（gitignore）：vault / state / logs / installs / …
-docs/             # 文档
-tests/            # 测试
-config.yaml       # Runtime 配置（含 paths）
+runtime/          # 后端：协议、会话、Agent、STT/TTS、Admin
+desktop/          # 本机桌宠 Tauri（置顶透明窗；不是 clients）
+clients/          # 远程壳（手机等够不着 Runtime 时才需要）
+  mobile/         # Flutter 手机 / 可选 Win·mac 窗
+  cli/            # 调试 CLI（--ui 也可打开桌宠）
+  shared/         # 协议 / 状态机
+agents/           # 内置 Pi（pi-coding）+ demo 联调
+catalog/          # 能力声明（pi / tts / stt / pets）
+examples/         # 首启种子：vault-notes + demo 角色
+assets/ brand|pets|voices
+data/             # vault / installs / state / …
+docs/ tests/ scripts/
+config.yaml
 ```
 
 若本机还残留旧版 `workspace/`，迁到 `data/` 并删除空壳：
@@ -48,29 +43,66 @@ python scripts/migrate_workspace_to_data.py --purge
 ## 完整链路
 
 ```text
-clients/*  ──WebSocket──►  runtime    ──Agent Protocol──►  外部 Agent
-                              │
-                         STT / TTS
-                              │
-clients/*  ◄──事件 + 语音────┘
+desktop/ (本机桌宠)  ─┐
+clients/mobile (壳) ──┼──WebSocket──►  runtime  ──►  Pi / Agent Protocol
+                      │                    │
+                      │               STT / TTS
+                      ◄── 事件 + 语音 ─────┘
 ```
 
 ## 快速开始
 
-Windows：脚本只冷启动 Runtime，附属服务在 Admin 启停：
+**部署模型：** 本机 Runtime + **内置 Pi**（首启自动 `npm install`）；SoVITS 等可可选容器。  
+见 [`docs/DEPLOY.md`](./docs/DEPLOY.md)。需本机 **Node.js LTS**（`npm`）与至少一个模型 API Key。
+
+默认配置面向任意机器（Whisper `small` + `cpu`）。有 NVIDIA GPU 时：
+
+```bash
+cp config.cuda.example.yaml config.local.yaml   # gitignored；启动时自动合并
+```
+
+环境变量模板：复制 [`.env.example`](./.env.example) 为 `.env` 后按需导出。
+
+### 本机启动（完整功能 · 推荐）
+
+脚本冷启动 **Runtime + 本机桌宠**（并确保内置 Pi 依赖）；在 Admin 配 Key 后即可在桌宠里说话：
 
 ```powershell
-.\scripts\start.ps1          # Runtime + 打开 http://127.0.0.1:8766/admin/
+# Windows
+.\scripts\start.ps1              # Runtime + desktop pet
+.\scripts\start.ps1 -Admin       # 同时打开 Admin
+.\scripts\start.ps1 -NoPet       # 只要 Runtime
 .\scripts\stop.ps1
 ```
 
-Admin 会根据硬件标记推荐项；用户直接在“智能助手”和“声音”页面选择即可。
-智能助手需先到官网安装官方客户端，Runtime 只检测 PATH 上是否已安装，再配置
-LLM 并启动 gateway。声音引擎仍可由 Runtime 隔离安装。
-每个 Agent 的模型服务、模型名称和凭据可以单独保存；也可以先配置一套统一模型，
-兼容的 Agent 在设置里下拉直接选用。切换 Agent 不会互相覆盖独立配置。
-当前内置国内 CLI 包括 Qwen Code、Kimi Code、CodeBuddy 和 Qoder。
-也可在 `config.yaml` → `services.*.autostart: true` 让 Runtime 起来后自动拉起。
+```bash
+# Linux / macOS
+chmod +x scripts/start.sh scripts/stop.sh
+./scripts/start.sh               # Runtime + desktop pet
+./scripts/start.sh --admin
+./scripts/start.sh --no-pet
+./scripts/stop.sh
+```
+
+```bash
+# 或手动
+pip install -e ".[dev]"
+python -m runtime
+# 打开 http://127.0.0.1:8766/admin/
+```
+
+### 可选：引擎容器（非 Runtime）
+
+```bash
+docker compose --profile engines up -d   # 例如 GPT-SoVITS → :9880
+```
+
+Runtime 演示镜像（**不能**一键拉起本机 Agent）见 `docker-compose.runtime-demo.yml`。
+
+默认助手为项目内置 **Pi Coding**（`agents/pi-coding`），无需再装其它智能助手 CLI。  
+Admin「智能助手」里配置 API Key 后启动即可。声音仍可用 Edge；SoVITS 可选。  
+`config.yaml` → `services.pi.autostart: true` 可在 Runtime 起来后自动拉起 Pi gateway。  
+机器专属覆盖写在 `config.local.yaml`（不会进 git）。
 
 Admin UI/API 仅接受本机访问（`Host: localhost` + loopback peer）；设备仍可从局域网访问 `/pets/*` 和 `/health`。Device WS 绑定 `0.0.0.0` 时默认需要 token（`data/state/device-auth.json`）。Admin
 设置的默认 Agent/TTS/STT 保存在 `data/state/runtime-state.json`，不会改写 `config.yaml`。
@@ -88,21 +120,15 @@ DPAPI 加密后写入 `data/state/agent-secrets.json`。
 pip install -e .
 python -m runtime
 # 浏览器打开 http://127.0.0.1:8766/admin/  — 服务启停 / 设备 / Agent / TTS
-# 或: .\scripts\start.ps1
 
-# Pi 网关（另一终端）
-$env:PI_GATEWAY_PORT=9001; python agents/pi-coding/gateway.py
-
-# 可选：桌面 Web 预览
-python clients/cli/main.py --ui
+# 仅桌宠（Runtime 已在跑时）
+python -m desktop
 
 # CLI 调试
 cd clients/cli
 pip install -r requirements.txt
-python main.py --chat --agent pi --tts haibara
+python main.py --chat --agent pi
 python main.py --text "帮我整理桌面的文件"
-python main.py --record 5
-python main.py --wav ./test.wav
 ```
 
 ## 接入公网 / 自建 Agent
@@ -124,23 +150,21 @@ python clients/cli/main.py --text "你好" --agent http
 |------|------|
 | STT | Whisper `small`；中文主机可切换 SenseVoice |
 | TTS | Edge `zh-CN-XiaoxiaoNeural` |
-| Agent | Pi；控制台会优先推荐模型无关的 OpenCode |
+| Agent | 内置 Pi Coding |
 
 配置见 [`config.yaml`](./config.yaml)。跨网：[`docs/DEPLOY_TAILSCALE.md`](./docs/DEPLOY_TAILSCALE.md) · [`docs/DEPLOY_CLOUDFLARE.md`](./docs/DEPLOY_CLOUDFLARE.md)
 
-## 终端客户端
+## 交互入口
 
-| 客户端 | 路径 | 说明 |
-|--------|------|------|
-| Web UI | [`clients/web/`](./clients/web/) | 桌面预览：状态 / 回复 / 点击通话 |
-| CLI | [`clients/cli/`](./clients/cli/) | `--ui` 打开 Web；`--chat` 调试 |
-| 树莓派 | [`clients/rpi/`](./clients/rpi/) | 按键点开点停 / OLED |
-| 手机 | [`clients/mobile/`](./clients/mobile/) | Flutter：原生麦 + `ws://主机:8765` |
+| 形态 | 路径 | 说明 |
+|------|------|------|
+| **本机桌宠** | [`desktop/`](./desktop/) | Tauri 置顶透明窗（`web/` 也可浏览器回退） |
+| 手机壳 | [`clients/mobile/`](./clients/mobile/) | Flutter；连 `ws://主机:8765` |
+| 调试 CLI | [`clients/cli/`](./clients/cli/) | `--chat` / `--text`；`--ui` 也可开桌宠 |
 
 ```bash
-cd clients/web && python -m http.server 8090
-cd clients/rpi && pip install -r requirements.txt && python -m device
-cd clients/mobile && flutter run   # 需本机 Flutter；多端产物见 GitHub Actions Build Clients
+python -m desktop
+cd clients/mobile && flutter run   # 远程壳；多端产物见 GitHub Actions Build Clients
 ```
 
 总览：[`clients/README.md`](./clients/README.md) · [`docs/DEVICES.md`](./docs/DEVICES.md) · [`docs/TECH_PLAN.md`](./docs/TECH_PLAN.md)
@@ -157,4 +181,4 @@ cd clients/mobile && flutter run   # 需本机 Flutter；多端产物见 GitHub 
 
 ## License
 
-MIT
+[MIT](./LICENSE)

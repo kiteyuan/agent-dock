@@ -7,11 +7,10 @@ import time
 from types import SimpleNamespace
 
 import pytest
-
 from runtime.device.connection import DeviceConnection
 from runtime.device.gateway import (
-    DeviceGateway,
     _TURN_CANCEL_TIMEOUT_S,
+    DeviceGateway,
 )
 from runtime.session.models import Session
 

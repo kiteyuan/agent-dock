@@ -1,0 +1,36 @@
+# AgentDock — optional ENGINE containers (hybrid deploy).
+#
+# Primary path: run Runtime + Agents on the HOST
+#   .\scripts\start.ps1   /   ./scripts/start.sh
+#   see docs/DEPLOY.md
+#
+# This file only starts heavy engines that speak HTTP to a host Runtime.
+#
+#   docker compose --profile engines up -d
+#
+# GPT-SoVITS image is large (CUDA). Requires NVIDIA Container Toolkit.
+# After it is healthy on :9880, use Admin → 声音 → GPT-SoVITS (do not also
+# unpack a host bundle that binds the same port).
+
+services:
+  gpt-sovits:
+    profiles: ["engines"]
+    image: xxxxrt666/gpt-sovits:latest-cu126
+    container_name: agentdock-gpt-sovits
+    ports:
+      - "9880:9880"
+      # WebUI ports from upstream image (optional)
+      - "9871:9871"
+      - "9872:9872"
+      - "9873:9873"
+      - "9874:9874"
+    environment:
+      is_half: "true"
+    volumes:
+      # Persist weights / outputs on the host (create dirs as needed)
+      - ./data/installs/gpt-sovits-docker:/workspace/GPT-SoVITS
+    shm_size: "8gb"
+    gpus: all
+    restart: unless-stopped
+    # If your Docker Engine does not support `gpus:`, switch to:
+    # runtime: nvidia

@@ -25,8 +25,12 @@ export async function configureItem(options: {
   }
 
   if (!item.installed) {
-    if (kind === "agent" || !item.installable) {
-      message.warning("请先到官网安装，然后点“检查安装”");
+    if (!item.installable) {
+      message.warning(
+        kind === "agent"
+          ? "请先安装 Node.js，然后重新打开 Runtime 自动准备 Pi"
+          : "请先到官网安装，然后点“检查安装”",
+      );
       return;
     }
     await submitAction(kind, id, "prepare", (msg, percent) => {

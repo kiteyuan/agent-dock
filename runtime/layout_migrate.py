@@ -13,6 +13,7 @@ from loguru import logger
 
 from runtime.paths import (
     LAYOUT_VERSION,
+    LEGACY_NOTES_ALIASES,
     LEGACY_NOTES_DIR_NAME,
     NOTES_DIR_NAME,
     layout_version_path,
@@ -30,6 +31,8 @@ from runtime.paths import (
     resolve_voices,
     state_file_names,
 )
+from runtime.platform.catalog import ModuleCatalog
+from runtime.seed import seed_defaults
 
 _KNOWN_STATE = (
     "runtime-state.json",
@@ -113,15 +116,21 @@ def migrate_layout(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
                 "actions": [],
                 "skipped": "lock",
             }
-            notes_actions = migrate_notes_dir(cfg)
-            if notes_actions:
-                report["actions"].extend(notes_actions)
+            for action in (
+                *migrate_notes_dir(cfg),
+                *migrate_bundles_to_installs(cfg),
+                *seed_defaults(cfg),
+            ):
+                report["actions"].append(action)
             return report
     try:
         report = _migrate_layout_locked(cfg, home=home, state_dir=state_dir)
-        notes_actions = migrate_notes_dir(cfg)
-        if notes_actions:
-            report.setdefault("actions", []).extend(notes_actions)
+        for action in (
+            *migrate_notes_dir(cfg),
+            *migrate_bundles_to_installs(cfg),
+            *seed_defaults(cfg),
+        ):
+            report.setdefault("actions", []).append(action)
         return report
     finally:
         if lock_fd is not None:
@@ -136,32 +145,116 @@ def migrate_layout(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
 
 
 def migrate_notes_dir(cfg: dict[str, Any] | None = None) -> list[str]:
-    """Rename legacy ``Graph View`` → ``notes`` under vault. Idempotent."""
+    """Fold legacy note folder names into ``vault/notes``. Idempotent."""
     cfg = cfg or {}
     vault = resolve_vault(cfg, ensure=True)
-    legacy = vault / LEGACY_NOTES_DIR_NAME
     notes = vault / NOTES_DIR_NAME
     actions: list[str] = []
-    if legacy.is_dir() and not notes.exists():
+    def _on_disk_name(path: Path) -> str | None:
+        """Real directory name as stored by the filesystem (Windows casing)."""
         try:
-            legacy.rename(notes)
-            actions.append(f"notes:{LEGACY_NOTES_DIR_NAME}->{NOTES_DIR_NAME}")
-            logger.info("migrated vault/{} → vault/{}", LEGACY_NOTES_DIR_NAME, NOTES_DIR_NAME)
-        except OSError as exc:
-            logger.warning(
-                "could not rename vault/{} to vault/{}: {}",
-                LEGACY_NOTES_DIR_NAME,
-                NOTES_DIR_NAME,
-                exc,
-            )
-    elif legacy.is_dir() and notes.exists():
-        logger.warning(
-            "both vault/{} and vault/{} exist; leaving both in place",
-            LEGACY_NOTES_DIR_NAME,
-            NOTES_DIR_NAME,
-        )
-    # Ensure the fixed notes root exists for Admin / indexer.
+            target = path.resolve()
+        except OSError:
+            return None
+        parent = path.parent
+        if not parent.is_dir():
+            return None
+        for child in parent.iterdir():
+            try:
+                if child.resolve() == target:
+                    return child.name
+            except OSError:
+                continue
+        return path.name
+
+    candidates = (LEGACY_NOTES_DIR_NAME, *LEGACY_NOTES_ALIASES)
+    for name in candidates:
+        legacy = vault / name
+        if not legacy.is_dir():
+            continue
+        on_disk = _on_disk_name(legacy)
+        # Case-insensitive FS: vault/Notes and vault/notes are one directory.
+        if on_disk == NOTES_DIR_NAME:
+            continue
+        same_path = False
+        try:
+            same_path = notes.exists() and legacy.resolve() == notes.resolve()
+        except OSError:
+            same_path = False
+        if same_path and on_disk and on_disk != NOTES_DIR_NAME:
+            tmp = vault / f".notes-migrate-{os.getpid()}"
+            try:
+                if tmp.exists():
+                    shutil.rmtree(tmp)
+                legacy.rename(tmp)
+                tmp.rename(notes)
+                actions.append(f"notes-case:{on_disk}->{NOTES_DIR_NAME}")
+                logger.info("normalized vault/{} → vault/{}", on_disk, NOTES_DIR_NAME)
+            except OSError as exc:
+                logger.warning("could not normalize vault/{} casing: {}", on_disk, exc)
+            continue
+        if not notes.exists():
+            try:
+                legacy.rename(notes)
+                actions.append(f"notes:{name}->{NOTES_DIR_NAME}")
+                logger.info("migrated vault/{} → vault/{}", name, NOTES_DIR_NAME)
+            except OSError as exc:
+                logger.warning(
+                    "could not rename vault/{} to vault/{}: {}",
+                    name,
+                    NOTES_DIR_NAME,
+                    exc,
+                )
+        else:
+            for child in list(legacy.iterdir()):
+                target = notes / child.name
+                if target.exists():
+                    continue
+                try:
+                    shutil.move(str(child), str(target))
+                    actions.append(f"notes-merge:{name}/{child.name}")
+                except OSError:
+                    pass
+            try:
+                legacy.rmdir()
+                actions.append(f"notes-drop-empty:{name}")
+            except OSError:
+                logger.warning(
+                    "both vault/{} and vault/{} exist; leaving remainder in place",
+                    name,
+                    NOTES_DIR_NAME,
+                )
     resolve_notes(cfg, ensure=True)
+    return actions
+
+
+def migrate_bundles_to_installs(cfg: dict[str, Any] | None = None) -> list[str]:
+    """Move catalog engine bundles (e.g. GPT-SoVITS) from vault → installs."""
+    cfg = cfg or {}
+    vault = resolve_vault(cfg, ensure=True)
+    installs = resolve_installs(cfg, ensure=True)
+    actions: list[str] = []
+    try:
+        catalog = ModuleCatalog.load(cfg)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("bundle migrate skipped (catalog): {}", exc)
+        return actions
+    for module in catalog.modules:
+        bundle = module.bundle
+        if bundle is None:
+            continue
+        src = vault / bundle.directory
+        dest = installs / bundle.directory
+        if not src.is_dir():
+            continue
+        if dest.exists():
+            continue
+        try:
+            _move_tree(src, dest)
+            actions.append(f"bundle:{bundle.directory}->installs")
+            logger.info("moved vault/{} → installs/{}", bundle.directory, bundle.directory)
+        except OSError as exc:
+            logger.warning("could not move vault/{} to installs: {}", bundle.directory, exc)
     return actions
 
 

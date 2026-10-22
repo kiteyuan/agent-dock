@@ -16,7 +16,6 @@ from runtime.platform.secrets import seal as _seal
 from runtime.platform.secrets import unseal as _unseal
 from runtime.platform.types import AgentProviderSpec, ModuleSpec
 
-
 _OPENAI_COMPAT = (
     "openai",
     "openai-compat",

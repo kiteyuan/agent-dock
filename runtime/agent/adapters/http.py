@@ -8,7 +8,8 @@ import os
 import threading
 import urllib.error
 import urllib.request
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 from urllib.request import Request
 
 from runtime.agent.base import AgentAdapter
@@ -155,7 +156,6 @@ class HTTPAgent(AgentAdapter):
         worker sat in ``readline()`` (sidecar still running after a terminal event or
         mid-LLM-call). That left the device ``busy`` and made admin cancel hang.
         """
-        sid = request.session_id
         queue: asyncio.Queue[Any] = asyncio.Queue()
         loop = asyncio.get_running_loop()
         stop = threading.Event()

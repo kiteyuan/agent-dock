@@ -1,9 +1,9 @@
 # 域名 + Cloudflare Tunnel 部署 AgentDock
 
-把手机/Pi 通过公网域名连到家里 Runtime，**不必**做路由器端口映射。
+把手机通过公网域名连到家里 Runtime，**不必**做路由器端口映射。
 
 ```text
-手机 / Pi
+手机
   │  wss://dock.example.com
   ▼
 Cloudflare（TLS）
@@ -38,7 +38,7 @@ python -m runtime
 确认本机可以：
 
 ```bash
-python client/main.py --url ws://127.0.0.1:8765 --text "你好"
+python clients/cli/main.py --url ws://127.0.0.1:8765 --text "你好"
 ```
 
 ---
@@ -46,7 +46,7 @@ python client/main.py --url ws://127.0.0.1:8765 --text "你好"
 ## 2. 安装 cloudflared（家里电脑）
 
 - Windows：从 Cloudflare 下载 `cloudflared`，或 `winget install Cloudflare.cloudflared`
-- Linux / Pi（若 tunnel 跑在别的机器上）同样装官方包
+- Linux（若 tunnel 跑在别的机器上）同样装官方包
 
 登录：
 
@@ -150,7 +150,7 @@ security:
   require_token: true
   tokens:
     - "换成很长的随机串-手机用"
-    - "换成另一串-Pi用"
+    - "换成另一串-备用设备"
 ```
 
 若 `host: 127.0.0.1`，局域网其它设备不能直连 8765，只能走 Tunnel——这通常是你想要的。
@@ -168,19 +168,13 @@ cd clients/cli
 python main.py --url wss://dock.example.com --token "换成很长的随机串-手机用" --text "你好"
 ```
 
-Web UI（`clients/web`）：
+本机桌宠（`desktop/`，一般只连本机 Runtime；跨网请用手机壳）：
 
-1. `python clients/cli/main.py --ui`（或 `cd clients/web && python -m http.server 8090`）
-2. Runtime URL 填：`wss://dock.example.com`
-3. Token 填上面那串
-4. 连接 → **点击通话开始，再点结束**
+远程调试可用 CLI，或手机 Flutter 壳填：
 
-Pi（`clients/rpi/config.yaml`）：
-
-```yaml
-runtime_url: "wss://dock.example.com"
-token: "换成另一串-Pi用"
-```
+1. Runtime URL：`wss://dock.example.com`
+2. Token：上面那串
+3. 连接后点按人物录音 / 打字发送
 
 ---
 

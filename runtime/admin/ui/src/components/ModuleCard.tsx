@@ -103,7 +103,10 @@ export function ModuleCard({ kind, item, busy, allowSelect = true, onAction }: P
         />,
       );
     } else if (!item.installed) {
-      if (item.homepage && (kind === "agent" || item.install_mode === "bundle" || !item.installable)) {
+      if (
+        item.homepage &&
+        (item.install_mode === "bundle" || !item.installable)
+      ) {
         titleActions.push(
           <Tooltip title={item.install_mode === "bundle" ? "去官网下载" : "去官网安装"} key="home">
             <Button
@@ -118,7 +121,7 @@ export function ModuleCard({ kind, item, busy, allowSelect = true, onAction }: P
           </Tooltip>,
         );
       }
-      if (kind === "agent" || item.install_mode === "bundle" || !item.installable) {
+      if (item.install_mode === "bundle" || !item.installable) {
         titleActions.push(
           <TitleIcon
             key="recheck"

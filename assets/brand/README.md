@@ -24,7 +24,7 @@ assets/brand/
 |------|------|
 | `runtime/admin/ui/public/brand/logo.png` | Admin 侧栏 |
 | `runtime/admin/ui/public/favicon.ico` | Admin 标签页 |
-| `clients/web/favicon.ico` / `icon-128.png` | Web 客户端 |
+| `desktop/favicon.ico` / `icon-128.png` | 本机桌宠 |
 | `clients/mobile/brand/app-icon.png` | Flutter 启动图源（`flutter create` 后手动或用 launcher 插件覆盖） |
 
 本目录**入库**（与 gitignore 的 pets/voices 不同）。

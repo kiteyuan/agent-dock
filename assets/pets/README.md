@@ -2,7 +2,8 @@
 
 客户端**不内置**精灵图：连接 Runtime 后通过 `pets.list` 下载并缓存。
 
-**本目录整棵树默认不入库**（只提交本 README）。人物图 / `catalog.json` 留在本机。
+**本目录整棵树默认不入库**（只提交本 README）。首启若目录为空，Runtime 会从
+`examples/pets/demo/` 复制演示角色；人物图 / `catalog.json` 仍留在本机。
 
 ## 本机目录
 

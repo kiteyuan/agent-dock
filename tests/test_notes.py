@@ -6,7 +6,7 @@ from pathlib import Path
 
 from runtime.layout_migrate import migrate_notes_dir
 from runtime.notes.indexer import NotesIndexer, _extract_wikilinks, _resolve_link
-from runtime.paths import NOTES_DIR_NAME, LEGACY_NOTES_DIR_NAME, resolve_notes
+from runtime.paths import LEGACY_NOTES_DIR_NAME, NOTES_DIR_NAME, resolve_notes
 
 
 def test_extract_wikilinks() -> None:
@@ -72,7 +72,7 @@ def test_migrate_graph_view_to_notes(monkeypatch, tmp_path: Path) -> None:
     assert notes.is_dir()
 
 
-def test_migrate_notes_conflict_keeps_both(monkeypatch, tmp_path: Path) -> None:
+def test_migrate_notes_conflict_merges_non_colliding(monkeypatch, tmp_path: Path) -> None:
     home = tmp_path / "home"
     vault = home / "vault"
     (vault / LEGACY_NOTES_DIR_NAME).mkdir(parents=True)
@@ -82,6 +82,26 @@ def test_migrate_notes_conflict_keeps_both(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("AGENTDOCK_HOME", str(home))
 
     actions = migrate_notes_dir({})
-    assert actions == []
-    assert (vault / LEGACY_NOTES_DIR_NAME / "old.md").is_file()
+    assert (vault / NOTES_DIR_NAME / "old.md").is_file()
     assert (vault / NOTES_DIR_NAME / "new.md").is_file()
+    assert any("notes-merge:" in a for a in actions)
+    assert not (vault / LEGACY_NOTES_DIR_NAME).exists()
+
+
+def test_migrate_notes_capital_n(monkeypatch, tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    vault = home / "vault"
+    legacy = vault / "Notes"
+    legacy.mkdir(parents=True)
+    (legacy / "a.md").write_text("# a\n", encoding="utf-8")
+    monkeypatch.setenv("AGENTDOCK_HOME", str(home))
+
+    actions = migrate_notes_dir({})
+    notes = resolve_notes({})
+    assert (notes / "a.md").is_file()
+    # On Windows, Path("Notes") may still "exist" as an alternate casing of notes/.
+    on_disk = {p.name for p in vault.iterdir() if p.is_dir()}
+    assert NOTES_DIR_NAME in on_disk
+    assert "Notes" not in on_disk or NOTES_DIR_NAME == "Notes"
+    assert any("notes" in a.lower() for a in actions)
+    assert migrate_notes_dir({}) == []

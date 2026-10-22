@@ -1,8 +1,8 @@
 import asyncio
 from types import SimpleNamespace
 
-from runtime.bridge.pipeline import BridgePipeline
 from runtime.bridge.bus import client_disconnected
+from runtime.bridge.pipeline import BridgePipeline
 
 
 def test_closed_client_is_not_a_server_fault() -> None:

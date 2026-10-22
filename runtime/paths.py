@@ -1,24 +1,27 @@
 """Unified path resolution for AgentDock source assets and user data.
 
-Layout (layout-version 2)::
+Layout (layout-version 3)::
 
     <repo>/
-      catalog/          # declarative capability catalog (source)
-      assets/pets/      # authoritative pet packs (source)
-      assets/voices/    # authoritative voice packs (source)
-      data/             # default paths.home (gitignored)
+      catalog/                 # declarative capability catalog (source)
+      assets/brand/            # shipped brand (source)
+      assets/pets/             # character packs (local; demo seeded from examples/)
+      assets/voices/           # voice packs (local only)
+      examples/                # seed notes + demo pet (source, never user data)
+      data/                    # default paths.home (gitignored)
 
     <home>/
-      vault/            # AgentRequest.workspace (knowledge base / Obsidian)
-        notes/          # fixed markdown knowledge tree (was "Graph View")
-      state/            # runtime-state, module-state, agent-*, mcp.json
+      vault/                   # AgentRequest.workspace (knowledge / Obsidian)
+        notes/                 # markdown graph roots (was "Graph View" / "Notes")
+      state/                   # runtime-state, module-state, agent-*, mcp.json
       logs/
-      installs/         # isolated module installs (was workspace/modules)
+      installs/                # engine bundles (GPT-SoVITS, …) — not under vault
       cache/
-      sessions/         # agent-owned session files (e.g. Pi)
-      secrets/          # Fernet credential.key (non-Windows)
+      sessions/                # agent-owned session files
+      secrets/                 # Fernet credential.key (non-Windows)
 
 Resolution order for home: ``AGENTDOCK_HOME`` > ``paths.home`` > ``<repo>/data``.
+Wire protocol still uses the field name ``workspace`` (= vault absolute path).
 Legacy config keys (``workspace.root``, ``pets.root``, ``modules.catalog``) still
 resolve with a deprecation warning.
 """
@@ -30,11 +33,13 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-LAYOUT_VERSION = 2
+LAYOUT_VERSION = 3
 
 # Fixed knowledge-base folder under vault (no spaces; Obsidian-compatible tree).
 NOTES_DIR_NAME = "notes"
 LEGACY_NOTES_DIR_NAME = "Graph View"
+# Extra legacy spellings folded into NOTES_DIR_NAME during layout v3 migrate.
+LEGACY_NOTES_ALIASES = ("Notes", "NOTES", "graph-view", "GraphView")
 
 _STATE_FILES = (
     "runtime-state.json",

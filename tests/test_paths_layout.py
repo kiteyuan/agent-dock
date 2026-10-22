@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from runtime.layout_migrate import migrate_layout
 from runtime.paths import (
     LAYOUT_VERSION,
@@ -105,7 +104,7 @@ def test_migrate_workspace_to_data_layout(
     assert (state / "runtime-state.json").is_file()
     assert (resolve_logs(cfg) / "pi.log").is_file()
     assert (resolve_installs(cfg) / "gpt-sovits" / "marker").is_file()
-    assert (resolve_vault(cfg) / "Notes" / "a.md").is_file()
+    assert (resolve_vault(cfg) / "notes" / "a.md").is_file()
     version = json.loads((state / "layout-version.json").read_text(encoding="utf-8"))
     assert version["version"] == LAYOUT_VERSION
 

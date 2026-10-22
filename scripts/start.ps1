@@ -1,17 +1,20 @@
-# AgentDock bootstrap — only starts Runtime (WS :8765 + Admin :8766).
-# Provider 安装、许可证确认与 sidecar 启停均在 Admin 完成。
+# AgentDock bootstrap — host Runtime + host desktop pet.
+# Agents / voices are prepared in Admin; pet is a host feature (not a remote client).
 #
 #   .\scripts\start.ps1
-#   .\scripts\start.ps1 -NoBrowser   # don't open Admin
+#   .\scripts\start.ps1 -NoPet       # Runtime only (no desktop pet window)
+#   .\scripts\start.ps1 -Admin       # also open Admin in the browser
 #   .\scripts\stop.ps1
 #
-# Optional env (SoVITS path when started from Admin):
-#   AGENTDOCK_GPT_SOVITS_ROOT
-#   AGENTDOCK_GPT_SOVITS_PYTHON
+# GPU: copy config.cuda.example.yaml → config.local.yaml
+# Optional engines: docker compose --profile engines
+# See docs/DEPLOY.md
 
 param(
-    [switch]$NoBrowser,
-    [int]$ReadyTimeoutSec = 300
+    [switch]$NoPet,
+    [switch]$Admin,
+    [int]$ReadyTimeoutSec = 300,
+    [int]$PetPort = 8090
 )
 
 $ErrorActionPreference = "Stop"
@@ -59,20 +62,55 @@ if (Test-PortListen 8765) {
 [void](Wait-PortListen 8765 $ReadyTimeoutSec "Runtime WS")
 [void](Wait-PortListen 8766 60 "Admin HTTP")
 
-$admin = "http://127.0.0.1:8766/admin/"
-Write-Host ""
-Write-Host "Endpoints:"
-Write-Host "  Runtime WS   ws://127.0.0.1:8765"
-Write-Host "  Admin        $admin"
-Write-Host "  Pets         http://127.0.0.1:8766/pets/"
-Write-Host ""
-Write-Host "Providers: choose assistants and voices in Admin"
-Write-Host "Stop: .\scripts\stop.ps1"
+$PetUrl = "http://127.0.0.1:${PetPort}/"
+$AdminUrl = "http://127.0.0.1:8766/admin/"
+$DesktopDir = Join-Path $Root "desktop"
+$PetHint = "cd desktop && npm run dev"
 
-if (-not $NoBrowser) {
-    try {
-        Start-Process $admin
-    } catch {
-        Write-Host "  (open Admin manually: $admin)"
+function Start-TauriPet {
+    $npm = Get-Command npm -ErrorAction SilentlyContinue
+    if (-not $npm) { return $false }
+    if (-not (Test-Path (Join-Path $DesktopDir "package.json"))) { return $false }
+    if (-not (Test-Path (Join-Path $DesktopDir "src-tauri"))) { return $false }
+    if (-not (Test-Path (Join-Path $DesktopDir "node_modules\@tauri-apps\cli"))) {
+        Write-Host "  Tauri pet: run once → cd desktop; npm install"
+        return $false
+    }
+    # tauri.dev's beforeDevCommand serves web on :8090; avoid clashing with a leftover server
+    Start-Console "AgentDock Desktop Pet (Tauri)" $DesktopDir "npm run dev"
+    return $true
+}
+
+if (-not $NoPet) {
+    if (Start-TauriPet) {
+        $PetHint = "Tauri (desktop / npm run dev)"
+    } elseif (Test-PortListen $PetPort) {
+        Write-Host "  skip browser pet — :$PetPort already listening"
+        $PetHint = $PetUrl
+        try { Start-Process $PetUrl } catch { Write-Host "  (open: $PetUrl)" }
+    } else {
+        Write-Host "  Tauri not ready — browser fallback :$PetPort"
+        Start-Console "AgentDock Desktop Pet (web) :$PetPort" $Root "python -m desktop --port $PetPort --no-open"
+        [void](Wait-PortListen $PetPort 30 "Desktop pet web")
+        $PetHint = "$PetUrl (browser fallback)"
+        try { Start-Process $PetUrl } catch { Write-Host "  (open: $PetUrl)" }
     }
 }
+
+if ($Admin) {
+    try {
+        Start-Process $AdminUrl
+    } catch {
+        Write-Host "  (open Admin manually: $AdminUrl)"
+    }
+}
+
+Write-Host ""
+Write-Host "Endpoints:"
+Write-Host "  Runtime WS    ws://127.0.0.1:8765"
+Write-Host "  Desktop pet   $PetHint"
+Write-Host "  Admin         $AdminUrl"
+Write-Host "  Pets assets   http://127.0.0.1:8766/pets/"
+Write-Host ""
+Write-Host "Configure Pi API Key in Admin, then talk in the desktop pet."
+Write-Host "Stop: .\scripts\stop.ps1"

@@ -6,26 +6,38 @@ AgentDock Runtime 是集成脚手架：用声明式 `catalog/catalog.yaml` 接�
 
 ## 启动
 
+完整功能请用**本机 Runtime**（可调用 PATH 上的 Agent CLI）。部署模型见 [`DEPLOY.md`](./DEPLOY.md)。
+
 ```powershell
+# Windows — Runtime + 本机桌宠
 .\scripts\start.ps1
-# 本机打开 http://127.0.0.1:8766/admin/
+.\scripts\start.ps1 -Admin    # 顺带打开 Admin
 ```
+
+```bash
+# Linux / macOS
+./scripts/start.sh
+./scripts/start.sh --admin
+```
+
+桌宠：Tauri 窗（`cd desktop && npm run dev`）；无工具链时回退 `http://127.0.0.1:8090/`
+Admin：`http://127.0.0.1:8766/admin/`  
+可选引擎容器：`docker compose --profile engines up -d`
 
 控制台不设置强制启动向导。首页只显示当前是否可用和需要处理的项目，用户可直接
 进入“智能助手、声音、角色、设备”页面选择。TTS/STT、Provider、端口与进程等
 术语只出现在高级设置或文档中。
 
-每个普通模块只有一个上下文操作。智能助手不再一键安装：未检测到官方 CLI 时会
-引导到官网；检测到后配置模型、启动 gateway 并设为默认。声音模块的依赖安装与
-模型下载仍可作为后台 job 执行，不会修改系统 Python 或全局 npm 目录。
-智能助手可先配置一套统一模型，再在各助手的“配置模型”下拉中选用；也可以继续
-单独填写该助手的服务、模型、地址和凭据。选用统一配置的助手会跟随统一模型更新。
-修改正在运行的 Runtime 托管助手时，对应 gateway 会自动重启；其他助手的独立设置
-不受影响。
+默认只有内置 **Pi**。Runtime 首启会对 `agents/pi-coding` 执行 `npm install`（需本机
+Node/npm）。Admin「智能助手」里配置 API Key 后启动 gateway 即可，不必再装其它 CLI。
+声音模块的依赖安装与模型下载仍可作为后台 job；不会修改系统全局 npm（Pi 装在项目目录）。
 
 ## 状态与配置
 
-- `config.yaml`：部署配置、`paths`、端口和 `autostart`。
+- `config.yaml`：共享部署配置、`paths`、端口和 `autostart`（默认 CPU 友好）。
+- `config.local.yaml`：本机覆盖（gitignore）；与 `config.yaml` 深度合并。GPU 示例见 `config.cuda.example.yaml`。
+- `.env.example`：常用环境变量清单（`AGENTDOCK_HOME` / `AGENTDOCK_URL` / token 等）。
+- `examples/`：首启种子（`vault-notes`、`pets/demo`）；不进 `data/`。
 - `catalog/catalog.yaml`：内置模块能力、探针与启动配方。
 - `catalog/providers/*.yaml`：版本、安装步骤、硬件能力和许可证。
 - `data/state/runtime-state.json`：Admin 设置的默认 Agent/TTS/STT 覆盖层。
@@ -34,13 +46,14 @@ AgentDock Runtime 是集成脚手架：用声明式 `catalog/catalog.yaml` 接�
   设置或“使用统一配置”引用。
 - `data/state/agent-secrets.json`：与公开设置分离的凭据；Windows 使用当前用户
   DPAPI 加密，Linux/macOS 限制为当前用户读写。
-- `data/installs/<id>/`：声音等仍由 Runtime 隔离安装的目录；助手改为使用
-  系统 PATH 上的官方 CLI，旧的一键安装目录仅用于检测残留。
+- `data/installs/`：引擎整合包（如 `GPT-SoVITS/`）与隔离安装产物。
 - `data/logs/<service>.log`：Runtime 拉起的 sidecar 日志。
-- `data/vault/`：注入 Agent 的工作区（知识库 / Obsidian）。Markdown 笔记固定在 `data/vault/notes/`（由旧目录 `Graph View` 自动迁移）；Admin「图谱」页按 `[[双链]]` 渲染关系图。
+- `data/vault/`：协议字段 `workspace`（知识库 / Obsidian）。Markdown 在
+  `data/vault/notes/`（旧 `Graph View` / `Notes` 会迁入）；Admin「图谱」按 `[[双链]]` 渲染。
 
-启动时先读 `config.yaml`，再应用状态覆盖层。覆盖值已失效时会回退配置并记录告警，
-不会修改原配置文件。
+启动时先读 `config.yaml`，再深度合并同目录下的 `config.local.yaml`（若存在），
+最后应用 `data/state/*` 状态覆盖层。覆盖值已失效时会回退并记录告警，
+不会改写共享的 `config.yaml`。
 
 ## API
 

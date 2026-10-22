@@ -65,8 +65,8 @@ def project_agents(host: Any, services: dict[str, dict[str, Any]]) -> list[dict[
                     if service.get("port")
                     else ""
                 ),
-                "can_prepare": False,
-                "installable": False,
+                "can_prepare": (not installed) and spec.install.kind != "none",
+                "installable": spec.install.kind != "none",
                 "can_start": registered and installed and not running,
                 "can_stop": bool(service.get("can_stop")),
                 "can_default": registered,

@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from runtime.platform.module_state import ModuleState
 from runtime.platform.state import RuntimeState
 

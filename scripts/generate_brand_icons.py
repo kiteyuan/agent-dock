@@ -15,7 +15,7 @@ SOURCE_CANDIDATES = [
 ]
 BRAND = ROOT / "assets" / "brand"
 ADMIN_PUBLIC = ROOT / "runtime" / "admin" / "ui" / "public"
-WEB = ROOT / "clients" / "web"
+DESKTOP_WEB = ROOT / "desktop" / "web"
 
 
 def _source() -> Path:
@@ -71,10 +71,11 @@ def main() -> None:
     shutil.copy2(BRAND / "icon-32.png", ADMIN_PUBLIC / "favicon-32.png")
     _write_ico(_square(master, 256), ADMIN_PUBLIC / "favicon.ico")
 
-    # Web client
-    shutil.copy2(BRAND / "icon-128.png", WEB / "icon-128.png")
-    shutil.copy2(BRAND / "icon-32.png", WEB / "favicon-32.png")
-    _write_ico(_square(master, 256), WEB / "favicon.ico")
+    # Host desktop pet (legacy web fallback)
+    DESKTOP_WEB.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(BRAND / "icon-128.png", DESKTOP_WEB / "icon-128.png")
+    shutil.copy2(BRAND / "icon-32.png", DESKTOP_WEB / "favicon-32.png")
+    _write_ico(_square(master, 256), DESKTOP_WEB / "favicon.ico")
 
     # Mobile launcher source (flutter_launcher_icons / manual copy after flutter create)
     mobile_brand = ROOT / "clients" / "mobile" / "brand"
@@ -84,8 +85,7 @@ def main() -> None:
     print(f"brand icons generated from {src.name}")
     print(f"  {BRAND}")
     print(f"  {admin_brand}")
-    print(f"  {WEB}")
-    print(f"  {mobile_brand}")
+    print(f"  {DESKTOP_WEB}")    print(f"  {mobile_brand}")
 
 
 if __name__ == "__main__":

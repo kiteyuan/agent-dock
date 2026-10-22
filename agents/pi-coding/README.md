@@ -1,55 +1,29 @@
-# Pi Coding Agent（经 HTTP 网关对接 AgentDock）
+# Pi Coding（AgentDock 内置助手）
 
-目录名 `agents/pi-coding`（避免与树莓派客户端 `clients/rpi` 混淆）。  
-`config.yaml` 里的 agent id 仍为 **`pi`**。
-
-安装的是 [@earendil-works/pi-coding-agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)，同一次 `npm install` 会带上 [pi-mcp-adapter](https://www.npmjs.com/package/pi-mcp-adapter)。网关启动 Pi 时加载这个扩展，用来读取工作目录里的 `.mcp.json`。  
-Pi 原生是 stdio RPC/JSON，本目录的 `gateway.py` 把它转成 Agent Protocol。
+本目录是默认且唯一内置的编码 Agent，依赖 npm 包
+[`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)。
 
 ## 安装
 
+Runtime 首启会自动执行：
+
 ```bash
-cd agents/pi-coding
-npm install
+cd agents/pi-coding && npm install
 ```
 
-确保本机已配置 Pi 可用的模型凭据（`pi auth` / 环境变量）。本机若已能 `npx pi -p "hi" --mode json` 即可。
+也可在 Admin 对 Pi 点「准备 / 安装」。需要本机已安装 **Node.js LTS**（`npm` 在 PATH）。
 
-## 启动网关
+## 使用
+
+1. 启动 Runtime  
+2. Admin → 智能助手 → 配置 Anthropic / DeepSeek / OpenAI 兼容 Key  
+3. 启动 Pi gateway（`:9001`）并设为默认  
+
+手动网关：
 
 ```bash
 python agents/pi-coding/gateway.py
-# default http://127.0.0.1:9000 — 本仓库 config 当前为 9001（PI_GATEWAY_PORT）
-# PI_GATEWAY_PORT=9001 python agents/pi-coding/gateway.py
+# PI_GATEWAY_PORT=9001
 ```
 
-可选环境变量：`PI_PROVIDER`、`PI_MODEL`、`PI_NO_TOOLS=1`、`PI_GATEWAY_PORT`、`PI_CWD`。
-
-默认工作区：Runtime `config.yaml` → `paths.vault`（默认仓库 `data/vault/`），经 Agent Protocol 字段 `workspace` 下发。  
-网关无 `workspace` 时回退到 `PI_CWD` / `<repo>/data/vault`。
-
-### 会话记忆
-
-默认按请求里的 **`device.id`（设备）** 复用 Pi 原生 session（`--session-dir` / `--session-id`），
-WS 重连换 `session_id` 也不断记忆。文件：`data/sessions/pi-coding/dev-<device_id>.…`
-
-对话历史由 Agent 自己管理；Runtime 只保留连接层 Session（取消/设备绑定）。
-
-| 环境变量 | 作用 |
-|----------|------|
-| `PI_SESSION_KEY=device` | 按设备（默认） |
-| `PI_SESSION_KEY=session` | 按 WS `session_id` |
-| `PI_NO_SESSION=1` | 每轮全新、不落盘 |
-| `PI_SESSION_DIR=...` | 改存储目录 |
-
-客户端需使用**稳定且尽量唯一**的 `device_id`（手机 App / Web 会持久化到本地）。
-
-## 联调
-
-```bash
-python agents/check_link.py --url http://127.0.0.1:9001/v1/agent/run --text "用一句话介绍你自己"
-
-# config.yaml → agent.default: pi （url 指向网关端口）
-python -m runtime
-python clients/cli/main.py --text "你好" --agent pi
-```
+Pi 通过 `npx`/本地 `node_modules` 调用，**不必**全局安装 `pi` CLI。

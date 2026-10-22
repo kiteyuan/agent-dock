@@ -7,18 +7,18 @@ import os
 import threading
 from pathlib import Path
 
+from runtime.mcp.builtin import (
+    BUILTIN_NAME,
+    annotate_builtin,
+    builtin_url,
+    merge_builtin,
+)
 from runtime.platform.mcp_launch import (
     document,
     merge_server_secrets,
     normalize_document,
     read_servers,
     redact_servers,
-)
-from runtime.mcp.builtin import (
-    BUILTIN_NAME,
-    annotate_builtin,
-    builtin_url,
-    merge_builtin,
 )
 
 

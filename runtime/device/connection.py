@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
 import asyncio
 import time
+from dataclasses import dataclass, field
+from typing import Any
 
 import websockets
 

@@ -1,0 +1,10 @@
+# Optional GPU override — copy to config.local.yaml (gitignored) and adjust.
+#
+#   cp config.cuda.example.yaml config.local.yaml
+#
+# Merged on top of config.yaml by runtime.config.load_config().
+
+stt:
+  whisper:
+    model: "medium"       # medium 中文明显稳过 small；3080 仍可亚秒~2s
+    device: "cuda"

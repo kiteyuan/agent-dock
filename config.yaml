@@ -22,14 +22,15 @@ paths:
   voices: null        # null → <repo>/assets/voices
   catalog: "catalog/catalog.yaml"
 
-# Speech recognition — ON by default
+# Speech recognition — ON by default (CPU-safe for any machine).
+# For NVIDIA GPU: copy config.cuda.example.yaml → config.local.yaml (or merge by hand).
 stt:
   provider: "whisper"
   warm: true              # preload Whisper weights
   defer_warm: true        # open :8765 while model loads in background
   whisper:
-    model: "medium"         # medium 中文明显稳过 small；3080 仍可亚秒~2s
-    device: "cuda"
+    model: "small"          # portable default; use medium+cuda via config.local.yaml
+    device: "cpu"           # auto-falls back from cuda if GPU init fails
     language: "zh"
     beam_size: 5            # 提高准确率（比 1 慢一点）；1 可加快推理
     vad_filter: true
@@ -59,8 +60,7 @@ tts:
 
 agent:
   default: "pi"
-  # 本机助手地址来自 catalog/providers/agents.yaml 的 sidecar 端口。
-  # 远程 Agent 才需要在这里写 url。
+  # Built-in Pi gateway (agents/pi-coding). Remote Agent Protocol URLs are advanced-only.
 
 security:
   # Exposed binds (0.0.0.0) auto-require a token stored in data/state/device-auth.json
@@ -72,17 +72,12 @@ security:
 services:
   pi:
     port: 9001
-    autostart: false
-  codex:
-    port: 9002
-    autostart: false
-  claude:
-    port: 9003
+    # First-boot npm install is automatic; set true to also spawn the gateway with Runtime.
     autostart: false
   sovits:
     port: 9880
     autostart: false
-    # 整合包解压到 data/vault/GPT-SoVITS/，再在管理页点「检查安装」。
+    # 本机包：data/installs/GPT-SoVITS/；或 docker compose --profile engines（见 docs/DEPLOY.md）。
   playwright-mcp:
     port: 8931
     # 首轮对话会 ensure；设 true 可在 Runtime 启动时就拉起（需已配置扩展 token）

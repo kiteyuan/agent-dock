@@ -50,9 +50,9 @@ modules:
       nested: true
       note_file: 解压到这里.txt
       note: |
-        把官网下载的 GPT-SoVITS Windows 整合包解压到这个文件夹。
-        解压完成后，这里或它的下一层应能直接看到 api_v2.py 和 runtime/python.exe。
-        然后回到管理页，在这张卡片上点「检查安装」。
+        两种方式二选一（不要抢同一 :9880）：
+        1) 本机：官网整合包解压到 data/installs/GPT-SoVITS/，能看到 api_v2.py 后点「检查安装」。
+        2) 容器：docker compose --profile engines up -d（见 docs/DEPLOY.md），Runtime 仍跑在宿主机。
     voice_pack:
       provider: http
       model: directory

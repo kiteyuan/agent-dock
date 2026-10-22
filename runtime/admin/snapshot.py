@@ -14,7 +14,6 @@ from runtime.admin.projections import (
     project_tts,
 )
 from runtime.admin.projections.common import agent_is_installed
-
 from runtime.platform.agent_config import AgentConfigStore
 from runtime.platform.assets import AssetIndex
 from runtime.platform.catalog import ModuleCatalog

@@ -1,0 +1,28 @@
+# DEMO ONLY — Runtime in Docker without host Agent spawn.
+#
+# Full assistants (built-in Pi) need host Runtime:
+#   .\scripts\start.ps1
+#   docs/DEPLOY.md
+#
+# This stack is for Device WS / Admin-on-loopback-hacks / Edge TTS / notes demo.
+# Admin may 403 from the host browser (loopback peer check); prefer host Runtime.
+#
+#   docker compose -f docker-compose.runtime-demo.yml up -d --build
+
+services:
+  runtime:
+    build: .
+    image: agentdock:runtime-demo
+    ports:
+      - "8765:8765"
+      - "8766:8766"
+    environment:
+      AGENTDOCK_HOME: /app/data
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+      - ./catalog:/app/catalog:ro
+      - ./assets/pets:/app/assets/pets
+      - ./assets/voices:/app/assets/voices
+      - ./examples:/app/examples:ro
+    restart: unless-stopped

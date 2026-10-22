@@ -11,21 +11,22 @@ from runtime.platform.catalog import ModuleCatalog
 from runtime.platform.types import BundleSpec
 
 
-def placeholder_dir(workspace: Path, bundle: BundleSpec) -> Path:
-    return workspace / bundle.directory
+def placeholder_dir(root: Path, bundle: BundleSpec) -> Path:
+    """Expected extract folder under ``installs/`` (layout v3)."""
+    return root / bundle.directory
 
 
-def ensure_placeholder(workspace: Path, bundle: BundleSpec) -> Path:
-    folder = placeholder_dir(workspace, bundle)
+def ensure_placeholder(root: Path, bundle: BundleSpec) -> Path:
+    folder = placeholder_dir(root, bundle)
     folder.mkdir(parents=True, exist_ok=True)
     if bundle.note_file and bundle.note and not (folder / bundle.note_file).is_file():
         (folder / bundle.note_file).write_text(bundle.note.strip() + "\n", encoding="utf-8")
     return folder
 
 
-def discover_bundle(workspace: Path, bundle: BundleSpec) -> tuple[Path, Path] | None:
+def discover_bundle(root: Path, bundle: BundleSpec) -> tuple[Path, Path] | None:
     """Return ``(package_root, python)`` when the declared marker is present."""
-    base = ensure_placeholder(workspace, bundle)
+    base = ensure_placeholder(root, bundle)
     candidates = [base]
     if bundle.nested:
         candidates.extend(path for path in base.iterdir() if path.is_dir())
@@ -44,12 +45,14 @@ class BundleBinder:
     def __init__(
         self,
         catalog: ModuleCatalog,
-        workspace: Path,
+        installs_root: Path,
         configs: list[dict[str, Any]],
         refresh_services: Callable[[], None],
     ) -> None:
         self.catalog = catalog
-        self.workspace = workspace
+        self.installs_root = installs_root
+        # Back-compat alias used by older call sites / tests.
+        self.workspace = installs_root
         self._configs = configs
         self._refresh_services = refresh_services
         self._cache: dict[str, tuple[bool, str]] = {}
@@ -75,8 +78,8 @@ class BundleBinder:
                 result = (False, "")
                 self._cache[module_id] = result
                 return result
-            found = discover_bundle(self.workspace, spec.bundle)
-            expected = placeholder_dir(self.workspace, spec.bundle)
+            found = discover_bundle(self.installs_root, spec.bundle)
+            expected = placeholder_dir(self.installs_root, spec.bundle)
             root = str(found[0]) if found else ""
             python = str(found[1]) if found else ""
             result = (True, root) if found else (False, str(expected))

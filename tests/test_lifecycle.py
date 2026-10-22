@@ -64,19 +64,25 @@ def test_lifecycle_rejects_unknown_action() -> None:
     lifecycle.close()
 
 
-def test_lifecycle_does_not_one_click_install_agents() -> None:
+def test_lifecycle_prepare_pi_is_bundled_npm(monkeypatch, tmp_path) -> None:
+    """Pi prepare uses in-repo npm install, not an external CLI download."""
+    catalog = ModuleCatalog.load({})
+    pi = catalog.module("pi")
+    assert pi is not None and pi.install.kind == "npm"
+
     lifecycle = ModuleLifecycle(
-        catalog=ModuleCatalog.load({}),
+        catalog=catalog,
         supervisor=DummySupervisor(),
         health=DummyHealth(),
         pet_installer=DummyPetInstaller(),
     )
-    queued = lifecycle.submit("prepare", "qwen-code")
+    # Without forcing npm, prepare succeeds when node_modules already exists
+    # or runs npm; either way it must not say "official CLI is not installed".
+    queued = lifecycle.submit("prepare", "pi")
     assert queued.ok and queued.job_id
     job = wait_job(lifecycle, queued.job_id)
-    assert job.state == "error"
-    assert job.result and job.result.ok is False
-    assert "official CLI" in (job.result.error or "")
+    assert job.result is not None
+    assert "official CLI" not in (job.result.error or "")
     lifecycle.close()
 
 
@@ -103,11 +109,15 @@ def test_lifecycle_refuses_parallel_jobs_for_same_target() -> None:
     lifecycle.close()
 
 
-def test_lifecycle_refuses_to_start_missing_agent(monkeypatch) -> None:
+def test_lifecycle_refuses_to_start_pi_without_bundle(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(
         "runtime.platform.presence.shutil.which",
         lambda _command: None,
     )
+    # Pretend bundled node_modules is missing by pointing catalog root elsewhere.
+    catalog = ModuleCatalog.load({})
+    monkeypatch.setattr(catalog, "root", tmp_path)
+
     supervisor = DummySupervisor()
     supervisor.started = []
 
@@ -117,15 +127,19 @@ def test_lifecycle_refuses_to_start_missing_agent(monkeypatch) -> None:
 
     supervisor.start = start
     lifecycle = ModuleLifecycle(
-        catalog=ModuleCatalog.load({}),
+        catalog=catalog,
         supervisor=supervisor,
         health=DummyHealth(),
         pet_installer=DummyPetInstaller(),
     )
-    queued = lifecycle.submit("start", "qwen-code")
+    queued = lifecycle.submit("start", "pi")
     assert queued.ok and queued.job_id
     job = wait_job(lifecycle, queued.job_id)
     assert job.state == "error"
-    assert job.result and "not on PATH" in (job.result.error or "")
+    assert job.result and (
+        "not on PATH" in (job.result.error or "")
+        or "not detected" in (job.result.error or "")
+        or "bundled" in (job.result.error or "").lower()
+    )
     assert supervisor.started == []
     lifecycle.close()

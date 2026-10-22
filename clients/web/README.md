@@ -1,20 +1,10 @@
-# Web 客户端
+# Moved → [`desktop/`](../../desktop/)
 
-桌面预览 UI：ChatGPT 式浅色会话壳。TTS / 角色由主机 Runtime 下发，设置里只配连接。
+本机桌宠 UI 已从「客户端」挪到宿主目录 `desktop/`，随 Runtime 一起启动。
 
 ```bash
-python -m runtime
-python clients/cli/main.py --ui
+python -m desktop
+# 或 .\scripts\start.ps1  /  ./scripts/start.sh
 ```
 
-代码：`app.js`（入口）+ `js/` 模块（协议 / 录音 / TTS / 会话 / 气泡 / chrome）。详见 [`js/README.md`](./js/README.md)。
-
-交互：
-
-- **状态 tag**：像素描边标签贴在人物头顶（无底无间距，仅展示）
-- **人物**：在输入条上方正常排列，背景透明；点按录音，长按打开设置
-- **连接设置**：长按人物；弹窗内可「新开会话」
-- **麦键**：点按开始 / 结束录音（STT）；忙或播报时再点取消 / 打断
-- **打字发送**：文本轮；可打断当前 TTS
-- **助手文字**：`agent.message` 立刻进气泡；TTS 异步播放
-- **点最后一条助手气泡 / 扬声器按钮**：空闲时播报上一轮 TTS；播报中再点可停止
+远程壳仍在 `clients/mobile`、`clients/cli`（调试）。
