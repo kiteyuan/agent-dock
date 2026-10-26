@@ -7,7 +7,7 @@
   <link rel="icon" href="./favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" href="./favicon-32.png" sizes="32x32" />
   <meta name="theme-color" content="#00000000" />
-  <link rel="stylesheet" href="./styles.css?v=111" />
+  <link rel="stylesheet" href="./styles.css?v=114" />
 </head>
 <body>
   <div class="app pet-shell" id="stage" data-mood="offline">
@@ -37,11 +37,21 @@
           <div class="status-tag" id="statusTag" aria-live="polite">
             <span id="statusLabel">未连接</span>
           </div>
-          <button type="button" class="composer-pet" id="btnComposerPet"
-            aria-label="点按说话；长按聚焦输入；拖动移动"
-            title="点按说话 · 长按聚焦输入 · 右键只留人物 · 拖动移动">
-            <canvas id="spriteComposer" class="composer-pet-canvas" width="192" height="208" aria-hidden="true"></canvas>
-          </button>
+          <div class="pet-flank">
+            <button type="button" class="pet-flank-btn" id="btnConsoleLeft"
+              aria-label="打开控制台" title="打开控制台">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>
+            </button>
+            <button type="button" class="composer-pet" id="btnComposerPet"
+              aria-label="点按说话；长按聚焦输入；拖动移动"
+              title="点按说话 · 长按聚焦输入 · 右键只留人物 · 拖动移动">
+              <canvas id="spriteComposer" class="composer-pet-canvas" width="192" height="208" aria-hidden="true"></canvas>
+            </button>
+            <button type="button" class="pet-flank-btn" id="btnConsoleRight"
+              aria-label="打开控制台" title="打开控制台">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>
+            </button>
+          </div>
         </div>
 
         <form id="composerForm" class="composer-bar pet-composer" autocomplete="off">
@@ -96,6 +106,6 @@
   </dialog>
 
   <script src="./pixel-bot.js?v=7"></script>
-  <script type="module" src="./app.js?v=113"></script>
+  <script type="module" src="./app.js?v=114"></script>
 </body>
 </html>

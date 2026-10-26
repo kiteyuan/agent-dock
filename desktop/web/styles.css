@@ -116,6 +116,42 @@ html.pet-mode .composer-pet-stack {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
+html.pet-mode .pet-flank {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+html.pet-mode .pet-flank-btn {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--pet-border);
+  border-radius: 8px;
+  background: var(--pet-surface);
+  color: var(--pet-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: 0 0 auto;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+html.pet-mode .pet-flank-btn:hover {
+  background: var(--pet-surface-2);
+  color: var(--pet-ink);
+}
+html.pet-mode .pet-flank-btn .ico {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 html.pet-mode .composer-pet {
   width: 128px;
   height: 140px;
@@ -170,6 +206,7 @@ html.pet-mode .status-tag[hidden] {
 /* Right-click pet: only the character stays — hide bubble / composer / status. */
 html.pet-mode.chrome-compact .pet-bubble,
 html.pet-mode.chrome-compact .pet-composer,
+html.pet-mode.chrome-compact .pet-flank-btn,
 html.pet-mode.chrome-compact .status-tag {
   display: none !important;
 }

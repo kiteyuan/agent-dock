@@ -263,6 +263,13 @@ export function bindChrome() {
     e.preventDefault();
     void openAdminPanel();
   });
+  for (const id of ["btnConsoleLeft", "btnConsoleRight"]) {
+    $(id)?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      void openAdminPanel();
+    });
+  }
   $("btnChromeNew").onclick = (e) => {
     e.preventDefault();
     openNewSessionConfirm();
