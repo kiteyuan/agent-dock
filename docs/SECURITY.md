@@ -24,14 +24,31 @@ Short operational guidance. Not a full threat model.
 
 ## Mobile sideload signing
 
-`clients/mobile/brand/android-sideload.p12` plus plaintext passwords in
-`android-sideload.properties` are **dev/CI sideload material**, not Play Store
-keys. Anyone with the repo can mint APKs with the same certificate fingerprint.
+Sideload PKCS12 material is **not in git**. Local files under
+`clients/mobile/brand/android-sideload.p12` + `.properties` are gitignored
+(template: `android-sideload.properties.example`).
 
-- Do **not** use this keystore for production or Play uploads.
-- Public forks should replace the keystore and rotate CI fingerprint checks, or
-  inject signing via CI secrets and keep the `.p12` out of git.
-- Until rotated, treat sideload APKs as “same cert as this open keystore”.
+Generate locally:
+
+```bash
+cd clients/mobile
+python tool/generate_sideload_keystore.py
+```
+
+CI expects GitHub Actions secrets:
+
+| Secret | Purpose |
+|--------|---------|
+| `ANDROID_SIDELOAD_P12_BASE64` | Base64 of the `.p12` |
+| `ANDROID_SIDELOAD_STORE_PASSWORD` | Store password |
+| `ANDROID_SIDELOAD_KEY_PASSWORD` | Key password |
+| `ANDROID_SIDELOAD_KEY_ALIAS` | Alias (usually `agentdock`) |
+| `ANDROID_SIDELOAD_CERT_SHA256` | Colon-separated cert SHA-256 |
+
+If those secrets are missing, the Android job still builds an APK but **skips**
+sideload signing verification (forks stay green). Do **not** use this keystore
+for Play Store uploads. After rotating the cert, uninstall old sideload APKs
+before installing a new build (signature mismatch).
 
 ## Third-party speech / models
 

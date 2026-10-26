@@ -1,0 +1,14 @@
+# Copy to android-sideload.properties (gitignored) next to a local .p12.
+# Or set ANDROID_SIDELOAD_* env vars (CI). Never commit real passwords.
+#
+# Generate:
+#   keytool -genkeypair -v -keystore android-sideload.p12 -storetype PKCS12 \
+#     -alias agentdock -keyalg RSA -keysize 2048 -validity 10000
+#
+# See docs/SECURITY.md
+
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=agentdock
+storeFile=../../brand/android-sideload.p12
+storeType=PKCS12

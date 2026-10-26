@@ -21,14 +21,14 @@ flutter run
 `tool/apply_brand_icons.sh` 会：
 1. 对已存在的 `android` / `ios` / `windows` / `macos` 生成图标  
 2. 跑 `tool/apply_display_name.py`，把安装后显示名统一为 **AgentDock**（包名仍是 `com.agentdock.agentdock_mobile`）  
-3. 若有 `android/`，跑 `tool/apply_android_signing.py`，用固定侧载证书签名（可覆盖安装，无需先卸载）
+3. 若有 `android/` 且本地有侧载证书：跑 `tool/apply_android_signing.py`（或先
+   `python tool/generate_sideload_keystore.py`）
 
-GitHub Actions `Build Clients` 在 `flutter create` + `pub get` 之后会跑该脚本。
+GitHub Actions 用 secrets 物化证书后再签名；未配置 secrets 时仍打 APK 但跳过指纹校验。
 
-> Android 侧载证书：`brand/android-sideload.p12` + `android-sideload.properties`（明文口令）仅供
-> 侧载/CI，**不要**上架 Play，也**不要**当生产密钥。仓内密钥等于公开指纹——公开 fork 应自换
-> keystore 或改走 CI secrets。详见 [`docs/SECURITY.md`](../../docs/SECURITY.md)。
-> CI 会写入绝对路径 + `storeType=PKCS12`，并校验 APK 证书指纹；手机上若仍是旧 debug 包，需先卸载再装。
+> Android 侧载证书**不进仓**。本地：`brand/android-sideload.p12` + `.properties`（gitignore）；
+> CI：`ANDROID_SIDELOAD_*` secrets。详见 [`docs/SECURITY.md`](../../docs/SECURITY.md)。
+> 轮换证书后需先卸载旧 APK 再装。
 
 远程壳交互（对齐本机桌宠，不跑 Runtime）：
 

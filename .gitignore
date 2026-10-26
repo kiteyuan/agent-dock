@@ -52,8 +52,9 @@ config.local.yaml
 *.p12
 *.jks
 *.keystore
-# Stable Android sideload signing (CI overwrite-install; NOT Play Store)
-!clients/mobile/brand/android-sideload.p12
+# Sideload signing material is local/CI-only (see docs/SECURITY.md)
+clients/mobile/brand/android-sideload.properties
+clients/mobile/brand/_rotate_new.p12
 
 # ML / voice weights — do not publish (large + often non-redistributable)
 *.ckpt
