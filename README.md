@@ -65,7 +65,7 @@ cp config.cuda.example.yaml config.local.yaml   # gitignored；启动时自动�
 
 ### 本机启动（完整功能 · 推荐）
 
-脚本冷启动 **Runtime + 本机桌宠**（并确保内置 Pi 依赖）；在 Admin 配 Key 后即可在桌宠里说话：
+脚本冷启动 **同一套宿主产品：Runtime 后台 + 本机桌宠**（并确保内置 Pi 依赖）；在桌宠控制台窗配 Key 后即可说话：
 
 ```powershell
 # Windows
@@ -85,10 +85,10 @@ chmod +x scripts/start.sh scripts/stop.sh
 ```
 
 ```bash
-# 或手动
+# 或手动（仍需另开桌宠：cd desktop && npm run dev）
 pip install -e ".[dev]"
 python -m runtime
-# 控制台：桌宠 Ctrl+Shift+A（或浏览器 http://127.0.0.1:8766/admin/）
+# 控制台是桌宠第二窗（Ctrl+Shift+A），不是单独的「网页后台」
 ```
 
 ### 可选：引擎容器（非 Runtime）
@@ -100,7 +100,7 @@ docker compose --profile engines up -d   # 例如 GPT-SoVITS → :9880
 Runtime 演示镜像（**不能**一键拉起本机 Agent）见 `docker-compose.runtime-demo.yml`。
 
 默认助手为项目内置 **Pi Coding**（`agents/pi-coding`），无需再装其它智能助手 CLI。  
-Admin「智能助手」里配置 API Key 后启动即可。声音仍可用 Edge；SoVITS 可选。  
+桌宠控制台「智能助手」里配置 API Key 后启动即可。声音仍可用 Edge；SoVITS 可选。
 `config.yaml` → `services.pi.autostart: true` 可在 Runtime 起来后自动拉起 Pi gateway。  
 机器专属覆盖写在 `config.local.yaml`（不会进 git）。
 
@@ -116,12 +116,12 @@ DPAPI 加密后写入 `data/state/agent-secrets.json`。
 手动分步：
 
 ```bash
-# Runtime（后端：设备 WS :8765 + Admin/Pets HTTP :8766）
+# Runtime 后台（设备 WS :8765 + 控制台/人物 HTTP :8766）
 pip install -e .
 python -m runtime
-# 控制台：桌宠第二窗口（Ctrl+Shift+A）— 服务启停 / 设备 / Agent / TTS
+# 控制台 = 桌宠应用第二窗（Ctrl+Shift+A）— 服务启停 / 设备 / Agent / TTS
 
-# 仅桌宠（Runtime 已在跑时）
+# 桌宠壳（Runtime 已在跑时；二者同属宿主产品）
 python -m desktop
 
 # CLI 调试

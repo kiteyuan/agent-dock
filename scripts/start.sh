@@ -118,22 +118,24 @@ if [[ "$NO_PET" -eq 0 ]]; then
   fi
 fi
 
-ADMIN_HINT="$ADMIN"
+# Console UI lives in the desk-pet app (second window); :8766 is only the HTTP backend.
+if [[ "$PET_HINT" == Tauri* ]]; then
+  ADMIN_HINT="desk-pet window (Ctrl+Shift+A / tray) — HTTP $ADMIN"
+else
+  ADMIN_HINT="$ADMIN (browser fallback; prefer Tauri pet)"
+fi
 if [[ "$OPEN_ADMIN" -eq 1 ]]; then
-  if [[ "$PET_HINT" == Tauri* ]]; then
-    ADMIN_HINT="desk-pet second window (Ctrl+Shift+A)"
-  else
+  if [[ "$PET_HINT" != Tauri* ]]; then
     open_url "$ADMIN"
-    ADMIN_HINT="$ADMIN (browser fallback)"
   fi
 fi
 
 echo ""
-echo "Endpoints:"
+echo "Host product (Runtime + desk pet together):"
 echo "  Runtime WS    ws://127.0.0.1:8765"
-echo "  Desktop pet   $PET_HINT"
-echo "  Admin         $ADMIN_HINT"
+echo "  Desk pet      $PET_HINT"
+echo "  Console       $ADMIN_HINT"
 echo "  Pets assets   http://127.0.0.1:8766/pets/"
 echo ""
-echo "Configure Pi API Key in the desk-pet Admin window (Ctrl+Shift+A), then talk to the pet."
+echo "One app: talk to the pet; open Console (Ctrl+Shift+A / tray) to set Pi API Key."
 echo "Stop: ./scripts/stop.sh"

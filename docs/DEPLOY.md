@@ -3,15 +3,16 @@
 AgentDock 默认内置 **Pi Coding**（`agents/pi-coding`），不再提供多 CLI「智能助手矩阵」。
 
 ```text
-宿主机
-  Runtime                 ← scripts/start.*
-  desktop/                ← 本机桌宠（随 start 打开，不是「客户端」）
+宿主机（一套产品：Runtime 后台 + 桌宠壳 + 控制台窗）
+  Runtime                 ← 设备 WS / STT / TTS / Agent 桥
+  desktop/                ← 桌宠窗 + 控制台第二窗（不是远程客户端）
   agents/pi-coding        ← 首启自动 npm install（需本机 Node/npm）
-  Pi gateway :9001        ← Admin 启停；高权限 = 本机用户
+  Pi gateway :9001        ← 控制台启停；高权限 = 本机用户
   data/vault              ← 默认工作区
+  scripts/start.*         ← 一次拉起 Runtime + 桌宠
 
-远程壳
-  clients/mobile          ← 手机等够不着本机时才需要
+远程壳（可选）
+  clients/mobile          ← 够不着本机键盘时才需要
 
 可选容器
   GPT-SoVITS 等重引擎     ← docker compose --profile engines
@@ -22,10 +23,9 @@ AgentDock 默认内置 **Pi Coding**（`agents/pi-coding`），不再提供多 C
 ## 最短路径
 
 1. 安装 **Python ≥ 3.10** 与 **Node.js LTS**（只要 `npm`）  
-2. `pip install -e .` → `.\scripts\start.ps1` / `./scripts/start.sh`  
-3. 浏览器打开桌宠（默认 `http://127.0.0.1:8090/`）  
-4. 控制台（桌宠 `-Admin` / `Ctrl+Shift+A`）→ 智能助手 → 填 API Key → 启动
-5. 在桌宠里说话 / 打字；手机另装 `clients/mobile` 连 `ws://主机:8765`
+2. `pip install -e .` → `.\scripts\start.ps1` / `./scripts/start.sh`（Runtime **和** 桌宠一起起）  
+3. 桌宠托盘 / `Ctrl+Shift+A` / `-Admin` 打开**控制台窗** → 智能助手 → 填 API Key → 启动  
+4. 对着桌宠说话 / 打字；需要时再装 `clients/mobile` 连 `ws://主机:8765`
 
 GPU STT：`cp config.cuda.example.yaml config.local.yaml`
 

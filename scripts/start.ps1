@@ -104,26 +104,30 @@ if (-not $NoPet) {
     }
 }
 
-$AdminHint = $AdminUrl
+# Console UI lives in the desk-pet app (second window); :8766 is only the HTTP backend.
+if ($PetHint -like "Tauri*") {
+    $AdminHint = "desk-pet window (Ctrl+Shift+A / tray) — HTTP $AdminUrl"
+} else {
+    $AdminHint = "$AdminUrl (browser fallback; prefer Tauri pet)"
+}
 if ($Admin) {
     if ($PetHint -like "Tauri*") {
-        $AdminHint = "desk-pet second window (Ctrl+Shift+A)"
+        # AGENTDOCK_OPEN_ADMIN already set when launching Tauri
     } else {
         try {
             Start-Process $AdminUrl
-            $AdminHint = "$AdminUrl (browser fallback)"
         } catch {
-            Write-Host "  (open Admin manually: $AdminUrl)"
+            Write-Host "  (open Console manually: $AdminUrl)"
         }
     }
 }
 
 Write-Host ""
-Write-Host "Endpoints:"
+Write-Host "Host product (Runtime + desk pet together):"
 Write-Host "  Runtime WS    ws://127.0.0.1:8765"
-Write-Host "  Desktop pet   $PetHint"
-Write-Host "  Admin         $AdminHint"
+Write-Host "  Desk pet      $PetHint"
+Write-Host "  Console       $AdminHint"
 Write-Host "  Pets assets   http://127.0.0.1:8766/pets/"
 Write-Host ""
-Write-Host "Configure Pi API Key in the desk-pet Admin window (Ctrl+Shift+A), then talk to the pet."
+Write-Host "One app: talk to the pet; open Console (Ctrl+Shift+A / tray) to set Pi API Key."
 Write-Host "Stop: .\scripts\stop.ps1"

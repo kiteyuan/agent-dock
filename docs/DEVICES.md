@@ -2,8 +2,8 @@
 
 ## 边界
 
-- **主机**：Runtime + STT + Agent（Pi）+ TTS + **本机桌宠**（`desktop/`）
-- **远程壳**：手机等只连 WebSocket（`clients/mobile`）——不跑模型
+- **宿主产品（一体）**：Runtime 后台 + STT/TTS/Agent（Pi）+ **本机桌宠窗** + **控制台第二窗**（都在 `desktop/` / `scripts/start.*`）
+- **远程壳（可选）**：手机等只连 WebSocket（`clients/mobile`）——不跑 Runtime / 不跑模型
 
 状态机：[`clients/shared/STATE_MACHINE.md`](../clients/shared/STATE_MACHINE.md)
 
