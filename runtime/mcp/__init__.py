@@ -9,13 +9,13 @@ from runtime.mcp.builtin import (
     is_builtin_name,
     merge_builtin,
 )
-from runtime.mcp.server import handle_mcp_http
+from runtime.mcp.server import handle_mcp_post
 
 __all__ = [
     "BUILTIN_NAME",
     "builtin_entry",
     "builtin_url",
-    "handle_mcp_http",
+    "handle_mcp_post",
     "is_builtin_name",
     "merge_builtin",
 ]

@@ -11,71 +11,29 @@ from runtime.mcp.tools import call_tool, initialize_result, tool_catalog
 _SUPPORTED = {"2024-11-05", "2025-03-26"}
 
 
-def handle_mcp_http(host: Any, *, method: str, body: bytes | None = None) -> None:
-    """Serve ``/mcp`` for MCP clients. Uses the same Admin access gates as ``/api``."""
-    if method == "GET":
-        # Streamable HTTP may open SSE; we only speak request/response JSON.
-        host.send_response(HTTPStatus.METHOD_NOT_ALLOWED)
-        host.send_header("Allow", "POST, OPTIONS")
-        host.send_header("Content-Type", "application/json; charset=utf-8")
-        host.end_headers()
-        host.wfile.write(b'{"error":"use POST JSON-RPC"}')
-        return
-    if method == "OPTIONS":
-        host.send_response(HTTPStatus.NO_CONTENT)
-        host.send_header("Allow", "POST, OPTIONS")
-        host.send_header("Access-Control-Allow-Headers", "Content-Type, Accept, Mcp-Session-Id")
-        host.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-        host.end_headers()
-        return
-    if method != "POST":
-        host.send_error(HTTPStatus.METHOD_NOT_ALLOWED)
-        return
+def handle_mcp_post(runtime: Any, raw: bytes) -> tuple[int, Any]:
+    """JSON-RPC over POST ``/mcp``. Body ``None`` in the reply means 202 with no content.
 
-    runtime = host._runtime()
-    if runtime is None:
-        return
-
-    raw = body if body is not None else b""
+    Streamable HTTP SSE (GET) is not offered; the HTTP layer answers GET with 405.
+    """
     if not raw.strip():
-        host._json(HTTPStatus.BAD_REQUEST, {"error": "empty body"})
-        return
+        return HTTPStatus.BAD_REQUEST, {"error": "empty body"}
     try:
         payload = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError):
-        host._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
-        return
+        return HTTPStatus.BAD_REQUEST, {"error": "invalid json"}
 
     if isinstance(payload, list):
         if not payload:
-            host._json(HTTPStatus.BAD_REQUEST, {"error": "empty batch"})
-            return
-        replies = []
-        for item in payload:
-            reply = _dispatch_message(runtime, item)
-            if reply is not None:
-                replies.append(reply)
-        if not replies:
-            host.send_response(HTTPStatus.ACCEPTED)
-            host.send_header("Content-Type", "application/json; charset=utf-8")
-            host.send_header("Content-Length", "0")
-            host.end_headers()
-            return
-        host._json(HTTPStatus.OK, replies)
-        return
+            return HTTPStatus.BAD_REQUEST, {"error": "empty batch"}
+        replies = [r for item in payload if (r := _dispatch_message(runtime, item)) is not None]
+        return (HTTPStatus.OK, replies) if replies else (HTTPStatus.ACCEPTED, None)
 
     if not isinstance(payload, dict):
-        host._json(HTTPStatus.BAD_REQUEST, {"error": "json-rpc object required"})
-        return
+        return HTTPStatus.BAD_REQUEST, {"error": "json-rpc object required"}
 
     reply = _dispatch_message(runtime, payload)
-    if reply is None:
-        host.send_response(HTTPStatus.ACCEPTED)
-        host.send_header("Content-Type", "application/json; charset=utf-8")
-        host.send_header("Content-Length", "0")
-        host.end_headers()
-        return
-    host._json(HTTPStatus.OK, reply)
+    return (HTTPStatus.ACCEPTED, None) if reply is None else (HTTPStatus.OK, reply)
 
 
 def _dispatch_message(runtime: Any, message: object) -> dict[str, Any] | None:

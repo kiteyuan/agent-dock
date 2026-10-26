@@ -77,9 +77,8 @@ class Runtime:
         self.voices_root = resolve_voices(cfg)
         self.voices = VoiceCatalog(self.voices_root)
         self.voices.sync(self.tts_registry, self.catalog)
-        default_id = (
-            cfg.get("agent", {}).get("default")
-            or (self.registry.ids()[0] if self.registry.ids() else "pi")
+        default_id = cfg.get("agent", {}).get("default") or (
+            self.registry.ids()[0] if self.registry.ids() else "pi"
         )
         self.router = AgentRouter(
             self.registry, default_agent_id=default_id, permissions=self.permissions
@@ -224,13 +223,13 @@ class Runtime:
         self.assets.start()
         self.hardware.start()
         try:
-            self._admin_httpd = start_admin_http_server(
+            self._admin_httpd = await start_admin_http_server(
                 host=self.cfg.get("server", {}).get("host", "0.0.0.0"),
                 port=self.assets_port,
                 pets_root=self.pets_root,
                 runtime=self,
             )
-            self.mcp.set_admin_port(self._admin_httpd.server_port)
+            self.mcp.set_admin_port(self._admin_httpd.port)
             self.mcp.ensure_builtin()
         except OSError:
             logger.exception(
@@ -256,11 +255,7 @@ class Runtime:
             if not service.managed or not service.autostart:
                 continue
             module = next(
-                (
-                    item
-                    for item in self.catalog.modules
-                    if item.sidecar_id == service.id
-                ),
+                (item for item in self.catalog.modules if item.sidecar_id == service.id),
                 None,
             )
             target = module.id if module else service.id
@@ -289,7 +284,7 @@ class Runtime:
             self.lifecycle.close()
             self.services.stop_all()
             if self._admin_httpd is not None:
-                self._admin_httpd.shutdown()
+                await self._admin_httpd.close()
                 self._admin_httpd = None
 
     async def _warm_stt(self) -> None:
@@ -306,7 +301,9 @@ class Runtime:
             await tts.warm()  # type: ignore[attr-defined]
             logger.info("TTS warm done: {}", tts.info.id)
         except Exception:  # noqa: BLE001
-            logger.warning("TTS warm skipped/failed for {} — first utterance may be cold", tts.info.id)
+            logger.warning(
+                "TTS warm skipped/failed for {} — first utterance may be cold", tts.info.id
+            )
 
     def _service_environment(self, module_id: str) -> dict[str, str]:
         env = self.agent_configs.environment(module_id)
@@ -374,8 +371,7 @@ class Runtime:
         npm = shutil.which("npm") or shutil.which("npm.cmd")
         if not npm:
             raise RuntimeError(
-                "playwright bridge needs npm; install Node.js or run "
-                f"`npm install` in {bridge_dir}"
+                f"playwright bridge needs npm; install Node.js or run `npm install` in {bridge_dir}"
             )
         logger.info("installing playwright bridge deps in {}", bridge_dir)
         result = subprocess.run(
@@ -415,11 +411,7 @@ class Runtime:
         module = self.catalog.module(module_id)
         if module is None:
             module = next(
-                (
-                    item
-                    for item in self.catalog.modules
-                    if item.registry_id == module_id
-                ),
+                (item for item in self.catalog.modules if item.registry_id == module_id),
                 None,
             )
         if module is None or not module.sidecar_id:
