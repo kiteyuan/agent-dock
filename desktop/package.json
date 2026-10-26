@@ -7,9 +7,14 @@
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "tauri build"
+    "build": "tauri build",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --dir tests",
+    "check": "npm run typecheck && npm run test"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2"
+    "@tauri-apps/cli": "^2",
+    "typescript": "~5.7.2",
+    "vitest": "^3.2.7"
   }
 }

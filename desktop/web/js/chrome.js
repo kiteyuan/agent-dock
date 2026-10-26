@@ -463,8 +463,9 @@ export function bindChrome() {
     $("attachInput").click();
   };
   $("attachInput").addEventListener("change", (e) => {
-    addAttachmentsFromFiles(e.target.files);
-    e.target.value = "";
+    const input = /** @type {HTMLInputElement} */ (e.target);
+    addAttachmentsFromFiles(input.files);
+    input.value = "";
   });
 
   $("micBtn").addEventListener("click", (e) => {
@@ -484,8 +485,9 @@ export function bindChrome() {
   });
 
   $("transcript").addEventListener("click", (e) => {
-    if (e.target.closest(".msg-action")) return;
-    const bubble = e.target.closest(".bubble.assistant.replayable");
+    const target = /** @type {Element} */ (e.target);
+    if (target.closest(".msg-action")) return;
+    const bubble = target.closest(".bubble.assistant.replayable");
     if (!bubble) return;
     e.preventDefault();
     if (hooks.toggleLastTts) hooks.toggleLastTts();

@@ -178,10 +178,9 @@ function syncPetBubble() {
     const label = speaking ? "停止播报" : "重播";
     mute.title = label;
     mute.setAttribute("aria-label", label);
-    const icoPlay = mute.querySelector(".ico-play");
-    const icoStop = mute.querySelector(".ico-stop");
-    if (icoPlay) icoPlay.hidden = speaking;
-    if (icoStop) icoStop.hidden = !speaking;
+    // <svg> has no `.hidden` property — only the attribute works.
+    mute.querySelector(".ico-play")?.toggleAttribute("hidden", speaking);
+    mute.querySelector(".ico-stop")?.toggleAttribute("hidden", !speaking);
   }
   bodyEl.innerHTML = "";
   if (String(text || "").trim()) {

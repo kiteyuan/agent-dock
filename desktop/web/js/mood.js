@@ -234,13 +234,13 @@ export function syncReplayHint() {
     !store.recording &&
     store.lastTtsSegments.length > 0 &&
     !!last;
-  document.querySelectorAll(".bubble.assistant").forEach((el) => {
+  /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll(".bubble.assistant")).forEach((el) => {
     const isLast = last && el.dataset.id === last.id;
     el.classList.toggle("replayable", !!(canReplay && isLast));
     el.title = canReplay && isLast ? "点击播报" : "";
   });
 
-  let btn = document.getElementById("btnMsgTts");
+  let btn = /** @type {HTMLButtonElement | null} */ (document.getElementById("btnMsgTts"));
   const wrap = last
     ? document.querySelector(`.bubble.assistant[data-id="${last.id}"]`)?.closest(".bubble-wrap")
     : null;

@@ -82,6 +82,7 @@
   }
 
   function applyPetsList(list, defaultId, baseUrl) {
+    /** @type {typeof PETS} */
     const map = {};
     const pets = Array.isArray(list) ? list : [];
     for (const p of pets) {

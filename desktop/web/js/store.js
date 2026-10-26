@@ -77,7 +77,7 @@ export const hooks = {
   replayLastTts: null,
   /** @type {(() => void) | null} */
   toggleLastTts: null,
-  /** @type {(() => void) | null} */
+  /** @type {((mood: string) => void) | null} */
   onMoodChanged: null,
 };
 
