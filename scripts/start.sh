@@ -4,7 +4,7 @@
 #
 #   ./scripts/start.sh
 #   ./scripts/start.sh --no-pet
-#   ./scripts/start.sh --admin
+#   ./scripts/start.sh --admin   # open Admin as a second desk-pet window (Tauri)
 #   ./scripts/stop.sh
 
 set -euo pipefail
@@ -91,6 +91,9 @@ start_tauri_pet() {
   fi
   (
     cd "$DESKTOP_DIR"
+    if [[ "$OPEN_ADMIN" -eq 1 ]]; then
+      export AGENTDOCK_OPEN_ADMIN=1
+    fi
     nohup npm run dev >>"$ROOT/data/logs/desktop-pet-tauri.log" 2>&1 &
     echo "  started: Desktop pet Tauri (pid $!)"
   )
@@ -115,16 +118,22 @@ if [[ "$NO_PET" -eq 0 ]]; then
   fi
 fi
 
+ADMIN_HINT="$ADMIN"
 if [[ "$OPEN_ADMIN" -eq 1 ]]; then
-  open_url "$ADMIN"
+  if [[ "$PET_HINT" == Tauri* ]]; then
+    ADMIN_HINT="desk-pet second window (Ctrl+Shift+A)"
+  else
+    open_url "$ADMIN"
+    ADMIN_HINT="$ADMIN (browser fallback)"
+  fi
 fi
 
 echo ""
 echo "Endpoints:"
 echo "  Runtime WS    ws://127.0.0.1:8765"
 echo "  Desktop pet   $PET_HINT"
-echo "  Admin         $ADMIN"
+echo "  Admin         $ADMIN_HINT"
 echo "  Pets assets   http://127.0.0.1:8766/pets/"
 echo ""
-echo "Configure Pi API Key in Admin, then talk in the desktop pet."
+echo "Configure Pi API Key in the desk-pet Admin window (Ctrl+Shift+A), then talk to the pet."
 echo "Stop: ./scripts/stop.sh"

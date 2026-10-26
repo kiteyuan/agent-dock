@@ -70,7 +70,7 @@ cp config.cuda.example.yaml config.local.yaml   # gitignored；启动时自动�
 ```powershell
 # Windows
 .\scripts\start.ps1              # Runtime + desktop pet
-.\scripts\start.ps1 -Admin       # 同时打开 Admin
+.\scripts\start.ps1 -Admin       # 桌宠内再开控制台窗口
 .\scripts\start.ps1 -NoPet       # 只要 Runtime
 .\scripts\stop.ps1
 ```
@@ -88,7 +88,7 @@ chmod +x scripts/start.sh scripts/stop.sh
 # 或手动
 pip install -e ".[dev]"
 python -m runtime
-# 打开 http://127.0.0.1:8766/admin/
+# 控制台：桌宠 Ctrl+Shift+A（或浏览器 http://127.0.0.1:8766/admin/）
 ```
 
 ### 可选：引擎容器（非 Runtime）
@@ -119,7 +119,7 @@ DPAPI 加密后写入 `data/state/agent-secrets.json`。
 # Runtime（后端：设备 WS :8765 + Admin/Pets HTTP :8766）
 pip install -e .
 python -m runtime
-# 浏览器打开 http://127.0.0.1:8766/admin/  — 服务启停 / 设备 / Agent / TTS
+# 控制台：桌宠第二窗口（Ctrl+Shift+A）— 服务启停 / 设备 / Agent / TTS
 
 # 仅桌宠（Runtime 已在跑时）
 python -m desktop

@@ -36,3 +36,23 @@ export async function fitPetWindow(width, height) {
     await invoke("fit_pet_window", { width, height });
   } catch (_) {}
 }
+
+const DEFAULT_ADMIN_URL = "http://127.0.0.1:8766/admin/";
+
+/** Open Runtime Admin in a second Tauri window (browser fallback: new tab). */
+export async function openAdminPanel() {
+  if (isTauri()) {
+    try {
+      await invoke("open_admin_panel");
+      return true;
+    } catch (err) {
+      console.warn("open_admin_panel failed", err);
+    }
+  }
+  try {
+    window.open(DEFAULT_ADMIN_URL, "agentdock-admin");
+    return true;
+  } catch (_) {
+    return false;
+  }
+}

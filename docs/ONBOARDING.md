@@ -11,7 +11,7 @@ AgentDock Runtime 是集成脚手架：用声明式 `catalog/catalog.yaml` 接�
 ```powershell
 # Windows — Runtime + 本机桌宠
 .\scripts\start.ps1
-.\scripts\start.ps1 -Admin    # 顺带打开 Admin
+.\scripts\start.ps1 -Admin    # 桌宠内再开控制台窗口
 ```
 
 ```bash
@@ -20,8 +20,8 @@ AgentDock Runtime 是集成脚手架：用声明式 `catalog/catalog.yaml` 接�
 ./scripts/start.sh --admin
 ```
 
-桌宠：Tauri 窗（`cd desktop && npm run dev`）；无工具链时回退 `http://127.0.0.1:8090/`
-Admin：`http://127.0.0.1:8766/admin/`  
+桌宠：Tauri 窗（`cd desktop && npm run dev`）；无工具链时回退 `http://127.0.0.1:8090/`  
+控制台：桌宠第二窗口（设置里「打开控制台」或 `Ctrl+Shift+A`）；HTTP 仍在 `http://127.0.0.1:8766/admin/`  
 可选引擎容器：`docker compose --profile engines up -d`
 
 控制台不设置强制启动向导。首页只显示当前是否可用和需要处理的项目，用户可直接

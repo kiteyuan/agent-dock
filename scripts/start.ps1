@@ -3,7 +3,7 @@
 #
 #   .\scripts\start.ps1
 #   .\scripts\start.ps1 -NoPet       # Runtime only (no desktop pet window)
-#   .\scripts\start.ps1 -Admin       # also open Admin in the browser
+#   .\scripts\start.ps1 -Admin       # open Admin as a second desk-pet window (Tauri)
 #   .\scripts\stop.ps1
 #
 # GPU: copy config.cuda.example.yaml → config.local.yaml
@@ -38,13 +38,18 @@ function Wait-PortListen([int]$Port, [int]$TimeoutSec, [string]$Label) {
     return $false
 }
 
-function Start-Console([string]$Title, [string]$WorkDir, [string]$Command) {
-    $ps = @(
+function Start-Console([string]$Title, [string]$WorkDir, [string]$Command, [hashtable]$ExtraEnv = @{}) {
+    $envLines = @(
         "`$Host.UI.RawUI.WindowTitle = '$Title'"
         "Set-Location -LiteralPath '$WorkDir'"
         "`$env:PYTHONUNBUFFERED = '1'"
-        $Command
-    ) -join "; "
+    )
+    foreach ($key in $ExtraEnv.Keys) {
+        $val = [string]$ExtraEnv[$key]
+        $envLines += "`$env:$key = '$val'"
+    }
+    $envLines += $Command
+    $ps = $envLines -join "; "
     Start-Process -FilePath "powershell.exe" -WorkingDirectory $WorkDir -ArgumentList @(
         "-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $ps
     ) | Out-Null
@@ -76,8 +81,10 @@ function Start-TauriPet {
         Write-Host "  Tauri pet: run once → cd desktop; npm install"
         return $false
     }
+    $extra = @{}
+    if ($Admin) { $extra["AGENTDOCK_OPEN_ADMIN"] = "1" }
     # tauri.dev's beforeDevCommand serves web on :8090; avoid clashing with a leftover server
-    Start-Console "AgentDock Desktop Pet (Tauri)" $DesktopDir "npm run dev"
+    Start-Console "AgentDock Desktop Pet (Tauri)" $DesktopDir "npm run dev" $extra
     return $true
 }
 
@@ -97,11 +104,17 @@ if (-not $NoPet) {
     }
 }
 
+$AdminHint = $AdminUrl
 if ($Admin) {
-    try {
-        Start-Process $AdminUrl
-    } catch {
-        Write-Host "  (open Admin manually: $AdminUrl)"
+    if ($PetHint -like "Tauri*") {
+        $AdminHint = "desk-pet second window (Ctrl+Shift+A)"
+    } else {
+        try {
+            Start-Process $AdminUrl
+            $AdminHint = "$AdminUrl (browser fallback)"
+        } catch {
+            Write-Host "  (open Admin manually: $AdminUrl)"
+        }
     }
 }
 
@@ -109,8 +122,8 @@ Write-Host ""
 Write-Host "Endpoints:"
 Write-Host "  Runtime WS    ws://127.0.0.1:8765"
 Write-Host "  Desktop pet   $PetHint"
-Write-Host "  Admin         $AdminUrl"
+Write-Host "  Admin         $AdminHint"
 Write-Host "  Pets assets   http://127.0.0.1:8766/pets/"
 Write-Host ""
-Write-Host "Configure Pi API Key in Admin, then talk in the desktop pet."
+Write-Host "Configure Pi API Key in the desk-pet Admin window (Ctrl+Shift+A), then talk to the pet."
 Write-Host "Stop: .\scripts\stop.ps1"

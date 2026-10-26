@@ -71,7 +71,7 @@
     <form method="dialog" class="sheet">
       <div id="settingsMain">
         <h2>高级</h2>
-        <p class="sheet-hint">本机桌宠会自动连接，一般不用改。快捷键 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>,</kbd></p>
+        <p class="sheet-hint">本机桌宠会自动连接，一般不用改。快捷键 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>,</kbd> · 控制台 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd></p>
         <label>Runtime WS</label>
         <input id="url" type="text" placeholder="ws://127.0.0.1:8765" />
         <label>Token（自动注入，可留空）</label>
@@ -81,6 +81,7 @@
           <button type="button" id="btnClose" value="cancel">关闭</button>
         </div>
         <hr class="sheet-divider" />
+        <button type="button" class="sheet-new" id="btnOpenAdmin">打开控制台</button>
         <button type="button" class="sheet-new" id="btnChromeNew" disabled>新开会话</button>
       </div>
       <div id="settingsResetConfirm" hidden>
@@ -95,6 +96,6 @@
   </dialog>
 
   <script src="./pixel-bot.js?v=7"></script>
-  <script type="module" src="./app.js?v=111"></script>
+  <script type="module" src="./app.js?v=112"></script>
 </body>
 </html>

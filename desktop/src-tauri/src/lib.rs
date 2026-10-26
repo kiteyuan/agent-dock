@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use tauri::{LogicalPosition, LogicalSize, Manager, Position, Size};
+use tauri::{LogicalPosition, LogicalSize, Manager, Position, Size, WebviewUrl, WebviewWindowBuilder};
 
 fn device_auth_candidates() -> Vec<PathBuf> {
     let mut out = Vec::new();
@@ -106,15 +106,69 @@ fn place_bottom_right(window: &tauri::WebviewWindow) {
     let _ = window.set_position(Position::Logical(LogicalPosition { x, y }));
 }
 
+fn admin_panel_url() -> String {
+    std::env::var("AGENTDOCK_ADMIN_URL")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "http://127.0.0.1:8766/admin/".to_string())
+}
+
+fn env_flag_true(name: &str) -> bool {
+    matches!(
+        std::env::var(name).ok().as_deref().map(str::trim),
+        Some("1") | Some("true") | Some("TRUE") | Some("yes") | Some("YES")
+    )
+}
+
+/// Open (or focus) the Runtime Admin console as a second app window.
+#[tauri::command]
+fn open_admin_panel(app: tauri::AppHandle) -> Result<(), String> {
+    const LABEL: &str = "admin";
+    if let Some(win) = app.get_webview_window(LABEL) {
+        let _ = win.unminimize();
+        let _ = win.show();
+        let _ = win.set_focus();
+        return Ok(());
+    }
+    let raw = admin_panel_url();
+    let url = raw
+        .parse::<url::Url>()
+        .map_err(|e| format!("invalid admin URL {raw:?}: {e}"))?;
+    WebviewWindowBuilder::new(&app, LABEL, WebviewUrl::External(url))
+        .title("AgentDock 控制台")
+        .inner_size(1120.0, 760.0)
+        .min_inner_size(720.0, 480.0)
+        .resizable(true)
+        .decorations(true)
+        .skip_taskbar(false)
+        .center()
+        .build()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![local_device_token, fit_pet_window])
+        .invoke_handler(tauri::generate_handler![
+            local_device_token,
+            fit_pet_window,
+            open_admin_panel
+        ])
         .setup(|app| {
             if let Some(win) = app.get_webview_window("main") {
                 let _ = win.set_skip_taskbar(true);
                 place_bottom_right(&win);
+            }
+            if env_flag_true("AGENTDOCK_OPEN_ADMIN") {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    // Admin HTTP is usually already up when start.* launches the pet.
+                    std::thread::sleep(std::time::Duration::from_millis(800));
+                    let _ = open_admin_panel(handle);
+                });
             }
             Ok(())
         })

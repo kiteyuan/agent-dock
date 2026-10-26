@@ -7,3 +7,8 @@ commands.allow = ["local_device_token"]
 identifier = "allow-fit-pet-window"
 description = "Resize the pet window to hug the character"
 commands.allow = ["fit_pet_window"]
+
+[[permission]]
+identifier = "allow-open-admin-panel"
+description = "Open the Runtime Admin console in a second window"
+commands.allow = ["open_admin_panel"]

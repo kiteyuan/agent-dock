@@ -10,7 +10,7 @@ import {
   resetConversation,
   cancelTurn,
 } from "./session.js";
-import { startWindowDrag } from "./tauri.js";
+import { openAdminPanel, startWindowDrag } from "./tauri.js";
 import { focusComposer, toggleChromeCompact } from "./pet-chrome.js";
 
 const PET_LONG_PRESS_MS = 550;
@@ -259,6 +259,10 @@ export function bindChrome() {
     showSettingsMain();
     $("settings").close();
   };
+  $("btnOpenAdmin")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    void openAdminPanel();
+  });
   $("btnChromeNew").onclick = (e) => {
     e.preventDefault();
     openNewSessionConfirm();
@@ -333,6 +337,10 @@ export function bindChrome() {
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === ",") {
       e.preventDefault();
       openSettings();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      void openAdminPanel();
     }
   });
 
