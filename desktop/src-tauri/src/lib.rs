@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::PathBuf;
 
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::TrayIconBuilder;
 use tauri::{LogicalPosition, LogicalSize, Manager, Position, Size, WebviewUrl, WebviewWindowBuilder};
 
 fn device_auth_candidates() -> Vec<PathBuf> {
@@ -162,6 +164,28 @@ pub fn run() {
                 let _ = win.set_skip_taskbar(true);
                 place_bottom_right(&win);
             }
+
+            let admin_item = MenuItem::with_id(app, "tray-admin", "打开控制台", true, None::<&str>)?;
+            let sep = PredefinedMenuItem::separator(app)?;
+            let quit_item = MenuItem::with_id(app, "tray-quit", "退出桌宠", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&admin_item, &sep, &quit_item])?;
+            let mut tray = TrayIconBuilder::with_id("pet-tray")
+                .menu(&menu)
+                .tooltip("AgentDock Pet")
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "tray-admin" => {
+                        let _ = open_admin_panel(app.clone());
+                    }
+                    "tray-quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                });
+            if let Some(icon) = app.default_window_icon() {
+                tray = tray.icon(icon.clone());
+            }
+            tray.build(app)?;
+
             if env_flag_true("AGENTDOCK_OPEN_ADMIN") {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || {

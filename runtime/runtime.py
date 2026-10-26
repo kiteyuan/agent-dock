@@ -267,7 +267,7 @@ class Runtime:
             self.lifecycle.submit("start", target)
 
         logger.info(
-            "AgentDock Runtime ready | agents={} | tts={} | default_agent={} | default_tts={} | workspace={} | pets={} | admin=http://127.0.0.1:{}/admin/",
+            "AgentDock Runtime ready | agents={} | tts={} | default_agent={} | default_tts={} | workspace={} | pets={} | admin=desk-pet Ctrl+Shift+A (http://127.0.0.1:{}/admin/)",
             self.registry.ids(),
             self.tts_registry.ids(),
             self.router.default_agent_id,
