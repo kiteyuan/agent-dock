@@ -28,8 +28,10 @@ def _stem_belongs(stem: str, aliases: set[str]) -> bool:
     for alias in aliases:
         if stem == alias:
             return True
-        if stem.startswith(f"{alias}-") or stem.startswith(f"{alias}_") or stem.startswith(
-            f"{alias}."
+        if (
+            stem.startswith(f"{alias}-")
+            or stem.startswith(f"{alias}_")
+            or stem.startswith(f"{alias}.")
         ):
             return True
         if stem.endswith(f"-{alias}") or stem.endswith(f"_{alias}"):

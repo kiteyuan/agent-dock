@@ -6,6 +6,7 @@ Rows: idle, listen, busy, speak, connecting, offline, error
 
   python scripts/generate_status_icons.py
 """
+
 from __future__ import annotations
 
 from pathlib import Path

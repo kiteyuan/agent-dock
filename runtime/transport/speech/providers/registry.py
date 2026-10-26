@@ -68,9 +68,7 @@ def _sovits(provider_id: str, cfg: dict[str, Any]) -> TTSProvider:
     return GPTSoVITSTTS(
         tts_id=provider_id,
         name=cfg.get("name"),
-        voice_dir=cfg.get("voice_dir")
-        or cfg.get("voices_dir")
-        or f"assets/voices/{provider_id}",
+        voice_dir=cfg.get("voice_dir") or cfg.get("voices_dir") or f"assets/voices/{provider_id}",
         # Direct api_v2 URL when not going through the :9880 catalog sidecar.
         url=cfg.get("url") or "http://127.0.0.1:19880",
         api=cfg.get("api") or "v2",
@@ -107,9 +105,7 @@ def _whisper(cfg: dict[str, Any]) -> STTProvider:
         beam_size=int(opts.get("beam_size", 5)),
         vad_filter=bool(opts.get("vad_filter", True)),
         initial_prompt=opts.get("initial_prompt") if "initial_prompt" in opts else None,
-        code_switch=bool(opts.get("code_switch"))
-        if "code_switch" in opts
-        else None,
+        code_switch=bool(opts.get("code_switch")) if "code_switch" in opts else None,
     )
 
 

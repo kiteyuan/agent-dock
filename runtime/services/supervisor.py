@@ -111,7 +111,9 @@ class ServiceSupervisor:
             tail = ""
             if process.log_path is not None:
                 try:
-                    tail = process.log_path.read_text(encoding="utf-8", errors="replace")[-800:].strip()
+                    tail = process.log_path.read_text(encoding="utf-8", errors="replace")[
+                        -800:
+                    ].strip()
                 except OSError:
                     tail = ""
             self._close_log(process)
@@ -182,9 +184,7 @@ class ServiceSupervisor:
             for service_id in list(self._processes):
                 self.stop(service_id)
 
-    def _render_spawn(
-        self, spec: SidecarSpec
-    ) -> tuple[str, list[str], Path, dict[str, str]]:
+    def _render_spawn(self, spec: SidecarSpec) -> tuple[str, list[str], Path, dict[str, str]]:
         assert spec.spawn is not None
         module = next(
             (item for item in self.catalog.modules if item.sidecar_id == spec.id),
@@ -208,15 +208,12 @@ class ServiceSupervisor:
             for key, resolved in context.items():
                 if f"{{{key}}}" in str(value) and not str(resolved).strip():
                     raise ValueError(
-                        f"missing spawn setting for {spec.id}: {key}; "
-                        f"configure services.{spec.id}"
+                        f"missing spawn setting for {spec.id}: {key}; configure services.{spec.id}"
                     )
             try:
                 return str(value).format_map(context)
             except KeyError as exc:
-                raise ValueError(
-                    f"missing spawn setting for {spec.id}: {exc.args[0]}"
-                ) from exc
+                raise ValueError(f"missing spawn setting for {spec.id}: {exc.args[0]}") from exc
 
         executable = render(spec.spawn.executable)
         args = [render(item) for item in spec.spawn.args]

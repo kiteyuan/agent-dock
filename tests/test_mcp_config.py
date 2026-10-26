@@ -130,9 +130,7 @@ def test_mcp_menu_rejects_a_bad_server() -> None:
     with pytest.raises(ValueError, match="名称"):
         normalize_servers([{"name": "has space", "command": "npx"}])
     with pytest.raises(ValueError, match="命令或网址"):
-        normalize_servers(
-            [{"name": "both", "command": "npx", "url": "https://example.com/mcp"}]
-        )
+        normalize_servers([{"name": "both", "command": "npx", "url": "https://example.com/mcp"}])
 
 
 def test_mcp_json_document_keeps_http_headers(tmp_path) -> None:
@@ -253,8 +251,7 @@ def test_mcp_label_is_kept_for_admin_but_stripped_on_launch(tmp_path) -> None:
     )
     assert saved["mcpServers"]["docs"]["label"] == "文档检索"
     assert saved["servers"][0]["label"] == "文档检索" or any(
-        row.get("name") == "docs" and row.get("label") == "文档检索"
-        for row in saved["servers"]
+        row.get("name") == "docs" and row.get("label") == "文档检索" for row in saved["servers"]
     )
 
     claude_args(store.path)
@@ -291,7 +288,12 @@ class _FakeSnapshot:
         class Snap:
             def model_dump(self, mode="json"):
                 return {
-                    "defaults": {"agent": "pi-coding", "tts": "edge", "stt": "whisper", "pet": "furina"},
+                    "defaults": {
+                        "agent": "pi-coding",
+                        "tts": "edge",
+                        "stt": "whisper",
+                        "pet": "furina",
+                    },
                     "counts": {"devices_online": 0, "sessions_active": 0},
                     "meta": {"workspace": "E:/ws"},
                     "modules": {
@@ -431,7 +433,11 @@ def test_builtin_mcp_tools_and_jsonrpc(tmp_path) -> None:
             "jsonrpc": "2.0",
             "id": 1,
             "method": "initialize",
-            "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "t", "version": "0"}},
+            "params": {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "t", "version": "0"},
+            },
         },
     )
     assert init["result"]["serverInfo"]["name"] == BUILTIN_NAME

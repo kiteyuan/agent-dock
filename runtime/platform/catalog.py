@@ -63,9 +63,7 @@ class ModuleCatalog:
                     raise ValueError(f"duplicate sidecar id in catalog: {sid}")
                 raw_sidecars[sid] = dict(raw or {})
             raw_modules.extend(
-                item
-                for item in (document.get("modules") or [])
-                if isinstance(item, dict)
+                item for item in (document.get("modules") or []) if isinstance(item, dict)
             )
 
         enabled = data.get("enabled")
@@ -89,9 +87,7 @@ class ModuleCatalog:
             if sid == "runtime":
                 item["port"] = int((server or {}).get("port", item.get("port", 8765)))
             elif sid == "admin":
-                item["port"] = int(
-                    (server or {}).get("assets_port", item.get("port", 8766))
-                )
+                item["port"] = int((server or {}).get("assets_port", item.get("port", 8766)))
             health = dict(item.get("health") or {})
             if health.get("kind") == "tcp":
                 health["port"] = int(item["port"])
@@ -114,29 +110,18 @@ class ModuleCatalog:
                 raise ValueError(
                     f"module {module.id} depends on unknown modules: {sorted(missing)}"
                 )
-            if module.sidecar_id and module.sidecar_id not in {
-                item.id for item in sidecars
-            }:
+            if module.sidecar_id and module.sidecar_id not in {item.id for item in sidecars}:
                 raise ValueError(
                     f"module {module.id} references unknown sidecar {module.sidecar_id}"
                 )
             license_ids = {item.id for item in module.licenses}
             if len(license_ids) != len(module.licenses):
                 raise ValueError(f"module {module.id} has duplicate license ids")
-            provider_ids = {
-                item.id for item in module.configuration.providers
-            }
+            provider_ids = {item.id for item in module.configuration.providers}
             if len(provider_ids) != len(module.configuration.providers):
-                raise ValueError(
-                    f"module {module.id} has duplicate configuration providers"
-                )
-            if (
-                module.configuration.mode == "model"
-                and not module.configuration.providers
-            ):
-                raise ValueError(
-                    f"module {module.id} model configuration has no providers"
-                )
+                raise ValueError(f"module {module.id} has duplicate configuration providers")
+            if module.configuration.mode == "model" and not module.configuration.providers:
+                raise ValueError(f"module {module.id} model configuration has no providers")
             for asset in module.models:
                 if asset.license_id and asset.license_id not in license_ids:
                     raise ValueError(
@@ -173,9 +158,7 @@ class ModuleCatalog:
         import shutil
 
         config = cfg or {}
-        services = (
-            config.get("services") if isinstance(config.get("services"), dict) else {}
-        )
+        services = config.get("services") if isinstance(config.get("services"), dict) else {}
         npx = shutil.which("npx") or shutil.which("npx.cmd") or "npx"
         node = shutil.which("node") or shutil.which("node.exe") or "node"
         values = {

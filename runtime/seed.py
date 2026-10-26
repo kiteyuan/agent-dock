@@ -26,8 +26,7 @@ def _has_pet_sheet(pets: Path) -> bool:
     if not pets.is_dir():
         return False
     return any(
-        p.is_file() and p.name.lower() == "spritesheet.webp"
-        for p in pets.rglob("spritesheet.webp")
+        p.is_file() and p.name.lower() == "spritesheet.webp" for p in pets.rglob("spritesheet.webp")
     )
 
 

@@ -24,9 +24,9 @@ class _FakeHost:
 
 def test_devices_page_uses_v1_disconnect() -> None:
     root = Path(__file__).resolve().parents[1]
-    page = (
-        root / "runtime" / "admin" / "ui" / "src" / "pages" / "DevicesPage.tsx"
-    ).read_text(encoding="utf-8")
+    page = (root / "runtime" / "admin" / "ui" / "src" / "pages" / "DevicesPage.tsx").read_text(
+        encoding="utf-8"
+    )
     assert "/api/v1/devices/${encodeURIComponent(id)}/disconnect" in page
     assert "`/api/devices/" not in page
 

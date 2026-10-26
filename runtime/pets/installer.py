@@ -46,11 +46,7 @@ class PetInstaller:
         if not catalog_path.is_file():
             raise ValueError("pet catalog is missing")
         data = json.loads(catalog_path.read_text(encoding="utf-8"))
-        known = {
-            str(item.get("id"))
-            for item in (data.get("pets") or [])
-            if isinstance(item, dict)
-        }
+        known = {str(item.get("id")) for item in (data.get("pets") or []) if isinstance(item, dict)}
         if clean_id not in known:
             raise ValueError("unknown pet")
         if not (self.pets_root / clean_id / "spritesheet.webp").is_file():
@@ -61,7 +57,10 @@ class PetInstaller:
     @staticmethod
     def _validate_id(pet_id: str) -> str:
         value = pet_id.strip()
-        if not value or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for c in value):
+        if not value or any(
+            c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+            for c in value
+        ):
             raise ValueError("pet id may contain only letters, numbers, '-' and '_'")
         return value
 

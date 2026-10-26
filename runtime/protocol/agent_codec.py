@@ -36,10 +36,7 @@ def normalize_images(raw: Any) -> list[dict[str, str]]:
                 continue
         elif isinstance(item, dict):
             mime = str(
-                item.get("mime")
-                or item.get("mimeType")
-                or item.get("content_type")
-                or ""
+                item.get("mime") or item.get("mimeType") or item.get("content_type") or ""
             ).strip()
             data = str(item.get("data") or item.get("content") or "").strip()
             url = str(item.get("url") or "").strip()
@@ -183,7 +180,11 @@ def iter_sse_events(session_id: str, text: str) -> Iterator[AgentEvent]:
                 ev = parse_event(session_id, item)
                 if ev:
                     yield ev
-                    if ev.type in (AgentEventType.DONE, AgentEventType.CANCEL, AgentEventType.ERROR):
+                    if ev.type in (
+                        AgentEventType.DONE,
+                        AgentEventType.CANCEL,
+                        AgentEventType.ERROR,
+                    ):
                         saw_terminal = True
             continue
     if data_lines:

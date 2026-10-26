@@ -30,9 +30,7 @@ def test_default_home_is_repo_data(monkeypatch: pytest.MonkeyPatch) -> None:
     assert home.name == "data"
 
 
-def test_agentdock_home_env_overrides(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_agentdock_home_env_overrides(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("AGENTDOCK_HOME", str(tmp_path / "home"))
     home = resolve_home({}, ensure=True)
     assert home == (tmp_path / "home").resolve()
@@ -82,9 +80,7 @@ def test_module_catalog_loads_and_vault_in_context(
     assert Path(ctx["workspace"]) == resolve_vault({})
 
 
-def test_migrate_workspace_to_data_layout(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_migrate_workspace_to_data_layout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("AGENTDOCK_HOME", str(tmp_path / "data"))
     old_ws = tmp_path / "old-workspace"
     old_ws.mkdir()

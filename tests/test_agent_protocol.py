@@ -50,9 +50,7 @@ def test_request_body_includes_images() -> None:
 def test_request_body_normalizes_data_url_images() -> None:
     from runtime.protocol.agent_codec import normalize_images
 
-    got = normalize_images(
-        [{"url": "data:image/jpeg;base64,Zm9v"}, "data:image/png;base64,YmFy"]
-    )
+    got = normalize_images([{"url": "data:image/jpeg;base64,Zm9v"}, "data:image/png;base64,YmFy"])
     assert got == [
         {"mime": "image/jpeg", "data": "Zm9v"},
         {"mime": "image/png", "data": "YmFy"},

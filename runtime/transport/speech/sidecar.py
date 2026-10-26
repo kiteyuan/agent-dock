@@ -93,10 +93,7 @@ def main() -> None:
         (args.host, args.port),
         handler_for(engine, mode=args.mode),
     )
-    print(
-        f"{args.provider} {args.mode} sidecar on "
-        f"http://{args.host}:{args.port}"
-    )
+    print(f"{args.provider} {args.mode} sidecar on http://{args.host}:{args.port}")
     try:
         server.serve_forever()
     finally:

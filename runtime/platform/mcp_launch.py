@@ -109,9 +109,7 @@ def launch_servers(path: Path | None = None) -> dict[str, dict]:
     for name, entry in read_servers(source).items():
         if entry.get("enabled", True) is False:
             continue
-        cleaned = {
-            key: value for key, value in entry.items() if key not in _LAUNCH_META
-        }
+        cleaned = {key: value for key, value in entry.items() if key not in _LAUNCH_META}
         if cleaned.get("url") or str(cleaned.get("type") or "").lower() == "http":
             row: dict = {}
             if cleaned.get("type"):
@@ -161,9 +159,7 @@ def codex_args(path: Path | None = None) -> list[str]:
         args += ["-c", f"{prefix}.args={_toml_array(list(entry.get('args') or []))}"]
         env = entry.get("env") if isinstance(entry.get("env"), dict) else {}
         if env:
-            pairs = ",".join(
-                f"{key}={_toml_string(str(value))}" for key, value in env.items()
-            )
+            pairs = ",".join(f"{key}={_toml_string(str(value))}" for key, value in env.items())
             args += ["-c", f"{prefix}.env={{{pairs}}}"]
     return args
 
@@ -230,10 +226,7 @@ _SECRET_MASK = "***"
 
 
 def _mask_secret_map(values: dict) -> dict[str, str]:
-    return {
-        str(key): (_SECRET_MASK if str(value) else "")
-        for key, value in values.items()
-    }
+    return {str(key): (_SECRET_MASK if str(value) else "") for key, value in values.items()}
 
 
 def redact_servers(servers: dict[str, dict]) -> dict[str, dict]:

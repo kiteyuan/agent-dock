@@ -287,11 +287,7 @@ class DeviceGateway:
         try:
             async for raw in ws:
                 if isinstance(raw, bytes):
-                    if (
-                        conn.session is None
-                        or not conn.recording
-                        or conn.audio_overflow
-                    ):
+                    if conn.session is None or not conn.recording or conn.audio_overflow:
                         continue
                     if len(conn.audio_buf) + len(raw) > self._max_audio_bytes:
                         conn.audio_buf.clear()
@@ -302,9 +298,7 @@ class DeviceGateway:
                             conn.device_id,
                             self._max_audio_bytes,
                         )
-                        await conn.send(
-                            encode_message(error_msg("audio buffer exceeded"))
-                        )
+                        await conn.send(encode_message(error_msg("audio buffer exceeded")))
                         continue
                     conn.audio_buf.extend(raw)
                     continue

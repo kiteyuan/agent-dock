@@ -107,8 +107,10 @@ def _home_child(
 def resolve_vault(cfg: dict[str, Any] | None = None, *, ensure: bool = False) -> Path:
     """Agent working directory injected as AgentRequest.workspace."""
     paths = _paths_cfg(cfg)
-    if paths.get("vault") is not None or paths.get("home") is not None or os.environ.get(
-        "AGENTDOCK_HOME"
+    if (
+        paths.get("vault") is not None
+        or paths.get("home") is not None
+        or os.environ.get("AGENTDOCK_HOME")
     ):
         return _home_child(cfg, "vault", "vault", ensure=ensure)
 

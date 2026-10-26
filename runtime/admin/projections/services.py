@@ -20,8 +20,7 @@ def public_health_detail(detail: str, *, healthy: bool, kind: str) -> str:
     if "timed out" in lowered or "timeout" in lowered or text == "无响应":
         return "无响应"
     if kind in ("tcp", "http") or any(
-        token in lowered
-        for token in ("urlopen", "not listening", "refused", "errno", "未监听")
+        token in lowered for token in ("urlopen", "not listening", "refused", "errno", "未监听")
     ):
         return "未监听"
     return text or "未就绪"
@@ -58,10 +57,7 @@ def project_services(host: Any) -> list[dict[str, Any]]:
                 "data": health.data,
                 "checked_at": health.checked_at,
                 "can_start": bool(
-                    spec.managed
-                    and spec.spawn is not None
-                    and not health.healthy
-                    and startable
+                    spec.managed and spec.spawn is not None and not health.healthy and startable
                 ),
                 "can_stop": spec.managed and bool(process["owned"]),
                 **process,

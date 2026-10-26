@@ -134,9 +134,7 @@ class SnapshotService:
             (
                 item
                 for item in self.catalog.modules_by_kind(kind)
-                if item.id == value
-                or item.registry_id == value
-                or value in item.provider_types
+                if item.id == value or item.registry_id == value or value in item.provider_types
             ),
             None,
         )
@@ -145,22 +143,17 @@ class SnapshotService:
         missing = [
             license.id
             for license in module.licenses
-            if license.requires_acceptance
-            and not self.module_state.accepted(module.id, license.id)
+            if license.requires_acceptance and not self.module_state.accepted(module.id, license.id)
         ]
         if missing:
-            raise ValueError(
-                f"license acceptance required: {', '.join(missing)}"
-            )
+            raise ValueError(f"license acceptance required: {', '.join(missing)}")
 
     def _ensure_installed(self, kind: str, value: str) -> None:
         module = next(
             (
                 item
                 for item in self.catalog.modules_by_kind(kind)
-                if item.id == value
-                or item.registry_id == value
-                or value in item.provider_types
+                if item.id == value or item.registry_id == value or value in item.provider_types
             ),
             None,
         )

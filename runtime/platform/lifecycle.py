@@ -115,9 +115,7 @@ class ModuleLifecycle:
             event.set()
             return True
 
-    def _handler(
-        self, action: str
-    ) -> Callable[[str, dict[str, Any]], ActionResult] | None:
+    def _handler(self, action: str) -> Callable[[str, dict[str, Any]], ActionResult] | None:
         return {
             "prepare": self._prepare,
             "start": self._start,
@@ -139,9 +137,7 @@ class ModuleLifecycle:
         options = {
             **options,
             "_cancel": cancel,
-            "_progress": lambda value, message: self._set_progress(
-                job_id, value, message
-            ),
+            "_progress": lambda value, message: self._set_progress(job_id, value, message),
         }
         try:
             result = handler(target, options)
@@ -236,18 +232,12 @@ class ModuleLifecycle:
             return self._result(True, "prepare", target, detail="already prepared")
         if spec.install.kind == "npm":
             if not spec.install.cwd:
-                return self._result(
-                    False, "prepare", target, error="npm install cwd missing"
-                )
+                return self._result(False, "prepare", target, error="npm install cwd missing")
             cwd = self.catalog.root / spec.install.cwd
             if not cwd.is_dir():
-                return self._result(
-                    False, "prepare", target, error=f"missing directory: {cwd}"
-                )
+                return self._result(False, "prepare", target, error=f"missing directory: {cwd}")
             if (cwd / "node_modules").is_dir() and not options.get("force"):
-                return self._result(
-                    True, "prepare", target, detail="node_modules already present"
-                )
+                return self._result(True, "prepare", target, detail="node_modules already present")
             npm = shutil.which("npm")
             if not npm:
                 return self._result(
@@ -269,9 +259,7 @@ class ModuleLifecycle:
                     False,
                     "prepare",
                     target,
-                    error=(process.stderr or process.stdout or "npm install failed")[
-                        -1000:
-                    ],
+                    error=(process.stderr or process.stdout or "npm install failed")[-1000:],
                 )
             return self._result(True, "prepare", target, detail="npm install done")
         return self._result(
@@ -313,9 +301,7 @@ class ModuleLifecycle:
             bool(raw.get("ok")),
             "start",
             target,
-            detail=raw.get("note") or (
-                f"pid={raw.get('pid')}" if raw.get("pid") else "started"
-            ),
+            detail=raw.get("note") or (f"pid={raw.get('pid')}" if raw.get("pid") else "started"),
             error=raw.get("error"),
         )
 
@@ -335,9 +321,7 @@ class ModuleLifecycle:
 
     def _uninstall(self, target: str, options: dict[str, Any]) -> ActionResult:
         if self.installer is None:
-            return self._result(
-                False, "uninstall", target, error="isolated installer unavailable"
-            )
+            return self._result(False, "uninstall", target, error="isolated installer unavailable")
         spec = self.catalog.module(target)
         if spec and spec.sidecar_id:
             stopped = self.supervisor.stop(spec.sidecar_id)
@@ -355,9 +339,7 @@ class ModuleLifecycle:
         url = str(options.get("url") or "").strip()
         label = str(options.get("label") or target).strip()
         if not target or not url:
-            return self._result(
-                False, "import_pet", target, error="pet id and url are required"
-            )
+            return self._result(False, "import_pet", target, error="pet id and url are required")
         path = self.pet_installer.install(pet_id=target, url=url, label=label)
         self.asset_invalidate()
         return self._result(

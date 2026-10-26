@@ -371,9 +371,7 @@ class HTTPAgent(AgentAdapter):
     def _best_effort_cancel(self, session_id: str) -> None:
         if not self.cancel_url:
             return
-        body = json.dumps(
-            {"protocol": PROTOCOL_VERSION, "session_id": session_id}
-        ).encode()
+        body = json.dumps({"protocol": PROTOCOL_VERSION, "session_id": session_id}).encode()
         req = Request(
             self.cancel_url,
             data=body,

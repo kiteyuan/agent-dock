@@ -32,9 +32,7 @@ _OPENAI_COMPAT = (
 _SHARED_BY_ID = {item.id: item for item in SHARED_LLM_PROVIDERS}
 
 
-def _map_shared_to_agent(
-    module: ModuleSpec, shared_provider_id: str
-) -> AgentProviderSpec | None:
+def _map_shared_to_agent(module: ModuleSpec, shared_provider_id: str) -> AgentProviderSpec | None:
     if module.configuration.mode != "model" or not shared_provider_id:
         return None
     providers = module.configuration.providers
@@ -43,11 +41,7 @@ def _map_shared_to_agent(
         return exact
     if shared_provider_id in _OPENAI_COMPAT:
         generic = next(
-            (
-                item
-                for item in providers
-                if item.id in ("openai", "openai-compat", "compatible")
-            ),
+            (item for item in providers if item.id in ("openai", "openai-compat", "compatible")),
             None,
         )
         if generic:
@@ -90,16 +84,12 @@ class AgentConfigStore:
             ]
             return {
                 "configured": configured,
-                "provider": value.get("provider")
-                or SHARED_LLM_PROVIDERS[0].id,
-                "model": value.get("model")
-                or (provider.default_model if provider else ""),
+                "provider": value.get("provider") or SHARED_LLM_PROVIDERS[0].id,
+                "model": value.get("model") or (provider.default_model if provider else ""),
                 "base_url": value.get("base_url")
                 or (provider.default_base_url if provider else ""),
                 "has_credential": has_credential,
-                "providers": [
-                    self._public_provider(item) for item in SHARED_LLM_PROVIDERS
-                ],
+                "providers": [self._public_provider(item) for item in SHARED_LLM_PROVIDERS],
                 "compatible_agents": compatible,
                 "updated_at": value.get("updated_at"),
             }
@@ -116,9 +106,7 @@ class AgentConfigStore:
                 shared_value,
                 has_credential=shared_has_credential,
             )
-            mapped = _map_shared_to_agent(
-                module, shared_provider.id if shared_provider else ""
-            )
+            mapped = _map_shared_to_agent(module, shared_provider.id if shared_provider else "")
             using_shared = value.get("source") == "shared"
             if using_shared:
                 provider = mapped
@@ -130,23 +118,15 @@ class AgentConfigStore:
                 )
                 base_url = str(
                     shared_value.get("base_url")
-                    or (
-                        shared_provider.default_base_url if shared_provider else ""
-                    )
+                    or (shared_provider.default_base_url if shared_provider else "")
                     or (provider.default_base_url if provider else "")
                 )
                 configured = bool(mapped) and shared_configured
             else:
                 provider = self._provider(module, str(value.get("provider") or ""))
-                has_credential = bool(
-                    (self._secrets.get("agents") or {}).get(module_id)
-                )
-                model = value.get("model") or (
-                    provider.default_model if provider else ""
-                )
-                base_url = value.get("base_url") or (
-                    provider.default_base_url if provider else ""
-                )
+                has_credential = bool((self._secrets.get("agents") or {}).get(module_id))
+                model = value.get("model") or (provider.default_model if provider else "")
+                base_url = value.get("base_url") or (provider.default_base_url if provider else "")
                 configured = self._configured(
                     spec.mode,
                     provider,
@@ -161,16 +141,13 @@ class AgentConfigStore:
                 "provider": (
                     (mapped.id if mapped else None)
                     if using_shared
-                    else value.get("provider")
-                    or (spec.providers[0].id if spec.providers else None)
+                    else value.get("provider") or (spec.providers[0].id if spec.providers else None)
                 ),
                 "model": model,
                 "base_url": base_url,
                 "has_credential": has_credential,
                 "configured": configured,
-                "providers": [
-                    self._public_provider(item) for item in spec.providers
-                ],
+                "providers": [self._public_provider(item) for item in spec.providers],
                 "updated_at": value.get("updated_at"),
             }
 
@@ -240,12 +217,11 @@ class AgentConfigStore:
             )
 
             current = (self._settings.get("agents") or {}).get(module_id) or {}
-            provider_changed = current.get("source") == "shared" or current.get(
-                "provider"
-            ) not in (None, provider.id)
-            existing_credential = bool(
-                (self._secrets.get("agents") or {}).get(module_id)
+            provider_changed = current.get("source") == "shared" or current.get("provider") not in (
+                None,
+                provider.id,
             )
+            existing_credential = bool((self._secrets.get("agents") or {}).get(module_id))
             will_have_credential = bool(credential) or (
                 existing_credential and not clear_credential and not provider_changed
             )
@@ -297,9 +273,7 @@ class AgentConfigStore:
                 if provider is None:
                     return {}
                 model = str(value.get("model") or provider.default_model).strip()
-                base_url = str(
-                    value.get("base_url") or provider.default_base_url
-                ).strip()
+                base_url = str(value.get("base_url") or provider.default_base_url).strip()
                 sealed = (self._secrets.get("agents") or {}).get(module_id)
             env = dict(provider.extra_env)
             credential = _unseal(str(sealed), key_dir=self._key_dir) if sealed else ""
@@ -334,9 +308,7 @@ class AgentConfigStore:
             has_credential=has_credential,
         ):
             raise ValueError("shared LLM is not configured")
-        mapped = _map_shared_to_agent(
-            module, shared_provider.id if shared_provider else ""
-        )
+        mapped = _map_shared_to_agent(module, shared_provider.id if shared_provider else "")
         if mapped is None:
             raise ValueError("this agent cannot use the shared LLM")
         self._settings.setdefault("agents", {})[module_id] = {
@@ -413,15 +385,10 @@ class AgentConfigStore:
             catalog = _SHARED_BY_ID.get(item.models_from or item.id)
             if catalog is not None:
                 source = catalog
-        return [
-            {"id": choice.id, "name": choice.name or choice.id}
-            for choice in source.models
-        ]
+        return [{"id": choice.id, "name": choice.name or choice.id} for choice in source.models]
 
     @staticmethod
-    def _provider(
-        module: ModuleSpec, provider_id: str
-    ) -> AgentProviderSpec | None:
+    def _provider(module: ModuleSpec, provider_id: str) -> AgentProviderSpec | None:
         providers = module.configuration.providers
         if not provider_id and providers:
             return providers[0]

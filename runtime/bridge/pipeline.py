@@ -106,9 +106,7 @@ class BridgePipeline:
         try:
             if not await self._send(
                 bus,
-                encode_message(
-                    tts_start(session.session_id, used.info.id, format=fmt, text=text)
-                ),
+                encode_message(tts_start(session.session_id, used.info.id, format=fmt, text=text)),
             ):
                 return
             started = True
@@ -248,9 +246,7 @@ class BridgePipeline:
                     break
 
                 if not await self._publish(bus, event):
-                    terminal = agent_error(
-                        session.session_id, "device send failed; aborting turn"
-                    )
+                    terminal = agent_error(session.session_id, "device send failed; aborting turn")
                     break
 
                 if event.type == AgentEventType.MESSAGE and event.content:
@@ -260,9 +256,7 @@ class BridgePipeline:
                     if event.speak and worker:
                         piece = speak_text(event.content)
                         if piece and piece != event.content.strip():
-                            logger.info(
-                                "[{}] speak_text sanitized for TTS", session.session_id
-                            )
+                            logger.info("[{}] speak_text sanitized for TTS", session.session_id)
                         if piece:
                             await enqueue_sentences(speak_buf.push(piece))
             # Lock success before TTS cleanup / disconnect can flip cancel.
@@ -317,14 +311,10 @@ class BridgePipeline:
                     assistant_texts=turn_assistants,
                 )
             except Exception:  # noqa: BLE001
-                logger.exception(
-                    "[{}] failed to persist completed transcript", session.session_id
-                )
+                logger.exception("[{}] failed to persist completed transcript", session.session_id)
 
         if cancelled or cancel_event.is_set():
             terminal = agent_cancel(session.session_id)
         elif terminal is None:
-            terminal = agent_error(
-                session.session_id, "agent ended without a terminal event"
-            )
+            terminal = agent_error(session.session_id, "agent ended without a terminal event")
         await self._publish(bus, terminal)

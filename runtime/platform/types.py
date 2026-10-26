@@ -161,9 +161,7 @@ class ModuleSpec(BaseModel):
     models: list[ModelAsset] = Field(default_factory=list)
     hardware: HardwareSpec = Field(default_factory=HardwareSpec)
     capabilities: ProviderCapabilities = Field(default_factory=ProviderCapabilities)
-    configuration: AgentConfigurationSpec = Field(
-        default_factory=AgentConfigurationSpec
-    )
+    configuration: AgentConfigurationSpec = Field(default_factory=AgentConfigurationSpec)
     region: Literal["global", "cn"] = "global"
     version: str = ""
     homepage: str = ""

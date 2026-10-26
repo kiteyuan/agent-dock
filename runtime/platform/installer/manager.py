@@ -71,9 +71,7 @@ class InstallManager:
         if existing_receipt and target.is_dir() and not force:
             return existing_receipt
         if target.exists() and not existing_receipt:
-            raise InstallError(
-                f"refusing to overwrite unmanaged module directory: {target}"
-            )
+            raise InstallError(f"refusing to overwrite unmanaged module directory: {target}")
         self.modules_root.mkdir(parents=True, exist_ok=True)
         backup = self.modules_root / f".backup-{module.id}-{uuid.uuid4().hex[:8]}"
         if target.exists():
@@ -320,9 +318,7 @@ class InstallManager:
                     digest.update(chunk)
         opener = (
             urllib.request.build_opener(
-                urllib.request.ProxyHandler(
-                    {"http": self.proxy, "https": self.proxy}
-                )
+                urllib.request.ProxyHandler({"http": self.proxy, "https": self.proxy})
             )
             if self.proxy
             else urllib.request.build_opener()
@@ -351,7 +347,10 @@ class InstallManager:
                     if downloaded > 50 * 1024**3:
                         raise InstallError("single module download exceeds 50 GiB")
                     if total:
-                        progress(downloaded / total, f"download {downloaded // 1048576}/{total // 1048576} MiB")
+                        progress(
+                            downloaded / total,
+                            f"download {downloaded // 1048576}/{total // 1048576} MiB",
+                        )
         actual = digest.hexdigest()
         if expected_sha256 and actual.lower() != expected_sha256.lower():
             partial.unlink(missing_ok=True)
@@ -435,9 +434,7 @@ class InstallManager:
             if item.requires_acceptance and not self.state.accepted(module.id, item.id)
         ]
         if missing:
-            raise InstallError(
-                f"license acceptance required for {module.id}: {', '.join(missing)}"
-            )
+            raise InstallError(f"license acceptance required for {module.id}: {', '.join(missing)}")
 
     @staticmethod
     def _check_platform(module: ModuleSpec) -> None:
@@ -503,11 +500,7 @@ class InstallManager:
 
     @staticmethod
     def _context(module_dir: Path) -> dict[str, str]:
-        relative = (
-            Path("Scripts/python.exe")
-            if sys.platform == "win32"
-            else Path("bin/python")
-        )
+        relative = Path("Scripts/python.exe") if sys.platform == "win32" else Path("bin/python")
         return {
             "module_dir": str(module_dir),
             "module_python": str(module_dir / ".venv" / relative),

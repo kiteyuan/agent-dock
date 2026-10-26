@@ -24,11 +24,7 @@ def create_stt(cfg: dict[str, Any] | None = None) -> STTProvider | None:
             raise ValueError("STT import path must be module:Class")
         module_name, class_name = str(path).rsplit(":", 1)
         cls = getattr(importlib.import_module(module_name), class_name)
-        kwargs = {
-            key: value
-            for key, value in config.items()
-            if key not in ("provider", "path")
-        }
+        kwargs = {key: value for key, value in config.items() if key not in ("provider", "path")}
         instance = cls(**kwargs)
         if not isinstance(instance, STTProvider):
             raise TypeError(f"{path} did not return STTProvider")

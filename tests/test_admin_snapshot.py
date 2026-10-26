@@ -40,9 +40,7 @@ def test_snapshot_does_not_perform_network_probe(monkeypatch, tmp_path) -> None:
     assert snapshot.counts["devices_online"] == 0
     assert snapshot.recommendations["tts"] == "edge"
     assert snapshot.modules["llm"]["shared"]["configured"] is False
-    assert "openai" in {
-        item["id"] for item in snapshot.modules["llm"]["shared"]["providers"]
-    }
+    assert "openai" in {item["id"] for item in snapshot.modules["llm"]["shared"]["providers"]}
     agents = {item["id"]: item for item in snapshot.modules["agents"]}
     assert set(agents) == {"pi"}
     assert agents["pi"]["installable"] is True
@@ -74,12 +72,10 @@ def test_admin_ui_separates_beginner_and_advanced_information() -> None:
     app = (src / "App.tsx").read_text(encoding="utf-8")
     shell = (src / "components" / "AppShell.tsx").read_text(encoding="utf-8")
     chrome = app + shell
-    pages = "\n".join(
-        path.read_text(encoding="utf-8") for path in src.rglob("*.tsx")
-    ) + "\n".join(path.read_text(encoding="utf-8") for path in src.rglob("*.ts"))
-    index = (root / "runtime" / "admin" / "ui" / "index.html").read_text(
-        encoding="utf-8"
+    pages = "\n".join(path.read_text(encoding="utf-8") for path in src.rglob("*.tsx")) + "\n".join(
+        path.read_text(encoding="utf-8") for path in src.rglob("*.ts")
     )
+    index = (root / "runtime" / "admin" / "ui" / "index.html").read_text(encoding="utf-8")
     assert "智能助手" in chrome
     assert "声音" in chrome
     assert "高级设置" in chrome

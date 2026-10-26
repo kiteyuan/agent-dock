@@ -50,6 +50,7 @@ def _gpu_info() -> tuple[str | None, float]:
 
 def _memory_gb() -> float:
     if sys.platform == "win32":
+
         class MemoryStatus(ctypes.Structure):
             _fields_ = [
                 ("length", ctypes.c_ulong),
@@ -115,13 +116,13 @@ class HardwareStore:
             return bool(module and current_platform in module.hardware.platforms)
 
         preferred = "pi"
-        agent = preferred if compatible(preferred) else next(
-            (
-                item.id
-                for item in self.catalog.modules_by_kind("agent")
-                if compatible(item.id)
-            ),
-            "",
+        agent = (
+            preferred
+            if compatible(preferred)
+            else next(
+                (item.id for item in self.catalog.modules_by_kind("agent") if compatible(item.id)),
+                "",
+            )
         )
         tts_modules = self.catalog.modules_by_kind("tts")
         cloud = [item.id for item in tts_modules if not item.capabilities.local]
@@ -152,7 +153,9 @@ class HardwareStore:
             "reason": {
                 "agent": "bundled Pi Coding Agent" if agent == "pi" else "available agent",
                 "tts": "no local model" if tts in cloud else "local engine",
-                "stt": "SenseVoice prioritizes Chinese" if stt == "sensevoice" else "low-memory fallback",
+                "stt": "SenseVoice prioritizes Chinese"
+                if stt == "sensevoice"
+                else "low-memory fallback",
             },
         }
 

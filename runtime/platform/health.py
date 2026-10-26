@@ -173,16 +173,12 @@ class HealthStore:
 
     def snapshot(self) -> dict[str, HealthState]:
         with self._lock:
-            return {
-                key: value.model_copy(deep=True)
-                for key, value in self._states.items()
-            }
+            return {key: value.model_copy(deep=True) for key, value in self._states.items()}
 
     def refresh(self, target_ids: Iterable[str] | None = None) -> None:
         wanted = set(target_ids or [])
         candidates: list[tuple[str, ProbeSpec]] = [
-            (f"service:{spec.id}", spec.health)
-            for spec in self.catalog.sidecars
+            (f"service:{spec.id}", spec.health) for spec in self.catalog.sidecars
         ]
         candidates.extend(
             (f"module:{spec.id}", spec.health)

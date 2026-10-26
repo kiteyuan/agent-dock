@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
-
+from typing import Any
 
 PrintFn = Callable[[str], None]
 
@@ -100,7 +100,9 @@ class TurnView:
 
         if mtype in ("agent.error", "error"):
             self._emit_thinking(final=True)
-            detail = payload.get("content") or payload.get("detail") or payload.get("text") or "error"
+            detail = (
+                payload.get("content") or payload.get("detail") or payload.get("text") or "error"
+            )
             self.print(f"错误：{detail}")
             line = f"错误:{detail}"
             self.last_oled_line = line

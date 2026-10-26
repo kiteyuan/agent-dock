@@ -42,7 +42,9 @@ class _Registry:
 def test_tts_failure_does_not_fall_back_to_edge() -> None:
     registry = _Registry()
     pipeline = BridgePipeline(router=None, tts_registry=registry)  # type: ignore[arg-type]
-    session = Session(session_id="s1", device_id="d1", tts_id="haibara", tts_model="assets/voices/haibara")
+    session = Session(
+        session_id="s1", device_id="d1", tts_id="haibara", tts_model="assets/voices/haibara"
+    )
     sent: list[str] = []
 
     async def send(data: str | bytes) -> None:

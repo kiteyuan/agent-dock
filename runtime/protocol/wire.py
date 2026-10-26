@@ -16,12 +16,14 @@ def encode_dict(msg_type: str, payload: dict[str, Any] | None = None) -> str:
     import time
     import uuid
 
-    return json.dumps({
-        "type": msg_type,
-        "id": uuid.uuid4().hex[:12],
-        "ts": time.time(),
-        "payload": payload or {},
-    })
+    return json.dumps(
+        {
+            "type": msg_type,
+            "id": uuid.uuid4().hex[:12],
+            "ts": time.time(),
+            "payload": payload or {},
+        }
+    )
 
 
 def decode_message(raw: str | bytes) -> DeviceMessage:

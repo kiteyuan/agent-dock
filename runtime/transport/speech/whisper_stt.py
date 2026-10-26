@@ -59,7 +59,9 @@ class WhisperSTT(STTProvider):
         self.language = language or "auto"
         self.beam_size = max(1, int(beam_size))
         self.vad_filter = vad_filter
-        self.code_switch = self.language in (None, "auto", "") if code_switch is None else code_switch
+        self.code_switch = (
+            self.language in (None, "auto", "") if code_switch is None else code_switch
+        )
         if initial_prompt is not None:
             self.initial_prompt = initial_prompt
         elif self.language in (None, "auto", ""):
@@ -110,9 +112,9 @@ class WhisperSTT(STTProvider):
             self.fallback_reason = str(exc)
             self.device = "cpu"
             self._model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
-        self._supports_multilingual = "multilingual" in inspect.signature(
-            self._model.transcribe
-        ).parameters
+        self._supports_multilingual = (
+            "multilingual" in inspect.signature(self._model.transcribe).parameters
+        )
         self.loaded_at = time.time()
         logger.info("Whisper model ready in {:.2f}s ({})", time.perf_counter() - t0, self.device)
 
@@ -134,9 +136,9 @@ class WhisperSTT(STTProvider):
         return {
             "provider": "whisper",
             "ready": ready,
-            "status": "degraded" if ready and self.fallback_reason else (
-                "ready" if ready else "cold"
-            ),
+            "status": "degraded"
+            if ready and self.fallback_reason
+            else ("ready" if ready else "cold"),
             "model": self.model_name,
             "requested_device": self.requested_device,
             "device": self.device,
@@ -188,7 +190,9 @@ class WhisperSTT(STTProvider):
             from faster_whisper.vad import VadOptions, get_speech_timestamps
         except ImportError:
             text, info = self._transcribe_input(source)
-            logger.info("STT (no vad split) lang={} text={!r}", getattr(info, "language", "?"), text)
+            logger.info(
+                "STT (no vad split) lang={} text={!r}", getattr(info, "language", "?"), text
+            )
             return text
 
         pcm = decode_audio(source, sampling_rate=16000)
@@ -250,7 +254,9 @@ class WhisperSTT(STTProvider):
                     self._fallback_cpu(exc)
                     source.seek(0)
                     text = self._transcribe_source(source)
-                logger.info("STT took {:.2f}s ({} bytes audio)", time.perf_counter() - t0, len(audio))
+                logger.info(
+                    "STT took {:.2f}s ({} bytes audio)", time.perf_counter() - t0, len(audio)
+                )
                 return text
             finally:
                 source.close()

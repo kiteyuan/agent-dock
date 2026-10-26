@@ -241,9 +241,7 @@ def _dispatch(runtime: Any, name: str, args: dict[str, Any]) -> Any:
             args.get("enabled") is True,
         )
     if name == "jobs_list":
-        return {
-            "jobs": [job.model_dump(mode="json") for job in runtime.lifecycle.jobs()]
-        }
+        return {"jobs": [job.model_dump(mode="json") for job in runtime.lifecycle.jobs()]}
     if name == "job_cancel":
         job_id = str(args.get("job_id") or "").strip()
         if not job_id:

@@ -14,9 +14,7 @@ def main() -> None:
     parser.add_argument("--provider", required=True)
     parser.add_argument("--module-dir")
     args = parser.parse_args()
-    module_dir = Path(
-        args.module_dir or os.environ.get("AGENTDOCK_MODULE_DIR") or "."
-    ).resolve()
+    module_dir = Path(args.module_dir or os.environ.get("AGENTDOCK_MODULE_DIR") or ".").resolve()
     module_dir.mkdir(parents=True, exist_ok=True)
     os.environ["AGENTDOCK_MODULE_DIR"] = str(module_dir)
     engine = create_engine(args.provider)

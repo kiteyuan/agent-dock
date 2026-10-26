@@ -6,12 +6,7 @@ import re
 
 # Common emoji / pictographs (broad BMP + supplemental ranges used in chat replies)
 _EMOJI_RE = re.compile(
-    "["
-    "\U0001F300-\U0001F9FF"
-    "\U0001FA00-\U0001FAFF"
-    "\U00002600-\U000027BF"
-    "\U0001F1E0-\U0001F1FF"
-    "]+",
+    "[\U0001f300-\U0001f9ff\U0001fa00-\U0001faff\U00002600-\U000027bf\U0001f1e0-\U0001f1ff]+",
     flags=re.UNICODE,
 )
 

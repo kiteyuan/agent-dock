@@ -51,9 +51,7 @@ def _pipeline(agent: AgentAdapter) -> BridgePipeline:
 def test_run_turn_excludes_current_user_from_context() -> None:
     agent = _ScriptedAgent(
         [
-            AgentEvent(
-                type=AgentEventType.MESSAGE, session_id="s", content="hi", speak=False
-            ),
+            AgentEvent(type=AgentEventType.MESSAGE, session_id="s", content="hi", speak=False),
             AgentEvent(type=AgentEventType.DONE, session_id="s"),
         ]
     )
@@ -100,9 +98,7 @@ def test_run_turn_persists_completed_transcript(tmp_path) -> None:
 
     agent = _ScriptedAgent(
         [
-            AgentEvent(
-                type=AgentEventType.MESSAGE, session_id="s", content="答", speak=False
-            ),
+            AgentEvent(type=AgentEventType.MESSAGE, session_id="s", content="答", speak=False),
             AgentEvent(type=AgentEventType.DONE, session_id="s"),
         ]
     )
@@ -125,9 +121,7 @@ def test_run_turn_skips_persist_on_cancel(tmp_path) -> None:
 
     agent = _ScriptedAgent(
         [
-            AgentEvent(
-                type=AgentEventType.MESSAGE, session_id="s", content="半截", speak=False
-            ),
+            AgentEvent(type=AgentEventType.MESSAGE, session_id="s", content="半截", speak=False),
             AgentEvent(type=AgentEventType.CANCEL, session_id="s"),
         ]
     )
@@ -145,9 +139,7 @@ def test_run_turn_skips_persist_on_cancel(tmp_path) -> None:
 
 
 def test_tts_model_clears_when_provider_changes() -> None:
-    pipeline = _pipeline(
-        _ScriptedAgent([AgentEvent(type=AgentEventType.DONE, session_id="s")])
-    )
+    pipeline = _pipeline(_ScriptedAgent([AgentEvent(type=AgentEventType.DONE, session_id="s")]))
     session = Session(session_id="s", device_id="d", tts_id="edge", tts_model="zh-CN-X")
     pipeline._apply_tts_selection(session, tts_id="Haibara", tts_model=None)
     assert session.tts_id == "Haibara"

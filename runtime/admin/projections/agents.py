@@ -21,9 +21,7 @@ def project_agents(host: Any, services: dict[str, dict[str, Any]]) -> list[dict[
         running = bool(service.get("healthy"))
         authenticated = (service.get("data") or {}).get("authenticated")
         configuration = host.agent_configs.public(spec.id)
-        configuration["configured"] = bool(
-            configuration["configured"] or authenticated is True
-        )
+        configuration["configured"] = bool(configuration["configured"] or authenticated is True)
         ready = (
             registered
             and installed
@@ -47,32 +45,25 @@ def project_agents(host: Any, services: dict[str, dict[str, Any]]) -> list[dict[
                 "configured": configuration["configured"],
                 "region": spec.region,
                 "ready": ready,
-                "status": "ready" if ready else (
+                "status": "ready"
+                if ready
+                else (
                     "missing"
                     if not installed or not registered
-                    else (
-                        "unconfigured"
-                        if not configuration["configured"]
-                        else "stopped"
-                    )
+                    else ("unconfigured" if not configuration["configured"] else "stopped")
                 ),
-                "is_default": host.runtime.router.default_agent_id
-                == (spec.registry_id or spec.id),
+                "is_default": host.runtime.router.default_agent_id == (spec.registry_id or spec.id),
                 "sidecar_id": spec.sidecar_id,
                 "port": service.get("port"),
                 "address": (
-                    f"http://127.0.0.1:{service.get('port')}"
-                    if service.get("port")
-                    else ""
+                    f"http://127.0.0.1:{service.get('port')}" if service.get("port") else ""
                 ),
                 "can_prepare": (not installed) and spec.install.kind != "none",
                 "installable": spec.install.kind != "none",
                 "can_start": registered and installed and not running,
                 "can_stop": bool(service.get("can_stop")),
                 "can_default": registered,
-                "detail": agent_detail(
-                    registered, installed, running, install_detail
-                ),
+                "detail": agent_detail(registered, installed, running, install_detail),
             }
         )
     return items

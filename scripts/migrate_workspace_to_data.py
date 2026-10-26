@@ -163,9 +163,7 @@ def migrate(*, dry_run: bool, purge: bool, workspace: Path | None) -> int:
             if name in STATE_NAMES and (state / name).is_file():
                 actions.extend(_rm_tree(leftover, dry_run=dry_run))
             elif name == ".mcp.json":
-                actions.extend(
-                    _move_or_copy_file(leftover, vault / ".mcp.json", dry_run=dry_run)
-                )
+                actions.extend(_move_or_copy_file(leftover, vault / ".mcp.json", dry_run=dry_run))
             elif purge:
                 actions.extend(_rm_tree(leftover, dry_run=dry_run))
 
@@ -174,8 +172,7 @@ def migrate(*, dry_run: bool, purge: bool, workspace: Path | None) -> int:
     if not dry_run:
         version_path.parent.mkdir(parents=True, exist_ok=True)
         version_path.write_text(
-            json.dumps({"version": LAYOUT_VERSION}, ensure_ascii=False, indent=2)
-            + "\n",
+            json.dumps({"version": LAYOUT_VERSION}, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
 

@@ -150,6 +150,7 @@ def migrate_notes_dir(cfg: dict[str, Any] | None = None) -> list[str]:
     vault = resolve_vault(cfg, ensure=True)
     notes = vault / NOTES_DIR_NAME
     actions: list[str] = []
+
     def _on_disk_name(path: Path) -> str | None:
         """Real directory name as stored by the filesystem (Windows casing)."""
         try:
@@ -278,9 +279,8 @@ def _migrate_layout_locked(
             old_workspace = candidate.resolve()
 
     # Re-enter if version says v2 but legacy workspace still holds state files.
-    needs_workspace = (
-        old_workspace.is_dir()
-        and any((old_workspace / name).is_file() for name in _KNOWN_STATE)
+    needs_workspace = old_workspace.is_dir() and any(
+        (old_workspace / name).is_file() for name in _KNOWN_STATE
     )
     if current >= LAYOUT_VERSION and not needs_workspace:
         return report

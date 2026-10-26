@@ -37,11 +37,7 @@ class FunASREngine(LazyEngine):
     def _load(self) -> Any:
         from funasr import AutoModel
 
-        model = (
-            "iic/SenseVoiceSmall"
-            if self.provider == "sensevoice"
-            else "paraformer-zh"
-        )
+        model = "iic/SenseVoiceSmall" if self.provider == "sensevoice" else "paraformer-zh"
         model = os.environ.get(f"{self.provider.upper()}_MODEL", model)
         kwargs: dict[str, Any] = {
             "model": model,

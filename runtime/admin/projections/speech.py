@@ -39,9 +39,9 @@ def project_tts(host: Any, services: dict[str, dict[str, Any]]) -> dict[str, Any
                 "installed": installed,
                 "install_detail": install_detail,
                 "ready": ready and installed and (bool(matching) or local),
-                "status": "ready" if ready and installed and (matching or local) else (
-                    "missing" if not installed else "stopped"
-                ),
+                "status": "ready"
+                if ready and installed and (matching or local)
+                else ("missing" if not installed else "stopped"),
                 "sidecar_id": spec.sidecar_id,
                 "port": port,
                 "address": f"http://127.0.0.1:{port}" if port else "",
@@ -106,11 +106,7 @@ def project_stt(host: Any, services: dict[str, dict[str, Any]]) -> dict[str, Any
     for spec in host.catalog.modules_by_kind("stt"):
         metadata = provider_metadata(host, spec)
         installed, detail = module_installed(host, spec.id, spec.install.cwd)
-        service = (
-            host.health.get(f"service:{spec.sidecar_id}")
-            if spec.sidecar_id
-            else None
-        )
+        service = host.health.get(f"service:{spec.sidecar_id}") if spec.sidecar_id else None
         sidecar = host.catalog.sidecar(spec.sidecar_id) if spec.sidecar_id else None
         port = sidecar.port if sidecar else None
         providers.append(

@@ -32,9 +32,7 @@ def test_placeholder_comes_from_catalog_not_a_hardcoded_name(tmp_path: Path) -> 
     spec = ModuleCatalog.load({}).module("gpt-sovits")
     assert spec is not None and spec.bundle is not None
     runtime = _runtime(tmp_path)
-    engines = {
-        item["id"]: item for item in runtime.snapshot.build().modules["tts"]["engines"]
-    }
+    engines = {item["id"]: item for item in runtime.snapshot.build().modules["tts"]["engines"]}
     folder = tmp_path / "home" / "installs" / spec.bundle.directory
     assert folder.is_dir()
     assert (folder / spec.bundle.note_file).is_file()

@@ -44,8 +44,7 @@ class VoiceCatalog:
     def sync(self, registry: TTSRegistry, catalog: ModuleCatalog) -> None:
         specs = _load_records(self.root, catalog)
         signature = tuple(
-            (item.id, item.complete, _mtime(self.root / item.id / "voice.yaml"))
-            for item in specs
+            (item.id, item.complete, _mtime(self.root / item.id / "voice.yaml")) for item in specs
         )
         if signature == self._signature:
             return
@@ -161,9 +160,7 @@ def _load_one(folder: Path, catalog: ModuleCatalog) -> VoiceRecord:
 
 
 def _missing_assets(folder: Path, pack: VoicePackSpec, meta: dict[str, Any]) -> list[str]:
-    missing = [
-        field for field in pack.required_fields if not str(meta.get(field) or "").strip()
-    ]
+    missing = [field for field in pack.required_fields if not str(meta.get(field) or "").strip()]
     for item in pack.files:
         relative = _lookup(meta, item.id) or item.default
         if not (folder / relative).is_file():

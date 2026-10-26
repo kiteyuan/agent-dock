@@ -5,9 +5,7 @@ from pathlib import Path
 
 from runtime.platform.catalog import ModuleCatalog
 
-_GATEWAY = (
-    Path(__file__).resolve().parents[1] / "agents" / "pi-coding" / "gateway.py"
-)
+_GATEWAY = Path(__file__).resolve().parents[1] / "agents" / "pi-coding" / "gateway.py"
 
 
 def _gateway():

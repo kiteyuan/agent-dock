@@ -45,4 +45,3 @@ def test_hardware_recommends_pi(tmp_path) -> None:
     }
     rec = store.recommendations()
     assert rec["agent"] == "pi"
-

@@ -99,9 +99,7 @@ def main() -> None:
 
     tag = _cuda_tag()
     index = (
-        f"https://download.pytorch.org/whl/{tag}"
-        if tag
-        else "https://download.pytorch.org/whl/cpu"
+        f"https://download.pytorch.org/whl/{tag}" if tag else "https://download.pytorch.org/whl/cpu"
     )
     cmd = _install_cmd(index)
     print(f"installing torch via {index} ({cmd[0]})")

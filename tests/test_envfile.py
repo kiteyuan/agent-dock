@@ -11,10 +11,7 @@ from runtime.envfile import load_env_file
 def test_load_env_file_sets_missing_only(tmp_path: Path, monkeypatch) -> None:
     path = tmp_path / ".env"
     path.write_text(
-        "# comment\n"
-        "FOO=bar\n"
-        "export BAZ=qux\n"
-        "QUOTED=\"hi there\"\n",
+        '# comment\nFOO=bar\nexport BAZ=qux\nQUOTED="hi there"\n',
         encoding="utf-8",
     )
     monkeypatch.setenv("FOO", "from-shell")

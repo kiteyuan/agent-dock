@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
@@ -17,11 +21,18 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/d3-force": "^3.0.10",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^17.13.0",
+    "jsdom": "^26.1.0",
     "typescript": "~5.7.2",
-    "vite": "^6.1.0"
+    "typescript-eslint": "^8.72.1",
+    "vite": "^6.1.0",
+    "vitest": "^3.2.7"
   }
 }
