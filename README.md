@@ -23,7 +23,7 @@ runtime/          # 后端：协议、会话、Agent、STT/TTS、Admin
 desktop/          # 本机桌宠 Tauri（置顶透明窗；不是 clients）
 clients/          # 远程壳（手机等够不着 Runtime 时才需要）
   mobile/         # Flutter 远程壳（手机为主；Win·mac 壳仅手动/标签构建）
-  cli/            # 调试 CLI（--ui 也可打开桌宠）
+  cli/            # 调试 CLI（`--ui` 已废弃，桌宠用 scripts/start.* / desktop/）
   shared/         # 协议 / 状态机
 agents/           # 内置 Pi（pi-coding）+ demo 联调
 catalog/          # 能力声明（pi / tts / stt / pets）
@@ -61,7 +61,7 @@ clients/mobile (壳) ──┼──WebSocket──►  runtime  ──►  Pi /
 cp config.cuda.example.yaml config.local.yaml   # gitignored；启动时自动合并
 ```
 
-环境变量模板：复制 [`.env.example`](./.env.example) 为 `.env` 后按需导出。
+环境变量模板：复制 [`.env.example`](./.env.example) 为 `.env`；Runtime 启动时自动加载（已在 shell 中设置的变量优先）。
 
 ### 本机启动（完整功能 · 推荐）
 
@@ -160,7 +160,7 @@ python clients/cli/main.py --text "你好" --agent http
 |------|------|------|
 | **本机桌宠** | [`desktop/`](./desktop/) | Tauri 置顶透明窗（`web/` 也可浏览器回退） |
 | 远程壳 | [`clients/mobile/`](./clients/mobile/) | Flutter 手机远程操控宿主 Runtime；连 `ws://主机:8765` |
-| 调试 CLI | [`clients/cli/`](./clients/cli/) | `--chat` / `--text`；`--ui` 也可开桌宠 |
+| 调试 CLI | [`clients/cli/`](./clients/cli/) | `--chat` / `--text`（`--ui` 已废弃 → `scripts/start.*`） |
 
 ```bash
 python -m desktop

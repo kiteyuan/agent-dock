@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
-/// Record 16 kHz mono WAV for Runtime STT (same as web client).
+/// Record 16 kHz mono WAV for Runtime STT (same as host desk pet).
 class WavRecorder {
   final AudioRecorder _rec = AudioRecorder();
   String? _path;

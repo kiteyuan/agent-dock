@@ -25,7 +25,7 @@ def build_agent_instructions(
         "你经 AgentDock 接到用户设备（语音/文字）。下面是 Runtime 能力边界，勿假设自己就是 Runtime。",
         "",
         f"- workspace：本回合工作目录 = 用户 vault（知识库根）：{ws}",
-        f"- 笔记：Markdown 在 notes/ 下（双链 [[wikilink]]）。目录：{notes or 'workspace/notes/'}",
+        f"- 笔记：Markdown 在 notes/ 下（双链 [[wikilink]]）。目录：{notes or 'data/vault/notes/'}",
         "  可用文件工具直接读写；Admin「图谱」只是可视化，不是另一套 API。",
         "- MCP：若已加载服务器 agentdock，用其工具做控制面与笔记检索：",
         "  runtime_status / list_modules / set_default / module_lifecycle、",

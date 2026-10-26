@@ -40,4 +40,4 @@
 | Win / mac 远程壳窗 | 仅 `workflow_dispatch` 或 tag `client-v*`（宿主桌宠是 Tauri，不是 Flutter） |
 | 本机桌宠（本体） | `desktop/` Tauri；`scripts/start.*` |
 
-第三方语音/模型边界见根目录 [`NOTICE`](../NOTICE)。
+第三方语音/模型边界见根目录 [`NOTICE`](../NOTICE)。安全边界（Admin loopback、桌宠 token、侧载证书）见 [`SECURITY.md`](./SECURITY.md)。

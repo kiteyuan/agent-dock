@@ -6,7 +6,7 @@
 # |--------|----------------|
 # | `js/dom.js` | `$` helper |
 # | `js/protocol.js` | Device Protocol envelope |
-# | `js/prefs.js` | localStorage connection + device id |
+# | `js/prefs.js` | localStorage URL + device id; token only for loopback WS |
 # | `js/text.js` | normalizeReply / renderMarkdown / process clip |
 # | `js/wav.js` | PCM → WAV + resample |
 # | `js/store.js` | shared mutable state + UI hooks |
