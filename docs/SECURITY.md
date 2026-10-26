@@ -8,6 +8,13 @@ Short operational guidance. Not a full threat model.
 - Desk-pet console = External WebView on **`http://127.0.0.1:8767/`** (Dist from `desktop/web/console`) + host `admin_api` invoke with a **strict method/path allowlist** → `http://127.0.0.1:8766/api/v1/...`. Capabilities pin `remote.urls` to that fixed port (no wildcard ports).
 - Optional `AGENTDOCK_ADMIN_TOKEN` for non-loopback Admin API access when you deliberately expose it (see `.env.example`). Prefer Tailscale / SSH tunnel over opening Admin API on `0.0.0.0`.
 - Mutating Admin API calls from browsers still require same-origin / loopback Origin signals; the host proxy (no fetch metadata) is treated like local tooling.
+- Admin HTTP (`:8766`, aiohttp on the Runtime loop) caps request bodies at 1 MiB (413) and sends `nosniff` / `X-Frame-Options: DENY` / `Referrer-Policy: no-referrer`, plus `default-src 'none'` CSP on `/api` and `/mcp`.
+
+## Desk-pet WebViews
+
+- The pet window has a Tauri CSP (`tauri.conf.json`): scripts only from the app bundle (`script-src 'self'`, no inline / eval), no plugins, no framing, no form posts. Images / media / connect stay open to `http(s):` because the user can point the pet at any Runtime host.
+- The console origin (`:8767`) gets a stricter CSP header from `console_server.rs` (images only from `:8766`, connect only to Tauri IPC).
+- `withGlobalTauri` stays **on** on purpose: the pet is vanilla JS without a bundler, and Tauri always injects `__TAURI_INTERNALS__` anyway, so turning it off would not reduce what injected script can reach. The real boundary is CSP (blocks injected script) + capabilities (`capabilities/*.json` scope which commands each window may invoke).
 - Desk pet **owns** the Runtime child when it starts it (`python -m runtime`); exit / tray quit stops only a pet-spawned Runtime. Pre-existing or `AGENTDOCK_EXTERNAL_RUNTIME=1` Runtime is left alone.
 
 ## Device WebSocket

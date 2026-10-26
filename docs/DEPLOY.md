@@ -22,8 +22,8 @@ AgentDock 默认内置 **Pi Coding**（`agents/pi-coding`），不再提供多 C
 
 ## 最短路径
 
-1. 安装 **Python ≥ 3.10** 与 **Node.js LTS**（只要 `npm`）  
-2. `pip install -e .` → `.\scripts\start.ps1` / `./scripts/start.sh`（默认启桌宠；pet 拉起 Runtime）  
+1. 安装 **Python ≥ 3.10**、[**uv**](https://docs.astral.sh/uv/) 与 **Node.js LTS**（只要 `npm`）  
+2. `uv sync --extra stt`（按 `uv.lock` 装到 `.venv`；无 uv 时 `pip install -r requirements.txt`）→ `.\scripts\start.ps1` / `./scripts/start.sh`（默认启桌宠；pet 拉起 Runtime）  
 3. 桌宠托盘 / `Ctrl+Shift+A` / `-Admin` 打开**控制台窗** → 智能助手 → 填 API Key → 启动  
 4. 对着桌宠说话 / 打字；需要时再装 `clients/mobile` 连 `ws://主机:8765`
 

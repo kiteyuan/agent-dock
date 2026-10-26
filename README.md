@@ -86,8 +86,8 @@ chmod +x scripts/start.sh scripts/stop.sh
 
 ```bash
 # 或手动（仍需另开桌宠：cd desktop && npm run dev）
-pip install -e ".[dev]"
-python -m runtime
+uv sync --extra stt              # 按 uv.lock 装依赖到 .venv；不要本地语音识别可去掉 --extra stt
+uv run python -m runtime
 # 控制台是桌宠第二窗（Ctrl+Shift+A），不是单独的「网页后台」
 ```
 
@@ -117,8 +117,8 @@ DPAPI 加密后写入 `data/state/agent-secrets.json`。
 
 ```bash
 # Runtime 后台（设备 WS :8765 + 控制台/人物 HTTP :8766）
-pip install -e .
-python -m runtime
+uv sync --extra stt
+uv run python -m runtime
 # 控制台 = 桌宠应用第二窗（Ctrl+Shift+A）— 服务启停 / 设备 / Agent / TTS
 
 # 桌宠壳（Runtime 已在跑时；二者同属宿主产品）
@@ -129,6 +129,25 @@ cd clients/cli
 pip install -r requirements.txt
 python main.py --chat --agent pi
 python main.py --text "帮我整理桌面的文件"
+```
+
+## 开发与质量门禁
+
+- Python 依赖由 `uv.lock` 锁定（`.python-version` = 3.11）；`requirements.txt` 由
+  `uv export --no-dev --extra stt --no-emit-project -o requirements.txt` 生成，勿手改。
+  桌宠拉起 Runtime 时优先用 `AGENTDOCK_PYTHON`，其次仓库 `.venv`，最后 `python`。
+- 设备协议唯一来源：[`protocol/device.schema.json`](./protocol/device.schema.json)。改完运行
+  `uv run python scripts/gen_protocol.py` 生成 Python / JS / Dart 绑定（CI 用 `--check` 防漂移）。
+- 控制台 Dist（`desktop/web/console`）不入库，由 Tauri `beforeDevCommand` / `beforeBuildCommand`
+  调 `npm run build:console` 构建；也可手动 `cd desktop && npm run build:console`。
+- 本地门禁：`uv run pre-commit install` 一次后，每次提交自动跑 ruff、协议漂移、控制台
+  tsc/eslint/vitest、桌宠 checkJs/vitest、`cargo fmt`。
+
+```bash
+uv run ruff check runtime tests scripts clients/shared && uv run pytest tests -q
+npm --prefix runtime/admin/ui run check
+npm --prefix desktop run check
+cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
 ```
 
 ## 接入公网 / 自建 Agent
