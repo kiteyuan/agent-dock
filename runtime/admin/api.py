@@ -1,15 +1,13 @@
-"""Admin write and read routes. HTTP transport stays in http_server."""
+"""Admin write and read routes. HTTP transport stays in http_server.
+
+Only `/api/v1/*` is supported (pre-v1 aliases removed).
+"""
 
 from __future__ import annotations
 
 from http import HTTPStatus
 from typing import Any
 from urllib.parse import parse_qs, urlparse
-
-from loguru import logger
-
-# Soft sunset for pre-/api/v1 aliases (still served; Admin UI already uses v1).
-_LEGACY_SUNSET = "Sat, 01 Aug 2026 00:00:00 GMT"
 
 
 def api_get(host: Any, path: str) -> None:
@@ -60,56 +58,7 @@ def api_get(host: Any, path: str) -> None:
             host._json(HTTPStatus.OK, job.model_dump(mode="json"))
         return
 
-    aliases: dict[str, Any] = {
-        "/api/status": {
-            "ok": True,
-            "agents": {"default": snapshot["defaults"]["agent"]},
-            "tts": {"default": snapshot["defaults"]["tts"]},
-            "stt": snapshot["modules"]["stt"],
-            "devices_online": snapshot["counts"]["devices_online"],
-            "sessions_active": snapshot["counts"]["sessions_active"],
-            "workspace": snapshot["meta"]["workspace"],
-        },
-        "/api/modules": {
-            **snapshot["modules"],
-            "services": snapshot["services"],
-        },
-        "/api/agents": {
-            "default": snapshot["defaults"]["agent"],
-            "agents": snapshot["modules"]["agents"],
-        },
-        "/api/tts": snapshot["modules"]["tts"],
-        "/api/stt": snapshot["modules"]["stt"],
-        "/api/pets": snapshot["modules"]["pets"],
-        "/api/services": {"services": snapshot["services"]},
-        "/api/ports": {
-            "ports": [
-                {
-                    "id": item["id"],
-                    "name": item["name"],
-                    "port": item["port"],
-                    "listening": item["healthy"],
-                }
-                for item in snapshot["services"]
-            ]
-        },
-        "/api/devices": {"devices": snapshot["devices"]},
-        "/api/sessions": {"sessions": snapshot["sessions"]},
-    }
-    payload = aliases.get(path)
-    if payload is None:
-        host._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "not found"})
-        return
-    logger.warning(
-        "Admin legacy GET {} — migrate to /api/v1/snapshot (sunset {})",
-        path,
-        _LEGACY_SUNSET,
-    )
-    host.send_response(HTTPStatus.OK)
-    host.send_header("Deprecation", "true")
-    host.send_header("Sunset", _LEGACY_SUNSET)
-    host.send_header("Link", '</api/v1/snapshot>; rel="successor-version"')
-    host._write_json_headers(payload)
+    host._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "not found"})
 
 
 def api_post(host: Any, path: str, body: dict[str, Any]) -> None:
@@ -206,12 +155,6 @@ def api_post(host: Any, path: str, body: dict[str, Any]) -> None:
     if path == "/api/v1/defaults/pet":
         set_default(host, runtime, "pet", body.get("id"))
         return
-    if path == "/api/agent/default":
-        set_default(host, runtime, "agent", body.get("agent_id"))
-        return
-    if path == "/api/tts/default":
-        set_default(host, runtime, "tts", body.get("tts_id"))
-        return
     if path.startswith("/api/v1/jobs/") and path.endswith("/cancel"):
         job_id = path[len("/api/v1/jobs/") : -len("/cancel")]
         ok = runtime.lifecycle.cancel(job_id)
@@ -275,12 +218,7 @@ def api_post(host: Any, path: str, body: dict[str, Any]) -> None:
         )
         return
 
-    if path == "/api/v1/pets/import" or path == "/api/pets/import":
-        if path == "/api/pets/import":
-            logger.warning(
-                "Admin legacy POST /api/pets/import — use /api/v1/pets/import (sunset {})",
-                _LEGACY_SUNSET,
-            )
+    if path == "/api/v1/pets/import":
         target = str(body.get("id") or "").strip()
         result = runtime.lifecycle.submit(
             "import_pet",
@@ -293,29 +231,15 @@ def api_post(host: Any, path: str, body: dict[str, Any]) -> None:
         )
         return
 
-    action_target = legacy_action(path, body)
-    if action_target:
-        action, target = action_target
-        logger.warning(
-            "Admin legacy POST {} — use /api/v1/modules/... (sunset {})",
-            path,
-            _LEGACY_SUNSET,
-        )
-        result = runtime.lifecycle.submit(action, target, options=body)
-        host._json(
-            HTTPStatus.ACCEPTED if result.ok else HTTPStatus.BAD_REQUEST,
-            result.model_dump(mode="json"),
-        )
-        return
-
-    if path.startswith("/api/devices/") and path.endswith("/disconnect"):
-        device_id = path[len("/api/devices/") : -len("/disconnect")]
+    if path.startswith("/api/v1/devices/") and path.endswith("/disconnect"):
+        device_id = path[len("/api/v1/devices/") : -len("/disconnect")]
         _schedule(host, runtime.gateway.disconnect_device(device_id), device_id=device_id)
         return
-    if path.startswith("/api/sessions/") and path.endswith("/cancel"):
-        session_id = path[len("/api/sessions/") : -len("/cancel")]
+    if path.startswith("/api/v1/sessions/") and path.endswith("/cancel"):
+        session_id = path[len("/api/v1/sessions/") : -len("/cancel")]
         _schedule(host, runtime.gateway.cancel_session(session_id), session_id=session_id)
         return
+
     host._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "not found"})
 
 
@@ -327,23 +251,6 @@ def set_default(host: Any, runtime: Any, kind: str, raw: Any) -> None:
         host._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
         return
     host._json(HTTPStatus.OK, {"ok": True, "default": value})
-
-
-def legacy_action(path: str, body: dict[str, Any]) -> tuple[str, str] | None:
-    mapping = {
-        "/api/agents/prepare": ("prepare", str(body.get("agent_id") or "")),
-        "/api/agents/start": ("start", str(body.get("agent_id") or "")),
-        "/api/agents/stop": ("stop", str(body.get("agent_id") or "")),
-        "/api/tts/engine/start": ("start", str(body.get("engine_id") or "")),
-        "/api/tts/engine/stop": ("stop", str(body.get("engine_id") or "")),
-    }
-    if path in mapping:
-        return mapping[path]
-    if path.startswith("/api/services/"):
-        parts = path.strip("/").split("/")
-        if len(parts) == 4 and parts[-1] in ("start", "stop"):
-            return parts[-1], parts[-2]
-    return None
 
 
 def restart_owned_agent(runtime: Any, module_id: str) -> tuple[str | None, bool]:

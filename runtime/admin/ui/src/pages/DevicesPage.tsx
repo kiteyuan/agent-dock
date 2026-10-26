@@ -50,7 +50,7 @@ export function DevicesPage({
                     icon={<DisconnectOutlined />}
                     onClick={() =>
                       guard(async () => {
-                        await api(`/api/devices/${encodeURIComponent(id)}/disconnect`, {
+                        await api(`/api/v1/devices/${encodeURIComponent(id)}/disconnect`, {
                           method: "POST",
                           body: "{}",
                         });

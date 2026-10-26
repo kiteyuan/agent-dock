@@ -75,8 +75,7 @@ Node/npm）。Admin「智能助手」里配置 API Key 后启动 gateway 即可�
 - `POST /api/v1/defaults/<agent|tts|stt>`：设置并持久化默认项。
 - `POST /api/v1/pets/import`：后台导入人物文件或 zip。
 
-旧读接口（`/api/status`、`/api/agents` 等）仍是无探测兼容别名，返回
-`Deprecation: true` 与 `Sunset: 2026-08-01`；请改用 `/api/v1/*`。计划在该日期后删除别名。
+Admin 只接受 `/api/v1/*`（旧 `/api/status` 等别名已删除）。
 
 ## 安全边界
 
