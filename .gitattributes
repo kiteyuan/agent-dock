@@ -1,0 +1,31 @@
+# Normalize every text file to LF in the repo (and on checkout).
+* text=auto eol=lf
+
+# Windows-only launchers must keep CRLF.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# Binary assets — never diff or normalize.
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.webp   binary
+*.ico    binary
+*.icns   binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.wav    binary
+*.mp3    binary
+*.zip    binary
+
+# Generated files: collapse in diffs and exclude from language stats.
+# Protocol bindings come from protocol/device.schema.json via scripts/gen_protocol.py.
+*.lock                                        linguist-generated=true
+package-lock.json                             linguist-generated=true
+runtime/protocol/_generated.py                linguist-generated=true
+clients/shared/protocol_gen.py                linguist-generated=true
+desktop/web/js/protocol.gen.js                linguist-generated=true
+clients/mobile/lib/protocol/protocol.gen.dart linguist-generated=true

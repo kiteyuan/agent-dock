@@ -6,20 +6,31 @@ readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
-    "websockets>=12.0",
-    "pydantic>=2.0",
-    "pyyaml>=6.0",
-    "loguru>=0.7",
-    "cryptography>=41.0",
-    "faster-whisper>=1.0",
-    "edge-tts>=7.3.1",
+    "websockets>=12.0,<14",
+    "aiohttp>=3.10,<4",
+    "pydantic>=2.0,<3",
+    "pyyaml>=6.0,<7",
+    "loguru>=0.7,<1",
+    "cryptography>=41.0,<47",
+    "edge-tts>=7.3.1,<8",
 ]
 
 [project.optional-dependencies]
-# Explicit speech extras (already covered by main deps; kept for docs / lite forks)
-stt = ["faster-whisper>=1.0"]
-speech = ["faster-whisper>=1.0"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4"]
+# Local Whisper STT (large: ctranslate2 + onnxruntime). Default config enables it;
+# lean installs set `stt.provider: none` or a remote STT.
+stt = ["faster-whisper>=1.0,<2"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "jsonschema>=4.18",
+    "ruff==0.16.5",
+    "pre-commit>=4.0",
+]
+
+[tool.uv]
+default-groups = ["dev"]
 
 [project.scripts]
 runtime = "runtime.main:main"
@@ -44,4 +55,6 @@ ignore = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+addopts = "-ra"

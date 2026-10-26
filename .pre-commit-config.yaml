@@ -1,0 +1,55 @@
+# Install once:  uv tool install pre-commit && pre-commit install
+# Run on demand: pre-commit run --all-files
+default_install_hook_types: [pre-commit]
+exclude: ^(desktop/web/console/|desktop/web/fonts/|.*\.min\.js$)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-json
+        exclude: (tsconfig.*\.json|\.vscode/)
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.5
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: protocol-codegen
+        name: protocol codegen up to date
+        entry: python scripts/gen_protocol.py --check
+        language: system
+        pass_filenames: false
+        files: ^(protocol/|scripts/gen_protocol\.py)
+      - id: admin-ui-check
+        name: admin console typecheck + lint
+        entry: npm --prefix runtime/admin/ui run check
+        language: system
+        pass_filenames: false
+        files: ^runtime/admin/ui/
+      - id: desktop-web-check
+        name: desk-pet web typecheck
+        entry: npm --prefix desktop run check
+        language: system
+        pass_filenames: false
+        files: ^desktop/web/
+      - id: cargo-fmt
+        name: cargo fmt (desktop)
+        entry: cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --check
+        language: system
+        pass_filenames: false
+        files: ^desktop/src-tauri/src/
