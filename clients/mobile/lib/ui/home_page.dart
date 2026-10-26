@@ -22,7 +22,7 @@ class _PendingImage {
   final String name;
 }
 
-/// ChatGPT-like light chat shell (parity with clients/web).
+/// ChatGPT-like light chat shell (parity with host desk-pet UX).
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.session});
 

@@ -22,7 +22,7 @@ AgentDock 是一个开源 **Agent Bridge / Runtime**：通过 Session 与 Event 
 runtime/          # 后端：协议、会话、Agent、STT/TTS、Admin
 desktop/          # 本机桌宠 Tauri（置顶透明窗；不是 clients）
 clients/          # 远程壳（手机等够不着 Runtime 时才需要）
-  mobile/         # Flutter 手机 / 可选 Win·mac 窗
+  mobile/         # Flutter 远程壳（手机为主；Win·mac 壳仅手动/标签构建）
   cli/            # 调试 CLI（--ui 也可打开桌宠）
   shared/         # 协议 / 状态机
 agents/           # 内置 Pi（pi-coding）+ demo 联调
@@ -159,12 +159,12 @@ python clients/cli/main.py --text "你好" --agent http
 | 形态 | 路径 | 说明 |
 |------|------|------|
 | **本机桌宠** | [`desktop/`](./desktop/) | Tauri 置顶透明窗（`web/` 也可浏览器回退） |
-| 手机壳 | [`clients/mobile/`](./clients/mobile/) | Flutter；连 `ws://主机:8765` |
+| 远程壳 | [`clients/mobile/`](./clients/mobile/) | Flutter 手机远程操控宿主 Runtime；连 `ws://主机:8765` |
 | 调试 CLI | [`clients/cli/`](./clients/cli/) | `--chat` / `--text`；`--ui` 也可开桌宠 |
 
 ```bash
 python -m desktop
-cd clients/mobile && flutter run   # 远程壳；多端产物见 GitHub Actions Build Clients
+cd clients/mobile && flutter run   # 远程壳；Android/iOS 见 Build Clients（Win/mac 壳仅手动或 client-v* 标签）
 ```
 
 总览：[`clients/README.md`](./clients/README.md) · [`docs/DEVICES.md`](./docs/DEVICES.md) · [`docs/TECH_PLAN.md`](./docs/TECH_PLAN.md)
@@ -181,4 +181,4 @@ cd clients/mobile && flutter run   # 远程壳；多端产物见 GitHub Actions 
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](./LICENSE) · 第三方语音/模型与再分发说明见 [`NOTICE`](./NOTICE)

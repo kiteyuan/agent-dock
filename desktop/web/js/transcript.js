@@ -19,7 +19,14 @@ function isPetMode() {
 function measurePetStreamHeight(bubble, fullText) {
   const width = Math.max(
     200,
-    Math.min(320, Math.floor(window.innerWidth * 0.92), bubble.clientWidth || 320)
+    (() => {
+      const raw = getComputedStyle(document.documentElement)
+        .getPropertyValue("--pet-bubble-max")
+        .trim();
+      const max = parseFloat(raw);
+      const cap = Number.isFinite(max) && max > 0 ? max : 480;
+      return Math.min(cap, bubble.clientWidth || cap);
+    })()
   );
   const probe = document.createElement("div");
   probe.className = "pet-stream";
@@ -73,8 +80,27 @@ function syncPetBubble() {
   // Before any reply: show the user's question in the reply bubble.
   const awaitingReply =
     turnPending && !String(store.assistantTurnText || "").trim() && !(active && active.text);
-  const text = awaitingReply ? store.pendingUserText : replyText;
-  const asUserPrompt = awaitingReply;
+
+  // Connection / error status — same reply bubble, never the old status chip.
+  const STATUS_COPY = {
+    offline: "未连接",
+    connecting: "连接中…",
+    err: "出错了",
+  };
+  const isStatusMood = mood === "offline" || mood === "connecting" || mood === "err";
+  const statusCopy = STATUS_COPY[mood] || "";
+  // Prefer a real error detail in the transcript; otherwise show the status line.
+  const useStatus =
+    isStatusMood &&
+    (mood !== "err" || !String(replyText || "").trim());
+
+  const text = useStatus
+    ? statusCopy
+    : awaitingReply
+      ? store.pendingUserText
+      : replyText;
+  const asUserPrompt = !useStatus && awaitingReply;
+  const asStatus = useStatus;
 
   const chasing =
     !!store.assistantTurnText &&
@@ -82,10 +108,11 @@ function syncPetBubble() {
     active.text.length < store.assistantTurnText.length;
   const typing =
     !asUserPrompt &&
+    !asStatus &&
     (chasing || (!!store.typeTimer && (mood === "busy" || mood === "speak")));
 
   const footText =
-    store.processLineText && !store.assistantTurnText
+    !asStatus && store.processLineText && !store.assistantTurnText
       ? store.processLineText
       : "";
 
@@ -96,11 +123,12 @@ function syncPetBubble() {
     store.ttsPlayQueue.length > 0;
   const canReplay = store.lastTtsSegments.length > 0;
   // Always show on the reply bubble: stop while playing, else replay last TTS.
-  const showTtsCtrl = !asUserPrompt && (!!String(text || "").trim() || speaking);
+  const showTtsCtrl =
+    !asUserPrompt && !asStatus && (!!String(text || "").trim() || speaking);
 
   if (!String(text || "").trim() && !footText) {
     bubble.hidden = true;
-    bubble.classList.remove("is-typing", "is-prompt", "has-tts-ctrl");
+    bubble.classList.remove("is-typing", "is-prompt", "is-status", "is-wide", "has-tts-ctrl");
     bubble.style.minHeight = "";
     delete bubble.dataset.minH;
     delete bubble.dataset.turnKey;
@@ -114,7 +142,7 @@ function syncPetBubble() {
     return;
   }
 
-  const turnKey = store.bubbleTurnKey || "idle";
+  const turnKey = asStatus ? `status:${mood}` : store.bubbleTurnKey || "idle";
   if (bubble.dataset.turnKey !== turnKey) {
     bubble.dataset.turnKey = turnKey;
     bubble.dataset.minH = "0";
@@ -123,7 +151,15 @@ function syncPetBubble() {
 
   bubble.hidden = false;
   bubble.classList.toggle("is-prompt", asUserPrompt);
-  bubble.classList.toggle("is-typing", typing || !!store.assistantTurnText);
+  bubble.classList.toggle("is-status", asStatus);
+  bubble.classList.toggle("is-err", asStatus && mood === "err");
+  bubble.classList.toggle("is-typing", typing || (!asStatus && !!store.assistantTurnText));
+  // Long replies: force full max width (max-content alone stays skinny in a narrow window).
+  const wide =
+    !asStatus &&
+    !asUserPrompt &&
+    String(text || "").replace(/\s/g, "").length >= 48;
+  bubble.classList.toggle("is-wide", wide || typing);
   bubble.classList.toggle("has-tts-ctrl", showTtsCtrl);
   if (mute) {
     mute.hidden = !showTtsCtrl;
@@ -140,7 +176,10 @@ function syncPetBubble() {
   bodyEl.innerHTML = "";
   if (String(text || "").trim()) {
     const body = document.createElement("div");
-    if (asUserPrompt) {
+    if (asStatus) {
+      body.className = "pet-status";
+      body.textContent = text;
+    } else if (asUserPrompt) {
       body.className = "pet-prompt";
       body.textContent = text;
     } else if (typing) {

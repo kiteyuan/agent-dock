@@ -244,8 +244,8 @@ def main() -> None:
 
     targets = [
         ROOT / "clients" / "shared" / "status-icons.png",
-        ROOT / "clients" / "web" / "status-icons.png",
         ROOT / "clients" / "mobile" / "assets" / "status-icons.png",
+        ROOT / "desktop" / "web" / "status-icons.png",
     ]
     for path in targets:
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -6,10 +6,9 @@
 
 | 路径 | 角色 |
 |------|------|
-| `mobile/` | Flutter 手机（CI 也打 Win/mac 窗，语义仍是「壳」） |
-| `cli/` | 调试 CLI；`--ui` 会打开 `desktop/` |
+| `mobile/` | Flutter **远程壳**（手机为主；Win/mac 壳仅手动/标签 CI） |
+| `cli/` | 调试 CLI；`--ui` 会打开宿主 `desktop/` |
 | `shared/` | Device Protocol helpers |
-| `web/` | 已迁走，仅留跳转说明 |
 
 协议权威：`runtime/protocol/device.py`。自定义角色：[`CUSTOM_ASSETS.md`](./CUSTOM_ASSETS.md)。
 

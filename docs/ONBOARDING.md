@@ -34,12 +34,16 @@ Node/npm）。Admin「智能助手」里配置 API Key 后启动 gateway 即可�
 
 ## 状态与配置
 
-- `config.yaml`：共享部署配置、`paths`、端口和 `autostart`（默认 CPU 友好）。
-- `config.local.yaml`：本机覆盖（gitignore）；与 `config.yaml` 深度合并。GPU 示例见 `config.cuda.example.yaml`。
+配置分三层（不要在 `config.yaml` 里复制整份模块配方）：
+
+1. **安装态** — `config.yaml`：共享部署默认（`paths`、端口、`autostart`、默认 STT/TTS id）。
+2. **本机覆盖** — `config.local.yaml`（gitignore）：与上一层深度合并；GPU 示例见 `config.cuda.example.yaml`。
+3. **运行态** — `data/state/*`：Admin/Runtime 写入的默认项、模块收据与密钥。
+
+**模块能力 SoT** 在 `catalog/catalog.yaml` + `catalog/providers/*.yaml`（版本、安装、许可、探针）。
+
 - `.env.example`：常用环境变量清单（`AGENTDOCK_HOME` / `AGENTDOCK_URL` / token 等）。
 - `examples/`：首启种子（`vault-notes`、`pets/demo`）；不进 `data/`。
-- `catalog/catalog.yaml`：内置模块能力、探针与启动配方。
-- `catalog/providers/*.yaml`：版本、安装步骤、硬件能力和许可证。
 - `data/state/runtime-state.json`：Admin 设置的默认 Agent/TTS/STT 覆盖层。
 - `data/state/module-state.json`：安装收据、版本、摘要与许可证确认。
 - `data/state/agent-settings.json`：统一 LLM 的公开选项，以及每个 Agent 的独立
@@ -54,6 +58,8 @@ Node/npm）。Admin「智能助手」里配置 API Key 后启动 gateway 即可�
 启动时先读 `config.yaml`，再深度合并同目录下的 `config.local.yaml`（若存在），
 最后应用 `data/state/*` 状态覆盖层。覆盖值已失效时会回退并记录告警，
 不会改写共享的 `config.yaml`。
+
+第三方语音/模型再分发与使用边界见根目录 [`NOTICE`](../NOTICE)。
 
 ## API
 

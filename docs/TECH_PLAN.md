@@ -111,7 +111,7 @@ Device → WebSocket → AgentDock → Agent Adapter → Agent
 | WebSocket | ✅ |
 | Session + CancelToken | ✅ |
 | 文本中转 `user.message` | ✅ |
-| STT / TTS | 🟡（可选 Transport，默认关闭） |
+| STT / TTS | ✅（默认开启：Whisper STT + Edge TTS；可换 catalog 模块） |
 | Agent Adapter（Event Stream） | ✅ |
 | Agent Event Stream | ✅ |
 | Agent Registry + `agents.list` | ✅（Discovery 最小可用） |
@@ -316,8 +316,12 @@ Device --text--> AgentDock --events--> Mock Agent --events--> Device
 
 - 智能多 Agent 路由
 - 流式边说边听
-- 官方 iOS/Android App
 - 离线本地 TTS（Piper 等）内置
+
+已交付入口（与「官方 App 未做」旧表述区分）：
+
+- **本机本体**：`desktop/` Tauri 桌宠 + Runtime（`scripts/start.*`）
+- **远程壳**：`clients/mobile/` Flutter（手机为主）
 
 ### Phase 3 — 平台化
 
@@ -333,9 +337,15 @@ Device --text--> AgentDock --events--> Mock Agent --events--> Device
 
 ---
 
-## 8. 硬件客户端（Transport，非核心）
+## 8. 设备入口（Transport，非核心）
 
-官方客户端以 **Mobile / Web / CLI** 为主。任意瘦终端只需实现 Device Protocol：
+产品入口分层：
+
+- **本机本体**：`desktop/`（Runtime 宿主桌宠）— 用户本机安装与对话
+- **远程壳**：`clients/mobile/` — 够不着主机时的远程操控
+- **调试**：`clients/cli/`
+
+任意瘦终端只需实现 Device Protocol：
 
 - Audio / WebSocket / Protocol / UI
 - 不跑 LLM / Agent / STT / TTS

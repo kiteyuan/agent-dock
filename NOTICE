@@ -1,0 +1,67 @@
+# Third-party and redistribution notes
+
+AgentDock itself is licensed under the MIT License (see `LICENSE`).
+
+This file summarizes **runtime dependencies and optional engines** that are
+pulled at install/run time and are **not redistributed inside this git tree**.
+Operators must review each provider’s terms before production or redistribution.
+
+## Built-in defaults (network / downloads)
+
+### Edge TTS (`edge-tts`)
+
+- Default TTS provider in `config.yaml` (`tts.default: edge`).
+- Uses Microsoft online speech services via the `edge-tts` Python package.
+- Catalog marks Edge as non-redistributable; see `catalog/providers/tts.yaml`.
+- Product use implies accepting Microsoft’s applicable service terms for the
+  environment where Runtime runs. Do not bundle Microsoft speech binaries or
+  claim redistribution rights from this repository alone.
+
+### OpenAI Whisper (faster-whisper / related)
+
+- Default STT provider (`stt.provider: whisper`).
+- Model weights download into local cache on first use (size depends on
+  `stt.whisper.model`).
+- Review Hugging Face / OpenAI Whisper model cards and licenses for the chosen
+  checkpoint before commercial redistribution of weights or derived artifacts.
+- Weights are gitignored; do not commit `.bin` / `.pt` / similar blobs.
+
+## Optional modules (user-installed)
+
+These appear in `catalog/providers/*.yaml` and may require explicit license
+acceptance in Admin before install:
+
+- **GPT-SoVITS** — local TTS stack; often via Docker image or local install under
+  `data/installs/`. Image tags and model packs are third-party; pin digests in
+  production and respect upstream licenses.
+- **SenseVoice / FunASR (Paraformer, etc.)** — optional STT from ModelScope /
+  related ecosystems; downloads occur on prepare/warm. Follow ModelScope and
+  model-card terms; Admin `requires_acceptance` is a product gate, not a legal
+  substitute for reading the license.
+
+## Pets / demo assets
+
+- Host pet packs under `assets/pets/` (local) and seed demo under
+  `examples/pets/demo/` — check each pack’s own attribution if you redistribute
+  outside personal use.
+
+## Telemetry / LLM backends
+
+- The built-in Pi assistant (`agents/pi-coding`) and Admin-configured LLM
+  providers send prompts to **third-party model APIs** you choose (keys stored
+  in `data/state/agent-secrets.json`, encrypted on Windows via DPAPI where
+  available).
+- Review each provider’s privacy policy. This repo does not ship a separate
+  privacy policy for those services.
+
+## Device tokens
+
+- Host device auth may be stored under `data/state/device-auth.json`.
+- Desk pet / remote shells may cache connection tokens in local storage —
+  treat devices as trusted endpoints on your LAN/VPN.
+
+## Contact
+
+For upstream license text of a catalog module, prefer the module’s
+`catalog/providers/<id>.yaml` fields and the vendor’s published terms over this
+summary.

@@ -45,3 +45,13 @@ jobs:
         run: |
           npm ci
           npm run build
+
+      # Vite writes into runtime/admin/static — committed tree must match.
+      - name: Check Admin static drift
+        working-directory: ${{ github.workspace }}
+        run: |
+          git add -N runtime/admin/static
+          if ! git diff --exit-code -- runtime/admin/static; then
+            echo "::error::runtime/admin/static is out of date. Run: cd runtime/admin/ui && npm ci && npm run build, then commit static/"
+            exit 1
+          fi

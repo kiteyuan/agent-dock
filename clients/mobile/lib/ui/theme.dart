@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// ChatGPT-like light shell — tokens aligned with clients/web/styles.css
+/// ChatGPT-like light shell — tokens aligned with desktop/web/styles.css
 abstract final class WebUiTheme {
   static const bg0 = Color(0xFFFFFFFF);
   static const bgSoft = Color(0xFFF7F7F8);

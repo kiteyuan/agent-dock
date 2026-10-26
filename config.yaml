@@ -1,3 +1,10 @@
+# Config layers (see docs/ONBOARDING.md):
+#   1) config.yaml          — shared install defaults (this file)
+#   2) config.local.yaml    — machine overrides (gitignored); deep-merged
+#   3) data/state/*         — Admin/runtime overrides (defaults, modules, secrets)
+# Module capability SoT is catalog/catalog.yaml + catalog/providers/*.yaml
+# (agents / TTS / STT / pets). Do not duplicate full provider recipes here.
+
 server:
   host: "0.0.0.0"
   port: 8765

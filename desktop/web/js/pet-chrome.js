@@ -49,12 +49,12 @@ export function loadChromeCompactPref() {
   }
 }
 
-export function syncStatusVisibility(mood) {
+export function syncStatusVisibility(_mood) {
+  // Pet mode: no floating status chip — offline / connecting / err live in the reply bubble.
   const tag = $("statusTag");
   if (!tag) return;
-  const hide = mood === "idle" || mood === "listen" || mood === "speak" || mood === "busy";
-  tag.hidden = hide;
-  tag.setAttribute("aria-hidden", hide ? "true" : "false");
+  tag.hidden = true;
+  tag.setAttribute("aria-hidden", "true");
 }
 
 /** Bounds of visible pet-stage children (ignores display:none / [hidden]). */
@@ -87,6 +87,15 @@ function visibleStageBounds(petStage) {
   };
 }
 
+/** CSS --pet-bubble-max in px (fallback 480). */
+function petBubbleMaxPx() {
+  const raw = getComputedStyle(document.documentElement)
+    .getPropertyValue("--pet-bubble-max")
+    .trim();
+  const n = parseFloat(raw);
+  return Number.isFinite(n) && n > 0 ? n : 480;
+}
+
 async function applyFitPetWindow() {
   const stage = $("stage");
   const petStage = stage?.querySelector(".pet-stage");
@@ -96,8 +105,15 @@ async function applyFitPetWindow() {
   const rect = visibleStageBounds(petStage);
   const minW = compact ? 148 : 240;
   const minH = compact ? 148 : 200;
-  const w = Math.max(minW, Math.ceil(rect.width) + (compact ? 8 : 16));
+  let w = Math.max(minW, Math.ceil(rect.width) + (compact ? 8 : 16));
   const h = Math.max(minH, Math.ceil(rect.height) + (compact ? 8 : 12));
+  // Room for the reply bubble's real max width (avoid 92vw ↔ fit deadlock).
+  if (!compact) {
+    const bubble = $("petBubble");
+    if (bubble && !bubble.hidden) {
+      w = Math.max(w, Math.ceil(petBubbleMaxPx()) + 24);
+    }
+  }
   const grew = h > _lastFitH + 1 || w > _lastFitW + 1;
   // Skip tiny shrink/noise; always apply real growth so text isn't clipped.
   if (!grew && Math.abs(w - _lastFitW) < 2 && Math.abs(h - _lastFitH) < 2) return;

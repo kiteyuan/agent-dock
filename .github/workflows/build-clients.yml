@@ -193,9 +193,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Optional remote-shell desktop window (host pet is Tauri in desktop/).
+  # Not on every push — workflow_dispatch or client-v* tags only.
   windows:
     name: Windows
-    if: github.event_name != 'pull_request'
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/client-v')
     # windows-latest is VS 2026-only; Flutter 3.27.x cannot map VS 18 and falls back to VS 2019.
     runs-on: windows-2022
     defaults:
@@ -248,7 +252,9 @@ jobs:
 
   macos:
     name: macOS
-    if: github.event_name != 'pull_request'
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/client-v')
     runs-on: macos-latest
     defaults:
       run:

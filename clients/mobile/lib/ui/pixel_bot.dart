@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../pets/pet_catalog.dart';
 import '../session/client_state.dart';
 
-/// Codex Pet atlas — same grid as clients/web/pixel-bot.js
+/// Codex Pet atlas — same grid as desktop/web/pixel-bot.js
 class PixelBot extends StatefulWidget {
   const PixelBot({
     super.key,

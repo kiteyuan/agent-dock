@@ -1,6 +1,10 @@
 schema_version: 2
 provider_glob: "providers/*.yaml"
 
+# Module source of truth for installable capabilities (agents / TTS / STT / pets).
+# Runtime defaults and ports still come from config.yaml (+ config.local.yaml);
+# Admin selections persist under data/state/.
+#
 # Pi is the only built-in coding assistant. Speech / pets remain optional modules.
 enabled:
   - pi
