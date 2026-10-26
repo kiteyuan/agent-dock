@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   web_socket_channel: ^3.0.1
-  record: 6.2.1
+  record: 7.1.2
   audioplayers: ^6.1.0
   path_provider: ^2.1.5
   shared_preferences: ^2.3.3
