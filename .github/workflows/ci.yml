@@ -5,29 +5,39 @@ on:
     branches: [main, master]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   python:
-    name: Runtime pytest + ruff
+    name: Runtime (uv · ruff · pytest · protocol)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.11"
-          cache: pip
+          enable-cache: true
 
+      # Locked deps + dev group; `stt` extra (faster-whisper) is lazy-imported and not needed here.
       - name: Install
-        run: pip install -e ".[dev]"
+        run: uv sync --frozen
 
-      - name: Ruff
-        run: ruff check runtime tests
+      - name: Ruff lint
+        run: uv run ruff check runtime tests scripts clients/shared
+
+      - name: Ruff format
+        run: uv run ruff format --check runtime tests scripts clients/shared
+
+      - name: Protocol codegen drift
+        run: uv run python scripts/gen_protocol.py --check
 
       - name: Pytest
-        run: python -m pytest tests -q --tb=short
+        run: uv run pytest tests -q --tb=short
 
   admin-ui:
-    name: Admin UI build
+    name: Admin console (tsc · eslint · vitest · build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -41,23 +51,12 @@ jobs:
           cache: npm
           cache-dependency-path: runtime/admin/ui/package-lock.json
 
-      - name: Install + build
-        run: |
-          npm ci
-          npm run build
-
-      # Vite writes into desktop/web/console (desk-pet App Dist) — committed tree must match.
-      - name: Check console Dist drift
-        working-directory: ${{ github.workspace }}
-        run: |
-          git add -N desktop/web/console
-          if ! git diff --exit-code -- desktop/web/console; then
-            echo "::error::Admin console build out of date. Run: cd runtime/admin/ui && npm ci && npm run build, then commit."
-            exit 1
-          fi
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
 
   desktop:
-    name: Desktop pet toolchain
+    name: Desktop pet (checkJs · vitest · cargo)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -66,19 +65,37 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: desktop/package-lock.json
+          cache-dependency-path: |
+            desktop/package-lock.json
+            runtime/admin/ui/package-lock.json
 
-      - name: npm ci (desktop)
+      - name: npm ci + check (desktop)
         working-directory: desktop
-        run: npm ci
+        run: |
+          npm ci
+          npm run check
+
+      # frontendDist (../web) embeds web/console at compile time; it is gitignored, so build it first.
+      - name: Build console Dist
+        working-directory: desktop
+        run: npm run build:console -- --force
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
 
       - name: Linux Tauri deps
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: cargo check (src-tauri)
+      - name: cargo fmt / clippy / test
         working-directory: desktop/src-tauri
-        run: cargo check
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test

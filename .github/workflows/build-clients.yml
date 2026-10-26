@@ -16,13 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.11"
+          enable-cache: true
       - name: Install and test layout
         run: |
-          pip install -e ".[dev]"
-          python -m pytest tests/test_paths_layout.py tests/test_workspace.py -q
+          uv sync --frozen
+          uv run pytest tests/test_paths_layout.py tests/test_workspace.py -q
 
   android:
     name: Android APK
