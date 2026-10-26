@@ -196,7 +196,7 @@ jobs:
           fi
           echo "sideload cert OK"
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: agentdock-android
           path: clients/mobile/build/app/outputs/flutter-apk/app-release.apk
@@ -253,7 +253,7 @@ jobs:
           cd build/windows/x64/runner/Release
           7z a -tzip "$GITHUB_WORKSPACE/agentdock-windows.zip" .
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: agentdock-windows
           path: agentdock-windows.zip
@@ -381,7 +381,7 @@ jobs:
           APP=$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' | head -n 1)
           ditto -c -k --sequesterRsrc --keepParent "$APP" "$GITHUB_WORKSPACE/agentdock-macos.zip"
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: agentdock-macos
           path: agentdock-macos.zip
@@ -500,7 +500,7 @@ jobs:
           )
           ls -lh "$GITHUB_WORKSPACE/agentdock-ios-unsigned.ipa"
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: agentdock-ios-unsigned
           path: agentdock-ios-unsigned.ipa
