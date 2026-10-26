@@ -9,6 +9,6 @@
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.85.0",
-    "pi-mcp-adapter": "^2.35.0"
+    "pi-mcp-adapter": "^6.0.0"
   }
 }
