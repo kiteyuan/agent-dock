@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentdock.local/protocol/device.schema.json",
+  "title": "AgentDock Device Protocol",
+  "description": "Single source of truth for Device <-> Runtime WebSocket frames. Run `python scripts/gen_protocol.py` after editing; CI fails if generated code drifts.",
+  "x-protocol-version": "1.0",
+  "$ref": "#/$defs/Envelope",
+  "$defs": {
+    "Envelope": {
+      "type": "object",
+      "required": ["type", "id", "ts", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string" },
+        "id": { "type": "string" },
+        "ts": { "type": "number" },
+        "payload": { "type": "object" }
+      }
+    },
+    "SessionId": { "type": "string" },
+    "Image": {
+      "type": "object",
+      "required": ["mime", "data"],
+      "properties": {
+        "mime": { "type": "string" },
+        "data": { "type": "string", "description": "base64 without data: prefix" }
+      }
+    },
+
+    "DeviceHello": {
+      "x-type": "device.hello", "x-const": "DEVICE_HELLO", "x-direction": "device->runtime",
+      "type": "object", "additionalProperties": false,
+      "required": ["device_id"],
+      "properties": {
+        "device_id": { "type": "string" },
+        "device_type": { "type": "string" },
+        "protocol_version": { "type": "string" },
+        "token": { "type": "string" },
+        "tts_id": { "type": "string" }
+      }
+    },
+    "UserMessage": {
+      "x-type": "user.message", "x-const": "USER_MESSAGE", "x-direction": "device->runtime",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id", "text"],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/SessionId" },
+        "text": { "type": "string" },
+        "agent_id": { "type": "string" },
+        "tts_id": { "type": "string" },
+        "tts_model": { "type": "string" },
+        "images": { "type": "array", "items": { "$ref": "#/$defs/Image" } }
+      }
+    },
+    "AudioStart": {
+      "x-type": "audio.start", "x-const": "AUDIO_START", "x-direction": "device->runtime",
+      "description": "Raw audio follows as binary WebSocket frames until audio.end.",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id"],
+      "properties": { "session_id": { "$ref": "#/$defs/SessionId" } }
+    },
+    "AudioChunk": {
+      "x-type": "audio.chunk", "x-const": "AUDIO_CHUNK", "x-direction": "device->runtime", "x-status": "deprecated",
+      "description": "Superseded by binary frames between audio.start / audio.end.",
+      "type": "object"
+    },
+    "AudioEnd": {
+      "x-type": "audio.end", "x-const": "AUDIO_END", "x-direction": "device->runtime",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id"],
+      "properties": { "session_id": { "$ref": "#/$defs/SessionId" } }
+    },
+    "SessionCancel": {
+      "x-type": "session.cancel", "x-const": "SESSION_CANCEL", "x-direction": "device->runtime",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id"],
+      "properties": { "session_id": { "$ref": "#/$defs/SessionId" } }
+    },
+    "SessionReset": {
+      "x-type": "session.reset", "x-const": "SESSION_RESET", "x-direction": "device->runtime",
+      "type": "object", "additionalProperties": false,
+      "properties": { "session_id": { "$ref": "#/$defs/SessionId" } }
+    },
+    "DeviceStatus": {
+      "x-type": "device.status", "x-const": "DEVICE_STATUS", "x-direction": "device->runtime", "x-status": "reserved",
+      "type": "object", "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "type": "string" },
+        "session_id": { "$ref": "#/$defs/SessionId" },
+        "detail": { "type": "string" }
+      }
+    },
+    "AgentsList": {
+      "x-type": "agents.list", "x-const": "AGENTS_LIST", "x-direction": "device->runtime",
+      "type": "object", "additionalProperties": false, "properties": {}
+    },
+    "TtsList": {
+      "x-type": "tts.list", "x-const": "TTS_LIST", "x-direction": "device->runtime",
+      "type": "object", "additionalProperties": false, "properties": {}
+    },
+    "TtsSelect": {
+      "x-type": "tts.select", "x-const": "TTS_SELECT", "x-direction": "device->runtime",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id", "tts_id"],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/SessionId" },
+        "tts_id": { "type": "string" },
+        "model": { "type": "string" }
+      }
+    },
+    "PetsList": {
+      "x-type": "pets.list", "x-const": "PETS_LIST", "x-direction": "device->runtime",
+      "type": "object", "additionalProperties": false, "properties": {}
+    },
+    "Ping": {
+      "x-type": "device.ping", "x-const": "PING", "x-direction": "device->runtime",
+      "type": "object", "additionalProperties": false,
+      "properties": { "ping_id": { "type": "string" } }
+    },
+
+    "SessionAccept": {
+      "x-type": "session.accept", "x-const": "SESSION_ACCEPT", "x-direction": "runtime->device",
+      "description": "Runtime-owned session defaults; clients are shells and must not configure these.",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id", "device_id"],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/SessionId" },
+        "device_id": { "type": "string" },
+        "advertise_url": { "type": "string" },
+        "tts_id": { "type": "string" },
+        "pet_id": { "type": "string" },
+        "agent_id": { "type": "string" },
+        "assets_port": { "type": "integer" },
+        "assets_base_url": { "type": "string" },
+        "messages": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "SessionResetOk": {
+      "x-type": "session.reset.ok", "x-const": "SESSION_RESET_OK", "x-direction": "runtime->device",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id", "device_id", "quarantined"],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/SessionId" },
+        "device_id": { "type": "string" },
+        "quarantined": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "AgentsListResult": {
+      "x-type": "agents.list.result", "x-const": "AGENTS_LIST_RESULT", "x-direction": "runtime->device",
+      "type": "object", "additionalProperties": false,
+      "required": ["agents"],
+      "properties": { "agents": { "type": "array", "items": { "type": "object" } } }
+    },
+    "TtsListResult": {
+      "x-type": "tts.list.result", "x-const": "TTS_LIST_RESULT", "x-direction": "runtime->device",
+      "type": "object", "additionalProperties": false,
+      "required": ["providers", "default"],
+      "properties": {
+        "providers": { "type": "array", "items": { "type": "object" } },
+        "default": { "type": ["string", "null"] }
+      }
+    },
+    "TtsSelected": {
+      "x-type": "tts.selected", "x-const": "TTS_SELECTED", "x-direction": "runtime->device",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id", "tts_id"],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/SessionId" },
+        "tts_id": { "type": "string" },
+        "model": { "type": "string" }
+      }
+    },
+    "PetsListResult": {
+      "x-type": "pets.list.result", "x-const": "PETS_LIST_RESULT", "x-direction": "runtime->device",
+      "type": "object", "additionalProperties": false,
+      "required": ["pets", "default"],
+      "properties": {
+        "pets": { "type": "array", "items": { "type": "object" } },
+        "default": { "type": ["string", "null"] },
+        "base_url": { "type": "string" },
+        "assets_port": { "type": "integer" }
+      }
+    },
+    "Pong": {
+      "x-type": "device.pong", "x-const": "PONG", "x-direction": "runtime->device",
+      "type": "object", "additionalProperties": false,
+      "required": ["ping_id"],
+      "properties": { "ping_id": { "type": ["string", "null"] } }
+    },
+    "SttPartial": {
+      "x-type": "stt.partial", "x-const": "STT_PARTIAL", "x-direction": "runtime->device", "x-status": "reserved",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id", "text"],
+      "properties": { "session_id": { "$ref": "#/$defs/SessionId" }, "text": { "type": "string" } }
+    },
+    "SttFinal": {
+      "x-type": "stt.final", "x-const": "STT_FINAL", "x-direction": "runtime->device",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id", "text"],
+      "properties": { "session_id": { "$ref": "#/$defs/SessionId" }, "text": { "type": "string" } }
+    },
+    "TtsStart": {
+      "x-type": "tts.start", "x-const": "TTS_START", "x-direction": "runtime->device",
+      "description": "Audio follows as binary WebSocket frames until tts.end.",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id"],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/SessionId" },
+        "tts_id": { "type": "string" },
+        "format": { "type": "string" },
+        "text": { "type": "string" }
+      }
+    },
+    "TtsAudio": {
+      "x-type": "tts.audio", "x-const": "TTS_AUDIO", "x-direction": "runtime->device", "x-status": "deprecated",
+      "description": "Superseded by binary frames between tts.start / tts.end.",
+      "type": "object"
+    },
+    "TtsEnd": {
+      "x-type": "tts.end", "x-const": "TTS_END", "x-direction": "runtime->device",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id"],
+      "properties": { "session_id": { "$ref": "#/$defs/SessionId" } }
+    },
+    "Error": {
+      "x-type": "error", "x-const": "ERROR", "x-direction": "runtime->device",
+      "type": "object", "additionalProperties": false,
+      "required": ["detail", "session_id"],
+      "properties": {
+        "detail": { "type": "string" },
+        "session_id": { "type": ["string", "null"] }
+      }
+    },
+
+    "AgentEventPayload": {
+      "description": "Shared payload for every agent.* event streamed to devices.",
+      "type": "object", "additionalProperties": false,
+      "required": ["session_id"],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/SessionId" },
+        "content": { "type": "string" },
+        "text": { "type": "string", "description": "Alias of content for older clients." },
+        "tool": { "type": "string" },
+        "args": { "type": "object" },
+        "status": { "type": "string" },
+        "data": { "type": "object" },
+        "speak": { "type": "boolean", "description": "agent.message only: false = show, do not TTS." }
+      }
+    },
+    "AgentStart": { "x-type": "agent.start", "x-const": "AGENT_START", "x-direction": "runtime->device", "x-family": "agent", "$ref": "#/$defs/AgentEventPayload" },
+    "AgentThinking": { "x-type": "agent.thinking", "x-const": "AGENT_THINKING", "x-direction": "runtime->device", "x-family": "agent", "$ref": "#/$defs/AgentEventPayload" },
+    "AgentToolCall": { "x-type": "agent.tool_call", "x-const": "AGENT_TOOL_CALL", "x-direction": "runtime->device", "x-family": "agent", "$ref": "#/$defs/AgentEventPayload" },
+    "AgentToolResult": { "x-type": "agent.tool_result", "x-const": "AGENT_TOOL_RESULT", "x-direction": "runtime->device", "x-family": "agent", "$ref": "#/$defs/AgentEventPayload" },
+    "AgentMessage": { "x-type": "agent.message", "x-const": "AGENT_MESSAGE", "x-direction": "runtime->device", "x-family": "agent", "$ref": "#/$defs/AgentEventPayload" },
+    "AgentDone": { "x-type": "agent.done", "x-const": "AGENT_DONE", "x-direction": "runtime->device", "x-family": "agent", "$ref": "#/$defs/AgentEventPayload" },
+    "AgentCancel": { "x-type": "agent.cancel", "x-const": "AGENT_CANCEL", "x-direction": "runtime->device", "x-family": "agent", "$ref": "#/$defs/AgentEventPayload" },
+    "AgentError": { "x-type": "agent.error", "x-const": "AGENT_ERROR", "x-direction": "runtime->device", "x-family": "agent", "$ref": "#/$defs/AgentEventPayload" }
+  }
+}

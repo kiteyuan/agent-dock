@@ -4,45 +4,12 @@ from __future__ import annotations
 
 import time
 import uuid
-from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-
-class DeviceMessageType(str, Enum):
-    # Device -> Runtime
-    DEVICE_HELLO = "device.hello"
-    USER_MESSAGE = "user.message"
-    AUDIO_START = "audio.start"
-    # Deprecated: audio frames are raw WebSocket binary between audio.start/end.
-    AUDIO_CHUNK = "audio.chunk"
-    AUDIO_END = "audio.end"
-    SESSION_CANCEL = "session.cancel"
-    SESSION_RESET = "session.reset"
-    DEVICE_STATUS = "device.status"  # reserved; Runtime does not emit/consume
-    AGENTS_LIST = "agents.list"
-    TTS_LIST = "tts.list"
-    TTS_SELECT = "tts.select"
-    PETS_LIST = "pets.list"
-    PING = "device.ping"
-
-    # Runtime -> Device
-    SESSION_ACCEPT = "session.accept"
-    SESSION_RESET_OK = "session.reset.ok"
-    AGENTS_LIST_RESULT = "agents.list.result"
-    TTS_LIST_RESULT = "tts.list.result"
-    TTS_SELECTED = "tts.selected"
-    PETS_LIST_RESULT = "pets.list.result"
-    PONG = "device.pong"
-    STT_PARTIAL = "stt.partial"  # reserved; Runtime emits stt.final only
-    STT_FINAL = "stt.final"
-    TTS_START = "tts.start"
-    # Deprecated: TTS payload is raw WebSocket binary between tts.start/end.
-    TTS_AUDIO = "tts.audio"
-    TTS_END = "tts.end"
-    ERROR = "error"
-    # Agent events (agent.*) are published via AgentEvent.to_wire(), not this enum.
+# Wire vocabulary lives in protocol/device.schema.json; agent.* events use AgentEventType.
+from runtime.protocol._generated import PROTOCOL_VERSION, DeviceMessageType
 
 
 class DeviceMessage(BaseModel):
@@ -61,7 +28,7 @@ def device_hello(
     payload: dict[str, Any] = {
         "device_id": device_id,
         "device_type": device_type,
-        "protocol_version": "1.0",
+        "protocol_version": PROTOCOL_VERSION,
     }
     if token is not None:
         payload["token"] = token
@@ -147,7 +114,9 @@ def agents_list_result(agents: list[dict[str, Any]]) -> DeviceMessage:
     return DeviceMessage(type=DeviceMessageType.AGENTS_LIST_RESULT, payload={"agents": agents})
 
 
-def tts_list_result(providers: list[dict[str, Any]], default_id: str | None = None) -> DeviceMessage:
+def tts_list_result(
+    providers: list[dict[str, Any]], default_id: str | None = None
+) -> DeviceMessage:
     return DeviceMessage(
         type=DeviceMessageType.TTS_LIST_RESULT,
         payload={"providers": providers, "default": default_id},
@@ -181,7 +150,9 @@ def pong(ping_id: str | None = None) -> DeviceMessage:
 
 
 def stt_final(session_id: str, text: str) -> DeviceMessage:
-    return DeviceMessage(type=DeviceMessageType.STT_FINAL, payload={"session_id": session_id, "text": text})
+    return DeviceMessage(
+        type=DeviceMessageType.STT_FINAL, payload={"session_id": session_id, "text": text}
+    )
 
 
 def tts_start(
@@ -205,4 +176,6 @@ def tts_end(session_id: str) -> DeviceMessage:
 
 
 def error_msg(detail: str, session_id: str | None = None) -> DeviceMessage:
-    return DeviceMessage(type=DeviceMessageType.ERROR, payload={"detail": detail, "session_id": session_id})
+    return DeviceMessage(
+        type=DeviceMessageType.ERROR, payload={"detail": detail, "session_id": session_id}
+    )

@@ -1,3 +1,5 @@
+import { AGENT } from "./protocol.gen.js";
+
 /** Normalize newlines for reply storage — keeps markdown structure. */
 export function normalizeReply(raw) {
   return String(raw || "")
@@ -179,7 +181,7 @@ export function clipProcess(s, max = 72) {
 export function nativeProcessText(type, payload = {}) {
   const content = String(payload.content || payload.text || "").trim();
   if (content) return content;
-  if (type === "agent.tool_call") {
+  if (type === AGENT.TOOL_CALL) {
     const tool = String(payload.tool || "").trim();
     const args = payload.args;
     if (args && typeof args === "object" && Object.keys(args).length) {

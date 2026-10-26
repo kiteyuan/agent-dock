@@ -1,4 +1,5 @@
 import { $ } from "./dom.js";
+import { AGENT, MSG, PROTOCOL_VERSION } from "./protocol.gen.js";
 import { encodeMsg } from "./protocol.js";
 import { stableDeviceId, saveConnectionPrefs } from "./prefs.js";
 import { ensureHostAuth } from "./host-auth.js";
@@ -72,11 +73,11 @@ export function wireSessionHooks() {
 
 function sendBinaryWav(wav) {
   const bytes = new Uint8Array(wav);
-  store.ws.send(encodeMsg("audio.start", { session_id: store.sessionId }));
+  store.ws.send(encodeMsg(MSG.AUDIO_START, { session_id: store.sessionId }));
   for (let i = 0; i < bytes.length; i += 4096) {
     store.ws.send(bytes.subarray(i, i + 4096));
   }
-  store.ws.send(encodeMsg("audio.end", { session_id: store.sessionId }));
+  store.ws.send(encodeMsg(MSG.AUDIO_END, { session_id: store.sessionId }));
 }
 
 export async function startTalk() {
@@ -203,7 +204,7 @@ export function applyLocalCancel() {
 export function cancelTurn() {
   if (!store.ws || !store.sessionId || store.starting) return;
   try {
-    store.ws.send(encodeMsg("session.cancel", { session_id: store.sessionId }));
+    store.ws.send(encodeMsg(MSG.SESSION_CANCEL, { session_id: store.sessionId }));
   } catch (_) {}
   applyLocalCancel();
 }
@@ -222,7 +223,7 @@ export async function sendUserMessage(raw) {
   if (store.agentRunning || (mood === "busy" && !speaking)) return;
   if (speaking || store.turnLocked) {
     try {
-      store.ws.send(encodeMsg("session.cancel", { session_id: store.sessionId }));
+      store.ws.send(encodeMsg(MSG.SESSION_CANCEL, { session_id: store.sessionId }));
     } catch (_) {}
     armDropRemoteTts();
     stopTypewriter();
@@ -274,7 +275,7 @@ export async function sendUserMessage(raw) {
   try {
     const payload = { session_id: store.sessionId, text: sendText };
     if (images.length) payload.images = images;
-    store.ws.send(encodeMsg("user.message", payload));
+    store.ws.send(encodeMsg(MSG.USER_MESSAGE, payload));
   } catch (_) {
     enterIdle();
   }
@@ -301,7 +302,7 @@ async function fileToImagePayload(file) {
 }
 
 function onEvent(type, payload = {}) {
-  if (type === "stt.final") {
+  if (type === MSG.STT_FINAL) {
     clearDropRemoteTts();
     resetThinkingBuf();
     const t = String(payload.text || payload.content || "").trim();
@@ -312,13 +313,13 @@ function onEvent(type, payload = {}) {
     enterBusy();
     renderTranscript();
     syncControls();
-  } else if (type === "agent.start") {
+  } else if (type === AGENT.START) {
     clearDropRemoteTts();
     flushThinking(true);
     store.agentRunning = true;
     enterBusy();
     renderTranscript();
-  } else if (type === "agent.thinking") {
+  } else if (type === AGENT.THINKING) {
     if (store.dropRemoteTts) return;
     store.agentRunning = true;
     const chunk = payload.content || payload.text || "";
@@ -327,21 +328,21 @@ function onEvent(type, payload = {}) {
       flushThinking(false);
     }
     enterBusy();
-  } else if (type === "agent.tool_call" || type === "agent.tool_result") {
+  } else if (type === AGENT.TOOL_CALL || type === AGENT.TOOL_RESULT) {
     if (store.dropRemoteTts) return;
     store.agentRunning = true;
     flushThinking(true);
     const line = nativeProcessText(type, payload);
     if (line) showProcessLine(line);
     enterBusy();
-  } else if (type === "agent.message") {
+  } else if (type === AGENT.MESSAGE) {
     if (store.dropRemoteTts) return;
     store.agentRunning = true;
     flushThinking(true);
     const t = (payload.content || payload.text || "").trim();
     if (t) appendAssistantChunk(t);
     enterBusy();
-  } else if (type === "tts.start") {
+  } else if (type === MSG.TTS_START) {
     if (store.dropRemoteTts) return;
     clearProcessLine();
     store.ttsChunks = [];
@@ -355,7 +356,7 @@ function onEvent(type, payload = {}) {
       syncReplayHint();
     }
     enterSpeak();
-  } else if (type === "tts.end") {
+  } else if (type === MSG.TTS_END) {
     if (store.dropRemoteTts) {
       store.ttsChunks = [];
       store.ttsPendingText = "";
@@ -369,7 +370,7 @@ function onEvent(type, payload = {}) {
       store.ttsPendingText = "";
     }
     pump();
-  } else if (type === "agent.error" || type === "error") {
+  } else if (type === AGENT.ERROR || type === MSG.ERROR) {
     resetThinkingBuf();
     const detail = String(
       payload.detail || payload.content || payload.text || ""
@@ -380,10 +381,10 @@ function onEvent(type, payload = {}) {
     }
     applyLocalCancel();
     enterErr();
-  } else if (type === "agent.done" || type === "agent.cancel") {
+  } else if (type === AGENT.DONE || type === AGENT.CANCEL) {
     flushThinking(true);
     store.agentRunning = false;
-    if (type === "agent.cancel") {
+    if (type === AGENT.CANCEL) {
       if (store.dropRemoteTts) {
         stopTtsPlayback();
         clearPendingComposer();
@@ -433,11 +434,11 @@ async function connectAsync() {
     const payload = {
       device_id: stableDeviceId(),
       device_type: "desktop",
-      protocol_version: "1.0",
+      protocol_version: PROTOCOL_VERSION,
     };
     const token = ($("token").value || "").trim();
     if (token) payload.token = token;
-    store.ws.send(encodeMsg("device.hello", payload));
+    store.ws.send(encodeMsg(MSG.DEVICE_HELLO, payload));
   };
 
   store.ws.onmessage = (ev) => {
@@ -452,7 +453,7 @@ async function connectAsync() {
       return;
     }
     const p = m.payload || {};
-    if (m.type === "session.accept") {
+    if (m.type === MSG.SESSION_ACCEPT) {
       store.sessionId = p.session_id;
       clearDropRemoteTts();
       if (p.pet_id) applyPetFromRuntime(p.pet_id);
@@ -461,10 +462,10 @@ async function connectAsync() {
       }
       enterIdle();
       syncControls();
-      store.ws.send(encodeMsg("pets.list"));
+      store.ws.send(encodeMsg(MSG.PETS_LIST));
       return;
     }
-    if (m.type === "session.reset.ok") {
+    if (m.type === MSG.SESSION_RESET_OK) {
       clearMessages();
       resetThinkingBuf();
       resetCaptionState();
@@ -476,14 +477,14 @@ async function connectAsync() {
       enterIdle();
       return;
     }
-    if (m.type === "pets.list.result") {
+    if (m.type === MSG.PETS_LIST_RESULT) {
       const applied = window.PixelBot.applyRemoteCatalog(p, $("url").value.trim());
       if (applied) {
         applyPetFromRuntime(p.default || applied.defaultId);
       }
       return;
     }
-    if (m.type === "error") {
+    if (m.type === MSG.ERROR) {
       const detail = String(p.detail || p.content || p.text || p.message || "").trim();
       const authFail = /token|auth|unauthor/i.test(detail);
       if (authFail && !_authRetry) {
@@ -533,7 +534,7 @@ export function resetConversation() {
   }
   if (store.turnLocked) {
     try {
-      store.ws.send(encodeMsg("session.cancel", { session_id: store.sessionId }));
+      store.ws.send(encodeMsg(MSG.SESSION_CANCEL, { session_id: store.sessionId }));
     } catch (_) {}
     applyLocalCancel();
   }
@@ -541,7 +542,7 @@ export function resetConversation() {
   resetThinkingBuf();
   resetCaptionState();
   try {
-    store.ws.send(encodeMsg("session.reset", { session_id: store.sessionId }));
+    store.ws.send(encodeMsg(MSG.SESSION_RESET, { session_id: store.sessionId }));
   } catch (_) {}
   enterIdle();
   syncReplayHint();

@@ -313,7 +313,7 @@ class DeviceSession {
   String _nativeProcessText(String type, Map<String, dynamic> payload) {
     final content = '${payload['content'] ?? payload['text'] ?? ''}'.trim();
     if (content.isNotEmpty) return content;
-    if (type == 'agent.tool_call') {
+    if (type == proto.AgentEvt.toolCall) {
       final tool = '${payload['tool'] ?? ''}'.trim();
       final args = payload['args'];
       if (args is Map && args.isNotEmpty) {
@@ -748,7 +748,7 @@ class DeviceSession {
         : <String, dynamic>{};
 
     switch (type) {
-      case 'session.accept':
+      case proto.Msg.sessionAccept:
         sessionId = payload['session_id'] as String?;
         final acceptTts = (payload['tts_id'] as String?)?.trim() ?? '';
         final acceptPet = (payload['pet_id'] as String?)?.trim() ?? '';
@@ -759,7 +759,7 @@ class DeviceSession {
         _ws?.sink.add(proto.ttsList());
         _ws?.sink.add(proto.petsList());
         break;
-      case 'tts.list.result':
+      case proto.Msg.ttsListResult:
         final providers = payload['providers'];
         if (providers is List) {
           ttsProviders = [
@@ -775,10 +775,10 @@ class DeviceSession {
         }
         _notify();
         break;
-      case 'pets.list.result':
+      case proto.Msg.petsListResult:
         _applyPets(payload);
         break;
-      case 'session.reset.ok':
+      case proto.Msg.sessionResetOk:
             clearMessages();
             _resetThinking();
         player.clear();
@@ -787,13 +787,13 @@ class DeviceSession {
         _awaitingIdle = false;
         _setState(ClientState.idle, status: '已新开会话');
         break;
-      case 'error':
-      case 'agent.error':
+      case proto.Msg.error:
+      case proto.AgentEvt.error:
         _failTurn(
           '${payload['detail'] ?? payload['message'] ?? payload['content'] ?? payload['text'] ?? '出错了'}',
         );
         break;
-      case 'stt.final':
+      case proto.Msg.sttFinal:
         _clearDropRemoteTts();
         _resetThinking();
             final stt = '${payload['text'] ?? payload['content'] ?? ''}'.trim();
@@ -807,12 +807,12 @@ class DeviceSession {
         }
         _setState(ClientState.busy);
         break;
-      case 'agent.start':
+      case proto.AgentEvt.start:
         _clearDropRemoteTts();
         _flushThinking(finalFlush: true);
         _setState(ClientState.busy);
         break;
-      case 'agent.thinking':
+      case proto.AgentEvt.thinking:
         if (_dropRemoteTts) return;
         final chunk = '${payload['content'] ?? payload['text'] ?? ''}';
         if (chunk.isNotEmpty) {
@@ -822,8 +822,8 @@ class DeviceSession {
           _setState(ClientState.busy);
         }
         break;
-      case 'agent.tool_call':
-      case 'agent.tool_result':
+      case proto.AgentEvt.toolCall:
+      case proto.AgentEvt.toolResult:
         if (_dropRemoteTts) return;
         _flushThinking(finalFlush: true);
         final line = _nativeProcessText(type, payload);
@@ -833,7 +833,7 @@ class DeviceSession {
           _setState(ClientState.busy);
         }
         break;
-      case 'agent.message':
+      case proto.AgentEvt.message:
         if (_dropRemoteTts) return;
         _flushThinking(finalFlush: true);
         final t =
@@ -843,14 +843,14 @@ class DeviceSession {
         }
         _setState(ClientState.busy);
         break;
-      case 'tts.start':
+      case proto.Msg.ttsStart:
         if (_dropRemoteTts) return;
         _clearProcessLine();
         _ttsBuf.clear();
         _ttsPendingText = (payload['text'] as String? ?? '').trim();
         _setState(ClientState.speaking);
         break;
-      case 'tts.end':
+      case proto.Msg.ttsEnd:
         if (_dropRemoteTts) {
           _ttsBuf.clear();
           _ttsPendingText = '';
@@ -865,7 +865,7 @@ class DeviceSession {
           _ttsPendingText = '';
         }
         break;
-      case 'agent.done':
+      case proto.AgentEvt.done:
         if (_dropRemoteTts || state == ClientState.listening) {
           _ttsBuf.clear();
           _ttsPendingText = '';
@@ -887,7 +887,7 @@ class DeviceSession {
         _finishTypewriter();
         _maybeIdle();
         break;
-      case 'agent.cancel':
+      case proto.AgentEvt.cancel:
         // Ignore late cancel from a replaced turn after we already barged in.
         if (_dropRemoteTts) {
           player.clear();
@@ -901,7 +901,7 @@ class DeviceSession {
         _clearProcessLine();
         _setState(ClientState.idle, status: '已取消');
         break;
-      case 'device.pong':
+      case proto.Msg.pong:
         break;
       default:
         break;

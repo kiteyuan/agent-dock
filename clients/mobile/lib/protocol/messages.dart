@@ -44,7 +44,7 @@ String deviceHello({
   };
   if (token != null && token.isNotEmpty) payload['token'] = token;
   if (ttsId != null && ttsId.isNotEmpty) payload['tts_id'] = ttsId;
-  return encode('device.hello', payload);
+  return encode(Msg.deviceHello, payload);
 }
 
 String userMessage({
@@ -65,29 +65,29 @@ String userMessage({
   if (images != null && images.isNotEmpty) {
     payload['images'] = images;
   }
-  return encode('user.message', payload);
+  return encode(Msg.userMessage, payload);
 }
 
 String audioStart(String sessionId) =>
-    encode('audio.start', {'session_id': sessionId});
+    encode(Msg.audioStart, {'session_id': sessionId});
 
 String audioEnd(String sessionId) =>
-    encode('audio.end', {'session_id': sessionId});
+    encode(Msg.audioEnd, {'session_id': sessionId});
 
 String sessionCancel(String sessionId) =>
-    encode('session.cancel', {'session_id': sessionId});
+    encode(Msg.sessionCancel, {'session_id': sessionId});
 
 String sessionReset([String? sessionId]) {
   final payload = <String, dynamic>{};
   if (sessionId != null && sessionId.isNotEmpty) {
     payload['session_id'] = sessionId;
   }
-  return encode('session.reset', payload);
+  return encode(Msg.sessionReset, payload);
 }
 
-String ttsList() => encode('tts.list');
+String ttsList() => encode(Msg.ttsList);
 
-String petsList() => encode('pets.list');
+String petsList() => encode(Msg.petsList);
 
 String ttsSelect(String sessionId, String ttsId, {String? model}) {
   final payload = <String, dynamic>{
@@ -95,8 +95,8 @@ String ttsSelect(String sessionId, String ttsId, {String? model}) {
     'tts_id': ttsId,
   };
   if (model != null && model.isNotEmpty) payload['model'] = model;
-  return encode('tts.select', payload);
+  return encode(Msg.ttsSelect, payload);
 }
 
 String ping([String? pingId]) =>
-    encode('device.ping', {'ping_id': pingId ?? _id().substring(0, 8)});
+    encode(Msg.ping, {'ping_id': pingId ?? _id().substring(0, 8)});

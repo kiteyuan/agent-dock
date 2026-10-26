@@ -5,24 +5,14 @@ from __future__ import annotations
 import time
 import uuid
 from collections.abc import AsyncIterator
-from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
+from runtime.protocol._generated import AgentEventType
+
 # Public HTTP Agent Protocol version (see docs/AGENT_PROTOCOL.md)
 PROTOCOL_VERSION = "agentdock.agent/1.0"
-
-
-class AgentEventType(str, Enum):
-    START = "agent.start"
-    THINKING = "agent.thinking"
-    TOOL_CALL = "agent.tool_call"
-    TOOL_RESULT = "agent.tool_result"
-    MESSAGE = "agent.message"
-    DONE = "agent.done"
-    CANCEL = "agent.cancel"
-    ERROR = "agent.error"
 
 
 class AgentEvent(BaseModel):
@@ -94,7 +84,9 @@ def agent_thinking(session_id: str, content: str) -> AgentEvent:
 
 
 def agent_tool_call(session_id: str, tool: str, args: dict[str, Any] | None = None) -> AgentEvent:
-    return AgentEvent(type=AgentEventType.TOOL_CALL, session_id=session_id, tool=tool, args=args or {})
+    return AgentEvent(
+        type=AgentEventType.TOOL_CALL, session_id=session_id, tool=tool, args=args or {}
+    )
 
 
 def agent_tool_result(
