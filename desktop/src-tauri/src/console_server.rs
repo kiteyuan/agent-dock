@@ -12,6 +12,13 @@ use std::thread;
 
 pub const CONSOLE_PORT: u16 = 8767;
 
+/// The console only talks to the host through `admin_api` invoke; pet sheets come from :8766.
+const CONSOLE_CSP: &str = "default-src 'self'; script-src 'self'; \
+style-src 'self' 'unsafe-inline'; font-src 'self' data:; \
+img-src 'self' data: blob: http://127.0.0.1:8766; \
+connect-src 'self' ipc: http://ipc.localhost; \
+object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
 static STARTED: OnceLock<()> = OnceLock::new();
 
 fn console_root() -> Result<PathBuf, String> {
@@ -26,7 +33,7 @@ fn console_root() -> Result<PathBuf, String> {
             }
         }
     }
-    Err("desktop/web/console/index.html missing — run: cd runtime/admin/ui && npm run build".into())
+    Err("desktop/web/console/index.html missing — run: cd desktop && npm run build:console".into())
 }
 
 fn mime_for(path: &Path) -> &'static str {
@@ -88,10 +95,9 @@ fn percent_decode(input: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(v) = u8::from_str_radix(
-                std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""),
-                16,
-            ) {
+            if let Ok(v) =
+                u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
+            {
                 out.push(v);
                 i += 3;
                 continue;
@@ -132,13 +138,15 @@ fn handle_client(mut stream: TcpStream, root: &Path) {
         return;
     };
     let Ok(data) = fs::read(&file) else {
-        let _ = stream.write_all(b"HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\n");
+        let _ =
+            stream.write_all(b"HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\n");
         return;
     };
     let mime = mime_for(&file);
     let _ = write!(
         stream,
-        "HTTP/1.1 200 OK\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 200 OK\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nCache-Control: no-cache\r\n\
+X-Content-Type-Options: nosniff\r\nContent-Security-Policy: {CONSOLE_CSP}\r\nConnection: close\r\n\r\n",
         data.len()
     );
     if method == "GET" {
@@ -153,7 +161,9 @@ pub fn ensure_console_server() -> Result<u16, String> {
     }
     let root = console_root()?;
     let listener = TcpListener::bind(("127.0.0.1", CONSOLE_PORT)).map_err(|e| {
-        format!("console static bind 127.0.0.1:{CONSOLE_PORT} failed: {e} (is another pet running?)")
+        format!(
+            "console static bind 127.0.0.1:{CONSOLE_PORT} failed: {e} (is another pet running?)"
+        )
     })?;
     let root_for_thread = root.clone();
     thread::Builder::new()
