@@ -43,6 +43,7 @@ Node/npm）。Admin「智能助手」里配置 API Key 后启动 gateway 即可�
 **模块能力 SoT** 在 `catalog/catalog.yaml` + `catalog/providers/*.yaml`（版本、安装、许可、探针）。
 
 - `.env.example`：常用环境变量清单（`AGENTDOCK_HOME` / `AGENTDOCK_URL` / token 等）。
+  Runtime 启动时会自动加载仓库根或 cwd 下的 `.env`（已在 shell 里设置的变量优先，不覆盖）。
 - `examples/`：首启种子（`vault-notes`、`pets/demo`）；不进 `data/`。
 - `data/state/runtime-state.json`：Admin 设置的默认 Agent/TTS/STT 覆盖层。
 - `data/state/module-state.json`：安装收据、版本、摘要与许可证确认。
@@ -79,7 +80,9 @@ Node/npm）。Admin「智能助手」里配置 API Key 后启动 gateway 即可�
 ## 安全边界
 
 `/admin/*` 和 `/api/*` 只允许 loopback 客户端，远程请求返回 403。`/pets/*` 与
-`/health` 保持局域网可访问；人物资源响应保留跨域头，以便 Web 设备下载。
+`/health` 保持局域网可访问；人物资源响应保留跨域头，以便远程壳下载皮肤。
+
+安全边界与已知缺口（侧载证书、桌宠 token 存储等）见 [`SECURITY.md`](./SECURITY.md)。
 
 Provider 版本与平台状态见 [`PROVIDERS.md`](./PROVIDERS.md)。
 Admin snapshot 只返回 `has_credential`，不会返回凭据、解密内容或进程注入环境变量。

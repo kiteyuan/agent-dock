@@ -25,17 +25,21 @@ flutter run
 
 GitHub Actions `Build Clients` 在 `flutter create` + `pub get` 之后会跑该脚本。
 
-> Android 侧载证书：`brand/android-sideload.p12`（仅侧载/CI，**不要**拿去上架 Play）。CI 会写入绝对路径 + `storeType=PKCS12`，并在打包后校验 APK 证书指纹；若手机上仍是旧 debug 签名包，需**卸一次**再装。
+> Android 侧载证书：`brand/android-sideload.p12` + `android-sideload.properties`（明文口令）仅供
+> 侧载/CI，**不要**上架 Play，也**不要**当生产密钥。仓内密钥等于公开指纹——公开 fork 应自换
+> keystore 或改走 CI secrets。详见 [`docs/SECURITY.md`](../../docs/SECURITY.md)。
+> CI 会写入绝对路径 + `storeType=PKCS12`，并校验 APK 证书指纹；手机上若仍是旧 debug 包，需先卸载再装。
 
-交互与 Web 一致：
+远程壳交互（对齐本机桌宠，不跑 Runtime）：
 
 - **状态 tag**：像素描边标签贴在人物头顶（无底无间距，仅展示）
 - **输入框上方人物**：正常排在输入条上方，背景透明；点按录音，长按打开设置
 - **连接设置**：长按人物；弹窗内可「新开会话」
-- **底栏麦**：点按开始 / 结束录音（STT）；忙或播报时再点取消 / 打断
-- **底栏常显**：文本输入 + 发送；助手文字即时显示，TTS 异步
-- **+ 附图**：相册多选（最多 4 张，单张 ≤4MB），走与 Web 相同的 `user.message.images`
+- **底栏麦**：点按开始 / 结束录音（主机 STT）；忙或播报时再点取消 / 打断
+- **底栏常显**：文本输入 + 发送；助手文字即时显示，TTS 在主机异步播报
+- **+ 附图**：相册多选（最多 4 张，单张 ≤4MB），`user.message.images`
 - **点最后一条助手气泡旁重播**：空闲时可重播上一轮 TTS
+
 
 ## Android 权限
 

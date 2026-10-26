@@ -181,4 +181,4 @@ cd clients/mobile && flutter run   # 远程壳；Android/iOS 见 Build Clients�
 
 ## License
 
-[MIT](./LICENSE) · 第三方语音/模型与再分发说明见 [`NOTICE`](./NOTICE)
+[MIT](./LICENSE) · 第三方语音/模型与再分发说明见 [`NOTICE`](./NOTICE) · 安全边界见 [`docs/SECURITY.md`](./docs/SECURITY.md)

@@ -9,7 +9,6 @@ import re
 from pathlib import Path
 
 import pytest
-
 from runtime.protocol.device import DeviceMessageType
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,6 +64,11 @@ def dart_blob() -> str:
     return "\n".join(parts)
 
 
+@pytest.fixture(scope="module")
+def shared_py_blob() -> str:
+    return (ROOT / "clients" / "shared" / "protocol.py").read_text(encoding="utf-8")
+
+
 def test_device_message_type_enum_values_are_unique() -> None:
     values = [m.value for m in DeviceMessageType]
     assert len(values) == len(set(values))
@@ -99,3 +103,17 @@ def test_mobile_dart_mentions_core_outbound_types(dart_blob: str) -> None:
     found = _quoted_strings(dart_blob)
     missing = sorted(outbound - found)
     assert not missing, f"clients/mobile missing outbound wire types: {missing}"
+
+
+def test_shared_python_protocol_mentions_core_outbound(shared_py_blob: str) -> None:
+    outbound = {
+        DeviceMessageType.DEVICE_HELLO.value,
+        DeviceMessageType.USER_MESSAGE.value,
+        DeviceMessageType.AUDIO_START.value,
+        DeviceMessageType.AUDIO_END.value,
+        DeviceMessageType.SESSION_CANCEL.value,
+        DeviceMessageType.PING.value,
+    }
+    found = _quoted_strings(shared_py_blob)
+    missing = sorted(outbound - found)
+    assert not missing, f"clients/shared/protocol.py missing wire types: {missing}"

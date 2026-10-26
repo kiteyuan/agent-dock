@@ -15,6 +15,7 @@
 services:
   gpt-sovits:
     profiles: ["engines"]
+    # Prefer pinning by digest in production (image@sha256:...) — :latest moves.
     image: xxxxrt666/gpt-sovits:latest-cu126
     container_name: agentdock-gpt-sovits
     ports:

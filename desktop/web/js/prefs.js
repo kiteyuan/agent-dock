@@ -27,14 +27,35 @@ export function stableDeviceId() {
   return id;
 }
 
+/** Persist device tokens only for loopback hosts (cleartext localStorage). */
+export function isLoopbackWsUrl(url) {
+  try {
+    const u = new URL(String(url || "").trim());
+    const h = (u.hostname || "").toLowerCase();
+    return h === "127.0.0.1" || h === "localhost" || h === "::1";
+  } catch {
+    return false;
+  }
+}
+
 export function loadConnectionPrefs(urlEl, tokenEl) {
   const saved = localStorage.getItem(PREFS.url) || "";
   const url = saved || defaultWsUrl();
   if (urlEl) urlEl.value = url;
-  if (tokenEl) tokenEl.value = localStorage.getItem(PREFS.token) || "";
+  if (tokenEl) {
+    tokenEl.value = isLoopbackWsUrl(url)
+      ? localStorage.getItem(PREFS.token) || ""
+      : "";
+  }
 }
 
 export function saveConnectionPrefs(url, token) {
-  localStorage.setItem(PREFS.url, String(url || "").trim());
-  localStorage.setItem(PREFS.token, String(token || ""));
+  const trimmed = String(url || "").trim();
+  localStorage.setItem(PREFS.url, trimmed);
+  if (isLoopbackWsUrl(trimmed)) {
+    localStorage.setItem(PREFS.token, String(token || ""));
+  } else {
+    // LAN / remote: keep token in the form for this session only.
+    localStorage.removeItem(PREFS.token);
+  }
 }
