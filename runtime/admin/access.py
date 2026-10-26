@@ -9,6 +9,9 @@ Optional ``AGENTDOCK_ADMIN_TOKEN``: when set, non-loopback peers must also send
 Mutating Admin requests also require a same-origin browser signal
 (Sec-Fetch-Site / Origin) so a cross-site page cannot CSRF the console
 via no-cors POSTs. Local tooling without those headers remains allowed.
+
+The desk-pet console window is a Tauri App origin calling loopback HTTP; that
+cross-site pattern is explicitly allowed when Origin is a known desk-pet host.
 """
 
 from __future__ import annotations
@@ -72,18 +75,46 @@ def _origin_is_loopback(origin: str) -> bool:
     return host in {"localhost", "127.0.0.1", "::1"} or host.startswith("127.")
 
 
+def _origin_is_desk_pet(origin: str) -> bool:
+    """Tauri 2 App webview origins used by the host desk-pet console window."""
+    try:
+        parsed = urlparse(origin)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme in {"tauri", "asset"}:
+        return True
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    return host in {"tauri.localhost", "ipc.localhost"}
+
+
+def cors_allow_origin(headers: object) -> str | None:
+    """Echo Origin for desk-pet / loopback consoles (needed for Tauri App → :8766)."""
+    getter = getattr(headers, "get", None)
+    if not callable(getter):
+        return None
+    origin = str(getter("Origin") or "").strip()
+    if not origin:
+        return None
+    if _origin_is_loopback(origin) or _origin_is_desk_pet(origin):
+        return origin
+    return None
+
+
 def admin_write_allowed(headers: object) -> bool:
-    """Reject cross-site browser writes; allow same-origin UI and headerless local tools."""
+    """Reject hostile cross-site writes; allow same-origin, desk-pet, and local tools."""
     getter = getattr(headers, "get", None)
     if not callable(getter):
         return False
+    origin = str(getter("Origin") or "").strip()
     site = str(getter("Sec-Fetch-Site") or "").strip().lower()
     if site in {"cross-site", "same-site"}:
-        return False
+        # Desk-pet console is App-origin → loopback API (looks cross-site).
+        return bool(origin) and _origin_is_desk_pet(origin)
     if site in {"same-origin", "none"}:
         return True
-    origin = str(getter("Origin") or "").strip()
     if origin:
-        return _origin_is_loopback(origin)
+        return _origin_is_loopback(origin) or _origin_is_desk_pet(origin)
     # No fetch metadata → curl / scripts on loopback.
     return True

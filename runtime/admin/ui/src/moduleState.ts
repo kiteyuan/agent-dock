@@ -1,4 +1,5 @@
 import type { LicenseInfo, ModuleItem, ModuleKind, Snapshot } from "./types";
+import { assetUrl } from "./runtimeBase";
 
 export function moduleBy(
   snapshot: Snapshot | null,
@@ -57,7 +58,7 @@ export function hardwareHint(item: ModuleItem): string {
 
 export function agentIcon(id: string): string {
   const file = id === "pi" ? "pi.svg" : `${id}.png`;
-  return `/admin/icons/${encodeURIComponent(file)}`;
+  return assetUrl(`icons/${encodeURIComponent(file)}`);
 }
 
 export function sharedLabel(shared: Snapshot["modules"]["llm"]["shared"]): string {

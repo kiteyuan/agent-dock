@@ -1,4 +1,5 @@
 import type { JobResult } from "./types";
+import { apiBase } from "./runtimeBase";
 
 export class ApiError extends Error {
   constructor(message: string) {
@@ -11,7 +12,7 @@ export async function api<T = JobResult>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(`${apiBase()}${path}`, {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   });

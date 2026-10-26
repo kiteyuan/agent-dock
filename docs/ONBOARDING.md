@@ -20,9 +20,10 @@ AgentDock Runtime 是集成脚手架：用声明式 `catalog/catalog.yaml` 接�
 ./scripts/start.sh --admin
 ```
 
-宿主产品：`start.*` 一起拉起 Runtime 与桌宠。桌宠是壳，控制台是**同一应用的第二窗**
-（设置「打开控制台」/ `Ctrl+Shift+A` / 托盘）；HTTP 仍由 Runtime 提供
-`http://127.0.0.1:8766/admin/`，只是不再当「另开浏览器的后台站」来用。  
+宿主产品：`start.*` 一起拉起 Runtime 与桌宠。控制台是**桌宠应用内嵌的第二窗**
+（`desktop/web/console/`，设置「打开控制台」/ 人物旁图标 / `Ctrl+Shift+A` / 托盘），
+通过 `http://127.0.0.1:8766/api` 调 Runtime；不是外链浏览器页。  
+开发仍可浏览器打开 `http://127.0.0.1:8766/admin/` 调试同源 Admin。  
 无 Tauri 工具链时桌宠才回退 `http://127.0.0.1:8090/`。  
 可选引擎容器：`docker compose --profile engines up -d`
 

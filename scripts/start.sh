@@ -118,9 +118,9 @@ if [[ "$NO_PET" -eq 0 ]]; then
   fi
 fi
 
-# Console UI lives in the desk-pet app (second window); :8766 is only the HTTP backend.
+# Console UI is bundled into the desk-pet app; :8766 is the Runtime API backend.
 if [[ "$PET_HINT" == Tauri* ]]; then
-  ADMIN_HINT="desk-pet window (Ctrl+Shift+A / tray) — HTTP $ADMIN"
+  ADMIN_HINT="bundled desk-pet window (Ctrl+Shift+A / tray); API $ADMIN"
 else
   ADMIN_HINT="$ADMIN (browser fallback; prefer Tauri pet)"
 fi

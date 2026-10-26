@@ -151,14 +151,6 @@ fn place_bottom_right(window: &tauri::WebviewWindow) {
     let _ = window.set_position(Position::Logical(LogicalPosition { x, y }));
 }
 
-fn admin_panel_url() -> String {
-    std::env::var("AGENTDOCK_ADMIN_URL")
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "http://127.0.0.1:8766/admin/".to_string())
-}
-
 fn env_flag_true(name: &str) -> bool {
     matches!(
         std::env::var(name).ok().as_deref().map(str::trim),
@@ -166,7 +158,10 @@ fn env_flag_true(name: &str) -> bool {
     )
 }
 
-/// Open (or focus) the Runtime Admin console as a second app window.
+/// Open (or focus) the Runtime Admin console as a second **app** window.
+///
+/// Loads the bundled `console/` UI from the pet frontend (not an external
+/// browser URL). The page talks to local Runtime over `http://127.0.0.1:8766`.
 #[tauri::command]
 fn open_admin_panel(app: tauri::AppHandle) -> Result<(), String> {
     const LABEL: &str = "admin";
@@ -176,11 +171,7 @@ fn open_admin_panel(app: tauri::AppHandle) -> Result<(), String> {
         let _ = win.set_focus();
         return Ok(());
     }
-    let raw = admin_panel_url();
-    let url = raw
-        .parse::<url::Url>()
-        .map_err(|e| format!("invalid admin URL {raw:?}: {e}"))?;
-    WebviewWindowBuilder::new(&app, LABEL, WebviewUrl::External(url))
+    WebviewWindowBuilder::new(&app, LABEL, WebviewUrl::App("console/index.html".into()))
         .title("AgentDock 控制台")
         .inner_size(1120.0, 760.0)
         .min_inner_size(720.0, 480.0)

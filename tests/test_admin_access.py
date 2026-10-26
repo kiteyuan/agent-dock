@@ -4,6 +4,7 @@ from runtime.admin.access import (
     admin_token_allowed,
     admin_write_allowed,
     client_is_loopback,
+    cors_allow_origin,
 )
 
 
@@ -49,3 +50,13 @@ def test_admin_write_rejects_cross_site_fetch_metadata() -> None:
     assert admin_write_allowed({"Origin": "http://localhost:8766"})
     assert not admin_write_allowed({"Origin": "https://evil.example"})
     assert admin_write_allowed({})  # curl / local tooling
+    # Desk-pet console window (Tauri App) → loopback API looks cross-site.
+    assert admin_write_allowed(
+        {
+            "Sec-Fetch-Site": "cross-site",
+            "Origin": "http://tauri.localhost",
+        }
+    )
+    assert admin_write_allowed({"Origin": "https://tauri.localhost"})
+    assert cors_allow_origin({"Origin": "http://tauri.localhost"}) == "http://tauri.localhost"
+    assert cors_allow_origin({"Origin": "https://evil.example"}) is None

@@ -19,6 +19,7 @@ from runtime.admin.access import (
     admin_peer_allowed,
     admin_token_allowed,
     admin_write_allowed,
+    cors_allow_origin,
 )
 from runtime.admin.api import api_get, api_post
 from runtime.mcp import handle_mcp_http
@@ -73,10 +74,20 @@ class _AdminHandler(BaseHTTPRequestHandler):
             if self._admin_allowed():
                 handle_mcp_http(self, method="OPTIONS")
             return
-        if not self._admin_allowed():
+        if path.startswith("/api/") and not self._admin_allowed():
             return
         self.send_response(HTTPStatus.NO_CONTENT)
         self.send_header("Allow", "GET, POST, OPTIONS")
+        allow = cors_allow_origin(self.headers)
+        if allow:
+            self.send_header("Access-Control-Allow-Origin", allow)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header(
+                "Access-Control-Allow-Headers",
+                "Content-Type, X-AgentDock-Admin-Token",
+            )
+            self.send_header("Access-Control-Allow-Credentials", "true")
+            self.send_header("Vary", "Origin")
         self.end_headers()
 
     def do_GET(self) -> None:
@@ -253,6 +264,11 @@ class _AdminHandler(BaseHTTPRequestHandler):
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
+        allow = cors_allow_origin(self.headers)
+        if allow:
+            self.send_header("Access-Control-Allow-Origin", allow)
+            self.send_header("Access-Control-Allow-Credentials", "true")
+            self.send_header("Vary", "Origin")
         self.end_headers()
         self.wfile.write(data)
 

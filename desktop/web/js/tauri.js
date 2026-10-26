@@ -54,9 +54,7 @@ export async function fitPetWindow(width, height) {
   } catch (_) {}
 }
 
-const DEFAULT_ADMIN_URL = "http://127.0.0.1:8766/admin/";
-
-/** Open Runtime Admin in a second Tauri window (browser fallback: new tab). */
+/** Open the bundled console window (Tauri). Browser-pet fallback uses Runtime /admin/. */
 export async function openAdminPanel() {
   if (isTauri()) {
     try {
@@ -64,10 +62,11 @@ export async function openAdminPanel() {
       return true;
     } catch (err) {
       console.warn("open_admin_panel failed", err);
+      return false;
     }
   }
   try {
-    window.open(DEFAULT_ADMIN_URL, "agentdock-admin");
+    window.open("http://127.0.0.1:8766/admin/", "agentdock-admin");
     return true;
   } catch (_) {
     return false;
