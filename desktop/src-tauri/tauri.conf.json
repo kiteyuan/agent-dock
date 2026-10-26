@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.agentdock.pet",
   "build": {
-    "frontendDist": "../web"
+    "frontendDist": "../web",
+    "beforeDevCommand": { "script": "npm run build:console", "wait": true },
+    "beforeBuildCommand": "npm run build:console -- --force"
   },
   "app": {
     "withGlobalTauri": true,

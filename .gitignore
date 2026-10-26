@@ -79,8 +79,9 @@ Thumbs.db
 .aider*
 .cursor/
 
-# Admin Vite source build cache (committed static/ is the served bundle)
+# Admin console build output (built by Tauri beforeBuild/DevCommand, never committed)
 runtime/admin/ui/dist/
+desktop/web/console/
 
 # Placeholder / never commit empty product shells
 marketplace/
