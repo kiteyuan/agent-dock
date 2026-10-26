@@ -14,24 +14,15 @@ use std::time::Duration;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
+use crate::env_flag_true;
+
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 static OWNED: Mutex<Option<Child>> = Mutex::new(None);
 
-fn env_flag_true(name: &str) -> bool {
-    matches!(
-        std::env::var(name).ok().as_deref().map(str::trim),
-        Some("1") | Some("true") | Some("TRUE") | Some("yes") | Some("YES")
-    )
-}
-
 fn port_open(port: u16) -> bool {
-    TcpStream::connect_timeout(
-        &([127, 0, 0, 1], port).into(),
-        Duration::from_millis(200),
-    )
-    .is_ok()
+    TcpStream::connect_timeout(&([127, 0, 0, 1], port).into(), Duration::from_millis(200)).is_ok()
 }
 
 fn repo_root() -> PathBuf {
@@ -41,8 +32,20 @@ fn repo_root() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.."))
 }
 
-fn python_cmd() -> String {
-    std::env::var("AGENTDOCK_PYTHON").unwrap_or_else(|_| "python".into())
+/// `AGENTDOCK_PYTHON` > repo `.venv` (from `uv sync`) > `python` on PATH.
+fn python_cmd(root: &std::path::Path) -> PathBuf {
+    if let Ok(p) = std::env::var("AGENTDOCK_PYTHON") {
+        return PathBuf::from(p);
+    }
+    let venv = if cfg!(windows) {
+        root.join(".venv/Scripts/python.exe")
+    } else {
+        root.join(".venv/bin/python")
+    };
+    if venv.is_file() {
+        return venv;
+    }
+    PathBuf::from("python")
 }
 
 fn append_log_header(log_path: &PathBuf, title: &str) {
@@ -83,7 +86,7 @@ pub fn ensure_runtime() -> Result<bool, String> {
         .try_clone()
         .map_err(|e| format!("runtime.log clone: {e}"))?;
 
-    let mut cmd = Command::new(python_cmd());
+    let mut cmd = Command::new(python_cmd(&root));
     cmd.args(["-m", "runtime"])
         .current_dir(&root)
         .env("PYTHONUNBUFFERED", "1")
@@ -110,10 +113,7 @@ pub fn ensure_runtime() -> Result<bool, String> {
 }
 
 pub fn we_own_runtime() -> bool {
-    OWNED
-        .lock()
-        .map(|g| g.is_some())
-        .unwrap_or(false)
+    OWNED.lock().map(|g| g.is_some()).unwrap_or(false)
 }
 
 /// Kill Runtime only if we spawned it.
@@ -145,17 +145,11 @@ pub fn shutdown_runtime_stack() {
             return;
         }
     };
-    if let Ok(resp) = client
-        .get("http://127.0.0.1:8766/api/v1/snapshot")
-        .send()
-    {
+    if let Ok(resp) = client.get("http://127.0.0.1:8766/api/v1/snapshot").send() {
         if let Ok(snap) = resp.json::<serde_json::Value>() {
             if let Some(services) = snap.get("services").and_then(|v| v.as_array()) {
                 for s in services {
-                    let can = s
-                        .get("can_stop")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(false)
+                    let can = s.get("can_stop").and_then(|v| v.as_bool()).unwrap_or(false)
                         || s.get("owned").and_then(|v| v.as_bool()).unwrap_or(false);
                     let Some(id) = s.get("id").and_then(|v| v.as_str()) else {
                         continue;
