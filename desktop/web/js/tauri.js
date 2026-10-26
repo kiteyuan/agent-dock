@@ -10,8 +10,28 @@ export async function invoke(cmd, args = {}) {
   return fn(cmd, args);
 }
 
-/** Native OS window drag (smooth). Transparent Win windows may show a wireframe while dragging. */
+/** Logical outer position of the main pet window. */
+export async function getPetWindowPos() {
+  try {
+    const p = await invoke("pet_window_pos");
+    if (Array.isArray(p) && p.length >= 2) {
+      return { x: Number(p[0]), y: Number(p[1]) };
+    }
+  } catch (_) {}
+  return null;
+}
+
+/** Set logical outer position — fire-and-forget friendly for drag. */
+export function setPetWindowPos(x, y) {
+  return invoke("set_pet_window_pos", { x, y });
+}
+
+/** Legacy OS drag — may show a rectangular frame on transparent Win windows. */
 export async function startWindowDrag() {
+  try {
+    await invoke("start_pet_drag");
+    return true;
+  } catch (_) {}
   const getWin = window.__TAURI__?.window?.getCurrentWindow;
   if (typeof getWin !== "function") return false;
   try {
@@ -54,7 +74,14 @@ export async function fitPetWindow(width, height) {
   } catch (_) {}
 }
 
-/** Open the bundled console window (Tauri). Browser-pet fallback uses Runtime /admin/. */
+/** Interactive regions ([x, y, w, h] CSS px); `null` = whole window clickable. */
+export async function setPetHitRects(rects) {
+  try {
+    await invoke("set_pet_hit_rects", { rects });
+  } catch (_) {}
+}
+
+/** Open the App-bundled console window (Tauri). Browser-pet fallback cannot host Admin UI. */
 export async function openAdminPanel() {
   if (isTauri()) {
     try {
@@ -65,10 +92,16 @@ export async function openAdminPanel() {
       return false;
     }
   }
-  try {
-    window.open("http://127.0.0.1:8766/admin/", "agentdock-admin");
-    return true;
-  } catch (_) {
-    return false;
+  console.warn("Admin console requires the Tauri desk-pet window");
+  return false;
+}
+
+/**
+ * Full host stop (like scripts/stop.*): stop sidecars, kill Runtime, exit pet.
+ */
+export async function shutdownHost() {
+  if (!isTauri()) {
+    throw new Error("关闭服务需要 Tauri 桌宠（或运行 scripts/stop.ps1）");
   }
+  await invoke("shutdown_host");
 }

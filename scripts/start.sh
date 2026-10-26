@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# AgentDock bootstrap — host Runtime + host desktop pet.
+# AgentDock bootstrap — default: launch desk pet only (pet owns Runtime).
 # See docs/DEPLOY.md
 #
 #   ./scripts/start.sh
-#   ./scripts/start.sh --no-pet
-#   ./scripts/start.sh --admin   # open Admin as a second desk-pet window (Tauri)
+#   ./scripts/start.sh --no-pet   # Runtime only (no desk pet)
+#   ./scripts/start.sh --admin    # open Console as a second desk-pet window
 #   ./scripts/stop.sh
 
 set -euo pipefail
@@ -65,21 +65,21 @@ open_url() {
 
 echo "AgentDock bootstrap (repo: $ROOT)"
 
-if port_listen 8765; then
-  echo "  skip Runtime — :8765 already listening"
-else
-  export PYTHONUNBUFFERED=1
-  nohup python -m runtime >>"$ROOT/data/logs/runtime-bootstrap.log" 2>&1 &
-  echo "  started: Runtime (pid $!)"
-fi
-
-wait_port 8765 "$READY_TIMEOUT" "Runtime WS" || true
-wait_port 8766 60 "Admin HTTP" || true
-
 PET="http://127.0.0.1:${PET_PORT}/"
-ADMIN="http://127.0.0.1:8766/admin/"
+ADMIN_API="http://127.0.0.1:8766/api/"
+CONSOLE_URL="http://127.0.0.1:8767/"
 DESKTOP_DIR="$ROOT/desktop"
 PET_HINT="cd desktop && npm run dev"
+
+start_runtime_only() {
+  if port_listen 8765; then
+    echo "  skip Runtime — :8765 already listening"
+  else
+    export PYTHONUNBUFFERED=1
+    nohup python -m runtime >>"$ROOT/data/logs/runtime.log" 2>&1 &
+    echo "  started: Runtime (pid $!)"
+  fi
+}
 
 start_tauri_pet() {
   command -v npm >/dev/null 2>&1 || return 1
@@ -94,47 +94,57 @@ start_tauri_pet() {
     if [[ "$OPEN_ADMIN" -eq 1 ]]; then
       export AGENTDOCK_OPEN_ADMIN=1
     fi
+    # Pet spawns python -m runtime if :8765 is free.
     nohup npm run dev >>"$ROOT/data/logs/desktop-pet-tauri.log" 2>&1 &
     echo "  started: Desktop pet Tauri (pid $!)"
   )
-  PET_HINT="Tauri (desktop / npm run dev)"
+  PET_HINT="Tauri (desktop / npm run dev; owns Runtime)"
   return 0
 }
 
-if [[ "$NO_PET" -eq 0 ]]; then
+if [[ "$NO_PET" -eq 1 ]]; then
+  start_runtime_only
+  wait_port 8765 "$READY_TIMEOUT" "Runtime WS" || true
+  wait_port 8766 60 "Admin HTTP" || true
+  PET_HINT="(none — --no-pet)"
+else
   if start_tauri_pet; then
     :
   elif port_listen "$PET_PORT"; then
     echo "  skip browser pet — :$PET_PORT already listening"
     PET_HINT="$PET"
     open_url "$PET"
+    start_runtime_only
   else
     echo "  Tauri not ready — browser fallback :$PET_PORT"
-    nohup python -m desktop --port "$PET_PORT" --no-open >>"$ROOT/data/logs/desktop-pet.log" 2>&1 &
+    start_runtime_only
+    nohup python -m desktop --port "$PET_PORT" --no-open >>"$ROOT/data/logs/desktop-pet-web.log" 2>&1 &
     echo "  started: Desktop pet web (pid $!)"
     wait_port "$PET_PORT" 30 "Desktop pet web" || true
     PET_HINT="$PET (browser fallback)"
     open_url "$PET"
   fi
+  wait_port 8765 "$READY_TIMEOUT" "Runtime WS" || true
+  wait_port 8766 60 "Admin HTTP" || true
 fi
 
-# Console UI is bundled into the desk-pet app; :8766 is the Runtime API backend.
 if [[ "$PET_HINT" == Tauri* ]]; then
-  ADMIN_HINT="bundled desk-pet window (Ctrl+Shift+A / tray); API $ADMIN"
+  ADMIN_HINT="desk-pet External http://127.0.0.1:8767 + admin_api; API $ADMIN_API"
 else
-  ADMIN_HINT="$ADMIN (browser fallback; prefer Tauri pet)"
+  ADMIN_HINT="requires Tauri desk-pet (no browser Admin UI); API $ADMIN_API"
 fi
 if [[ "$OPEN_ADMIN" -eq 1 ]]; then
   if [[ "$PET_HINT" != Tauri* ]]; then
-    open_url "$ADMIN"
+    echo "  Console: install/run Tauri pet — Runtime does not serve /admin HTML"
   fi
 fi
 
 echo ""
-echo "Host product (Runtime + desk pet together):"
+echo "Host product (Runtime + desk pet):"
 echo "  Runtime WS    ws://127.0.0.1:8765"
 echo "  Desk pet      $PET_HINT"
 echo "  Console       $ADMIN_HINT"
+echo "  Console Dist  $CONSOLE_URL (loopback static; dies with pet)"
 echo "  Pets assets   http://127.0.0.1:8766/pets/"
 echo ""
 echo "One app: talk to the pet; open Console (Ctrl+Shift+A / tray) to set Pi API Key."

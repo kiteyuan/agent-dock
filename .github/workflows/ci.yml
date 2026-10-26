@@ -45,15 +45,14 @@ jobs:
         run: |
           npm ci
           npm run build
-          npm run build:pet
 
-      # Vite writes into runtime/admin/static and desktop/web/console — committed trees must match.
-      - name: Check Admin static drift
+      # Vite writes into desktop/web/console (desk-pet App Dist) — committed tree must match.
+      - name: Check console Dist drift
         working-directory: ${{ github.workspace }}
         run: |
-          git add -N runtime/admin/static desktop/web/console
-          if ! git diff --exit-code -- runtime/admin/static desktop/web/console; then
-            echo "::error::Admin UI build out of date. Run: cd runtime/admin/ui && npm ci && npm run build && npm run build:pet, then commit."
+          git add -N desktop/web/console
+          if ! git diff --exit-code -- desktop/web/console; then
+            echo "::error::Admin console build out of date. Run: cd runtime/admin/ui && npm ci && npm run build, then commit."
             exit 1
           fi
 

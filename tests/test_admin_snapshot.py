@@ -90,7 +90,8 @@ def test_admin_ui_separates_beginner_and_advanced_information() -> None:
     assert "不用理解模型、端口或进程" not in pages
     assert "日常使用不需要修改" not in pages
     assert "让设备拥有智能" not in index
-    assert "/admin/icons/" in pages
+    # Icons resolve via BASE_URL + assetUrl("icons/…") inside the App Dist.
+    assert "assetUrl(`icons/" in pages
     assert "统一模型" in pages
     assert "统一配置" in pages
     assert "自定义模型名" in pages

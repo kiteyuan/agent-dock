@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Stop AgentDock: ask Runtime to stop sidecars, then free well-known ports.
+# Console Dist :8767 is loopback-only inside the desk pet — usually dies with
+# the pet; we still free it if a stray listener remains.
 #   ./scripts/stop.sh
 #   ./scripts/stop.sh --keep-tts
 #   ./scripts/stop.sh --keep-web
@@ -78,7 +80,7 @@ else
   echo "curl/python missing — port kill only"
 fi
 
-PORTS=(8765 8766 9001)
+PORTS=(8765 8766 8767 9001)
 [[ "$KEEP_WEB" -eq 0 ]] && PORTS+=(8090)
 [[ "$KEEP_TTS" -eq 0 ]] && PORTS+=(9880)
 

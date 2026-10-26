@@ -5,24 +5,28 @@ import { fileURLToPath } from "node:url";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
-export default defineConfig(({ mode }) => {
-  /** Desk-pet embeds this build as a native second window (not an external browser URL). */
-  const forPet = mode === "pet";
-  return {
-    plugins: [react()],
-    base: forPet ? "./" : "/admin/",
-    server: {
-      port: 5173,
-      proxy: {
-        "/api": "http://127.0.0.1:8766",
+/** Single Admin SPA → desk-pet App Dist only (not served by Runtime HTTP). */
+export default defineConfig({
+  plugins: [
+    react(),
+    {
+      name: "strip-crossorigin",
+      transformIndexHtml(html: string) {
+        // WebView / custom protocols choke on module CORS; strip Vite's crossorigin attrs.
+        return html.replace(/\s+crossorigin(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?/g, "");
       },
     },
-    build: {
-      outDir: forPet
-        ? path.resolve(rootDir, "../../../desktop/web/console")
-        : path.resolve(rootDir, "../static"),
-      emptyOutDir: true,
-      assetsDir: "assets",
+  ],
+  base: "./",
+  server: {
+    port: 5173,
+    proxy: {
+      "/api": "http://127.0.0.1:8766",
     },
-  };
+  },
+  build: {
+    outDir: path.resolve(rootDir, "../../../desktop/web/console"),
+    emptyOutDir: true,
+    assetsDir: "assets",
+  },
 });

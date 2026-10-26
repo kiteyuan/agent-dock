@@ -1,21 +1,27 @@
 /** API / asset bases for Admin UI.
 
-Browser Admin (served from Runtime at /admin/) uses same-origin relative paths.
-Desk-pet console window is a Tauri App page; it must call Runtime over loopback HTTP.
+Production: desk-pet console on loopback :8767 — `api()` uses allowlisted Tauri
+`admin_api` invoke (no HTTP from the page). Vite `npm run dev` has no
+`__TAURI__` and uses relative `/api` via the Vite proxy.
 */
 
 declare global {
   interface Window {
-    __TAURI__?: unknown;
+    __TAURI__?: {
+      core?: { invoke?: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> };
+    };
     __AGENTDOCK_API_BASE__?: string;
   }
+}
+
+export function isTauriHost(): boolean {
+  return typeof window !== "undefined" && typeof window.__TAURI__?.core?.invoke === "function";
 }
 
 export function apiBase(): string {
   if (typeof window === "undefined") return "";
   const override = String(window.__AGENTDOCK_API_BASE__ || "").trim().replace(/\/$/, "");
   if (override) return override;
-  if (window.__TAURI__) return "http://127.0.0.1:8766";
   return "";
 }
 

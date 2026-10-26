@@ -13,6 +13,11 @@
     "allow-local-device-token",
     "allow-fit-pet-window",
     "allow-open-admin-panel",
+    "allow-admin-api",
+    "allow-shutdown-host",
+    "allow-start-pet-drag",
+    "allow-pet-window-pos",
+    "allow-pet-hit-rects",
     "allow-secure-device-token"
   ]
 }

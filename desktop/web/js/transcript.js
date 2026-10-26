@@ -9,46 +9,52 @@ import {
   clipProcess,
 } from "./text.js";
 import { syncReplayHint } from "./mood.js";
-import { scheduleFitPetWindow } from "./pet-chrome.js";
+import { contentNeedsWindowGrow, fitPetChromeGrowing } from "./pet-chrome.js";
 
 function isPetMode() {
   return document.documentElement.classList.contains("pet-mode");
 }
 
-/** Measure plain-stream height at the locked bubble width (for pre-reserve). */
-function measurePetStreamHeight(bubble, fullText) {
-  const width = Math.max(
-    200,
-    (() => {
-      const raw = getComputedStyle(document.documentElement)
-        .getPropertyValue("--pet-bubble-max")
-        .trim();
-      const max = parseFloat(raw);
-      const cap = Number.isFinite(max) && max > 0 ? max : 480;
-      return Math.min(cap, bubble.clientWidth || cap);
-    })()
-  );
-  const probe = document.createElement("div");
-  probe.className = "pet-stream";
-  probe.style.cssText = [
-    "position:absolute",
-    "visibility:hidden",
-    "pointer-events:none",
-    `width:${width}px`,
-    "white-space:pre-wrap",
-    "word-break:break-word",
-    "font-size:12.5px",
-    "line-height:1.45",
-    "font-weight:500",
-  ].join(";");
-  probe.textContent = fullText;
-  document.body.appendChild(probe);
-  const contentH = probe.scrollHeight;
-  probe.remove();
-  const cs = getComputedStyle(bubble);
-  const pad =
-    (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
-  return Math.ceil(contentH + pad);
+function applyBubbleConfirmUi() {
+  const bubble = $("petBubble");
+  const reply = $("petBubbleReply");
+  const confirm = $("petBubbleConfirm");
+  const titleEl = $("petConfirmTitle");
+  const hintEl = $("petConfirmHint");
+  const okBtn = $("btnBubbleConfirmOk");
+  if (!bubble || !confirm) return false;
+  const spec = store.bubbleConfirm;
+  if (!spec) {
+    confirm.hidden = true;
+    if (reply) reply.hidden = false;
+    bubble.classList.remove("is-confirm", "is-confirm-danger");
+    return false;
+  }
+  bubble.hidden = false;
+  bubble.classList.add("is-confirm");
+  bubble.classList.toggle("is-confirm-danger", !!spec.danger);
+  bubble.classList.remove("is-typing", "is-prompt", "is-status", "is-wide", "has-tts-ctrl", "is-err");
+  bubble.style.minHeight = "";
+  if (reply) reply.hidden = true;
+  confirm.hidden = false;
+  if (titleEl) titleEl.textContent = spec.title || "";
+  if (hintEl) hintEl.textContent = spec.hint || "";
+  if (okBtn) {
+    okBtn.textContent = spec.okLabel || "确定";
+    okBtn.classList.toggle("is-danger", !!spec.danger);
+  }
+  const mute = $("btnBubbleMute");
+  if (mute) mute.hidden = true;
+  fitBubbleWindow();
+  return true;
+}
+
+/** Window is a fixed canvas; only grow (veiled) when the chrome no longer fits. */
+function fitBubbleWindow() {
+  if (contentNeedsWindowGrow()) {
+    document.documentElement.classList.add("chrome-growing");
+    void fitPetChromeGrowing();
+  }
 }
 
 function syncPetBubble() {
@@ -56,6 +62,11 @@ function syncPetBubble() {
   const bodyEl = $("petBubbleBody");
   const foot = $("processLine");
   if (!bubble || !bodyEl) return;
+
+  if (applyBubbleConfirmUi()) return;
+
+  const reply = $("petBubbleReply");
+  if (reply) reply.hidden = false;
 
   let last = null;
   for (let i = store.messages.length - 1; i >= 0; i--) {
@@ -130,7 +141,6 @@ function syncPetBubble() {
     bubble.hidden = true;
     bubble.classList.remove("is-typing", "is-prompt", "is-status", "is-wide", "has-tts-ctrl");
     bubble.style.minHeight = "";
-    delete bubble.dataset.minH;
     delete bubble.dataset.turnKey;
     bodyEl.innerHTML = "";
     if (foot) {
@@ -138,14 +148,12 @@ function syncPetBubble() {
       foot.textContent = "";
     }
     if (mute) mute.hidden = true;
-    void scheduleFitPetWindow({ immediate: true });
     return;
   }
 
   const turnKey = asStatus ? `status:${mood}` : store.bubbleTurnKey || "idle";
   if (bubble.dataset.turnKey !== turnKey) {
     bubble.dataset.turnKey = turnKey;
-    bubble.dataset.minH = "0";
     bubble.style.minHeight = "";
   }
 
@@ -155,11 +163,13 @@ function syncPetBubble() {
   bubble.classList.toggle("is-err", asStatus && mood === "err");
   bubble.classList.toggle("is-typing", typing || (!asStatus && !!store.assistantTurnText));
   // Long replies: force full max width (max-content alone stays skinny in a narrow window).
+  // Foot-only bubble has no text to size it — give it the floor width.
   const wide =
     !asStatus &&
     !asUserPrompt &&
     String(text || "").replace(/\s/g, "").length >= 48;
-  bubble.classList.toggle("is-wide", wide || typing);
+  const footOnly = !!footText && !String(text || "").trim();
+  bubble.classList.toggle("is-wide", wide || typing || footOnly);
   bubble.classList.toggle("has-tts-ctrl", showTtsCtrl);
   if (mute) {
     mute.hidden = !showTtsCtrl;
@@ -208,26 +218,7 @@ function syncPetBubble() {
     }
   }
 
-  // Pre-size to the full known reply so the window/bubble aren't short then jump.
-  let needH = 0;
-  if (typing && store.assistantTurnText) {
-    needH = measurePetStreamHeight(bubble, store.assistantTurnText);
-  } else if (asUserPrompt || typing) {
-    needH = Math.ceil(bubble.getBoundingClientRect().height);
-  }
-  if (needH > 0) {
-    const prev = parseFloat(bubble.dataset.minH || "0") || 0;
-    if (needH > prev) {
-      bubble.dataset.minH = String(needH);
-      bubble.style.minHeight = `${needH}px`;
-    }
-  } else if (!typing && !asUserPrompt) {
-    bubble.style.minHeight = "";
-    delete bubble.dataset.minH;
-  }
-
-  // Growing content must fit immediately — debounce was clipping text in the short window.
-  void scheduleFitPetWindow({ immediate: true });
+  fitBubbleWindow();
 }
 
 function nextMsgId() {
@@ -326,7 +317,6 @@ export function clearProcessLine() {
     if (isPetMode()) {
       el.hidden = true;
       el.textContent = "";
-      void scheduleFitPetWindow();
       return;
     }
     const wrap = el.closest(".bubble-wrap");
@@ -335,7 +325,24 @@ export function clearProcessLine() {
   }
 }
 
+/** Show / clear the inline confirm card in the reply-bubble slot. */
+export function setBubbleConfirm(spec) {
+  store.bubbleConfirm = spec || null;
+  if (isPetMode()) syncPetBubble();
+  else if (!spec) {
+    const confirm = $("petBubbleConfirm");
+    if (confirm) confirm.hidden = true;
+  }
+}
+
+export function clearBubbleConfirm() {
+  if (!store.bubbleConfirm) return;
+  store.bubbleConfirm = null;
+  if (isPetMode()) syncPetBubble();
+}
+
 export function showProcessLine(line) {
+  if (store.bubbleConfirm) return;
   if (store.assistantTurnText) return;
   const s = clipProcess(line, LIMITS.processMaxLen);
   if (!s) return;

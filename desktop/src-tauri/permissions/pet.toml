@@ -10,8 +10,33 @@ commands.allow = ["fit_pet_window"]
 
 [[permission]]
 identifier = "allow-open-admin-panel"
-description = "Open the Runtime Admin console in a second window"
+description = "Open the Admin console as a second App window"
 commands.allow = ["open_admin_panel"]
+
+[[permission]]
+identifier = "allow-admin-api"
+description = "Proxy Admin /api requests to local Runtime loopback"
+commands.allow = ["admin_api"]
+
+[[permission]]
+identifier = "allow-shutdown-host"
+description = "Stop Runtime stack and exit the desk pet (stop.ps1-like)"
+commands.allow = ["shutdown_host"]
+
+[[permission]]
+identifier = "allow-start-pet-drag"
+description = "Start dragging the main pet window explicitly"
+commands.allow = ["start_pet_drag"]
+
+[[permission]]
+identifier = "allow-pet-window-pos"
+description = "Get/set main pet window position for smooth manual drag"
+commands.allow = ["pet_window_pos", "set_pet_window_pos"]
+
+[[permission]]
+identifier = "allow-pet-hit-rects"
+description = "Report interactive regions so the transparent window area is click-through"
+commands.allow = ["set_pet_hit_rects"]
 
 [[permission]]
 identifier = "allow-secure-device-token"

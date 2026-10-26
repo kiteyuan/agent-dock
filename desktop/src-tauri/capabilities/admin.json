@@ -1,7 +1,18 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "admin",
-  "description": "Admin console window loads Remote Runtime UI; no pet IPC needed",
+  "description": "Console window on fixed loopback :8767 Dist; API via allowlisted admin_api",
   "windows": ["admin"],
-  "permissions": []
+  "remote": {
+    "urls": ["http://127.0.0.1:8767/*"]
+  },
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-focus",
+    "core:window:allow-show",
+    "core:window:allow-unminimize",
+    "core:window:allow-close",
+    "core:webview:allow-set-webview-focus",
+    "allow-admin-api"
+  ]
 }

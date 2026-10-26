@@ -10,7 +10,11 @@ import { loadMessages, renderTranscript } from "./js/transcript.js";
 import { connect, wireSessionHooks } from "./js/session.js";
 import { bindChrome } from "./js/chrome.js";
 import { ensureHostAuth } from "./js/host-auth.js";
-import { scheduleFitPetWindow, loadChromeCompactPref } from "./js/pet-chrome.js";
+import {
+  scheduleFitPetWindow,
+  loadChromeCompactPref,
+  bindPetHitRects,
+} from "./js/pet-chrome.js";
 
 document.documentElement.classList.add("pet-mode");
 
@@ -26,7 +30,8 @@ loadMessages();
   renderTranscript();
   store.turnLocked = true;
   syncControls();
-  await scheduleFitPetWindow();
+  await scheduleFitPetWindow({ immediate: true, force: true });
+  bindPetHitRects();
 
   const { local } = await ensureHostAuth();
   // Local host pet: always connect silently — never pop a config sheet.

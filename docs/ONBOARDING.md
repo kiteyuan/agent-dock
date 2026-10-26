@@ -20,11 +20,12 @@ AgentDock Runtime 是集成脚手架：用声明式 `catalog/catalog.yaml` 接�
 ./scripts/start.sh --admin
 ```
 
-宿主产品：`start.*` 一起拉起 Runtime 与桌宠。控制台是**桌宠应用内嵌的第二窗**
-（`desktop/web/console/`，设置「打开控制台」/ 人物旁图标 / `Ctrl+Shift+A` / 托盘），
-通过 `http://127.0.0.1:8766/api` 调 Runtime；不是外链浏览器页。  
-开发仍可浏览器打开 `http://127.0.0.1:8766/admin/` 调试同源 Admin。  
-无 Tauri 工具链时桌宠才回退 `http://127.0.0.1:8090/`。  
+宿主产品：默认 `start.*` **只启桌宠**；桌宠在需要时拉起 `python -m runtime`
+（`-NoPet` / `--no-pet` 仍可只起 Runtime）。控制台是桌宠第二窗：External
+`http://127.0.0.1:8767/`（`desktop/web/console` Dist）+ 宿主 `admin_api`
+允许列表代理到 `:8766/api`。Runtime **不托管**可浏览的 Admin HTML；浏览器
+打开 `:8766/admin/` 会 404。  
+无 Tauri 工具链时桌宠才回退 `http://127.0.0.1:8090/`（仍无 Web 后台页）。  
 可选引擎容器：`docker compose --profile engines up -d`
 
 控制台不设置强制启动向导。首页只显示当前是否可用和需要处理的项目，用户可直接
@@ -82,8 +83,8 @@ Admin 只接受 `/api/v1/*`（旧 `/api/status` 等别名已删除）。
 
 ## 安全边界
 
-`/admin/*` 和 `/api/*` 只允许 loopback 客户端，远程请求返回 403。`/pets/*` 与
-`/health` 保持局域网可访问；人物资源响应保留跨域头，以便远程壳下载皮肤。
+`/api/*` 只允许 loopback 客户端，远程请求返回 403；`/admin/*` 不再托管 HTML（404）。
+`/pets/*` 与 `/health` 保持局域网可访问；人物资源响应保留跨域头，以便远程壳下载皮肤。
 
 安全边界与已知缺口（侧载证书、桌宠 token 存储等）见 [`SECURITY.md`](./SECURITY.md)。
 

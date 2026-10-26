@@ -1,5 +1,7 @@
 # Stop AgentDock: ask Runtime to stop sidecars, then free well-known ports
 # (includes desktop pet :8090 unless -KeepWeb).
+# Console Dist :8767 is loopback-only inside the desk pet — usually dies with
+# the pet process; we still free it if a stray listener remains.
 #   .\scripts\stop.ps1
 #   .\scripts\stop.ps1 -KeepTts   # leave GPT-SoVITS :9880
 #   .\scripts\stop.ps1 -KeepWeb   # leave desktop pet :8090
@@ -31,7 +33,8 @@ try {
     Write-Host "Admin not reachable — port kill only"
 }
 
-$ports = @(8765, 8766, 9001)
+# 8767 = desk-pet console static (optional kill; primary exit path is pet quit)
+$ports = @(8765, 8766, 8767, 9001)
 if (-not $KeepWeb) { $ports += 8090 }
 if (-not $KeepTts) { $ports += 9880 }
 

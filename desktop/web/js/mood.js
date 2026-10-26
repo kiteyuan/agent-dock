@@ -3,7 +3,6 @@ import { forEachBot } from "./pets.js";
 import { store, hooks, runSyncUi } from "./store.js";
 import {
   syncStatusVisibility,
-  scheduleFitPetWindow,
   isChromeCompact,
 } from "./pet-chrome.js";
 
@@ -23,7 +22,7 @@ export function setMood(mood) {
   const statusLabel = $("statusLabel");
   if (statusLabel) statusLabel.textContent = MOOD_LABELS[mood] || mood;
   syncStatusVisibility(mood);
-  void scheduleFitPetWindow({ immediate: true });
+  // Mood must not resize the OS window (fixed-default sizing).
   runSyncUi();
   if (hooks.onMoodChanged) hooks.onMoodChanged(mood);
 }
@@ -205,13 +204,18 @@ export function syncControls() {
     pet.title = listening ? "结束录音" : idleHint;
   }
 
-  const chrome = $("btnChromeNew");
-  if (chrome) {
-    chrome.disabled = !(
-      store.sessionId &&
-      store.ws &&
-      store.ws.readyState === WebSocket.OPEN
-    );
+  const sessionOk = !!(
+    store.sessionId &&
+    store.ws &&
+    store.ws.readyState === WebSocket.OPEN
+  );
+  for (const id of ["btnChromeNew", "btnFlankNew"]) {
+    const el = $(id);
+    if (el) el.disabled = !sessionOk;
+  }
+  for (const id of ["btnChromeStopSvc", "btnFlankStopSvc"]) {
+    const el = $(id);
+    if (el) el.disabled = false;
   }
 
   syncReplayHint();

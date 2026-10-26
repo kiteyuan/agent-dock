@@ -49,14 +49,13 @@ def test_admin_write_rejects_cross_site_fetch_metadata() -> None:
     assert admin_write_allowed({"Origin": "http://127.0.0.1:8766"})
     assert admin_write_allowed({"Origin": "http://localhost:8766"})
     assert not admin_write_allowed({"Origin": "https://evil.example"})
-    assert admin_write_allowed({})  # curl / local tooling
-    # Desk-pet console window (Tauri App) → loopback API looks cross-site.
-    assert admin_write_allowed(
+    assert admin_write_allowed({})  # curl / desk-pet host proxy
+    assert not admin_write_allowed(
         {
             "Sec-Fetch-Site": "cross-site",
             "Origin": "http://tauri.localhost",
         }
     )
-    assert admin_write_allowed({"Origin": "https://tauri.localhost"})
-    assert cors_allow_origin({"Origin": "http://tauri.localhost"}) == "http://tauri.localhost"
+    assert cors_allow_origin({"Origin": "http://tauri.localhost"}) is None
+    assert cors_allow_origin({"Origin": "http://127.0.0.1:5173"}) == "http://127.0.0.1:5173"
     assert cors_allow_origin({"Origin": "https://evil.example"}) is None

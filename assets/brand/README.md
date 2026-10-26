@@ -22,8 +22,8 @@ assets/brand/
 
 | 目标 | 用途 |
 |------|------|
-| `runtime/admin/ui/public/brand/logo.png` | Admin 侧栏 |
-| `runtime/admin/ui/public/favicon.ico` | Admin 标签页 |
+| `runtime/admin/ui/public/brand/logo.png` | 控制台侧栏（构建进 `desktop/web/console`） |
+| `runtime/admin/ui/public/favicon.ico` | 控制台标签页 |
 | `desktop/favicon.ico` / `icon-128.png` | 本机桌宠 |
 | `clients/mobile/brand/app-icon.png` | Flutter 启动图源（`flutter create` 后手动或用 launcher 插件覆盖） |
 

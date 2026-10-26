@@ -1,4 +1,8 @@
-"""Local-only Admin API/UI plus public pet assets (default :8766)."""
+"""Local-only Admin API + public pet assets (default :8766).
+
+The Admin *UI* is not served here — it ships only inside the desk-pet Tauri
+App (`desktop/web/console`) and talks to `/api` via host invoke proxy.
+"""
 
 from __future__ import annotations
 
@@ -28,7 +32,6 @@ from runtime.pets import list_pets, load_catalog, resolve_asset
 if TYPE_CHECKING:
     from runtime.runtime import Runtime
 
-_ADMIN_STATIC = Path(__file__).resolve().parent / "static"
 
 
 class _AdminServer(ThreadingHTTPServer):
@@ -54,12 +57,11 @@ class _AdminHandler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
-        if urlparse(self.path).path.startswith(("/admin", "/api", "/mcp")) or self.path == "/":
+        if urlparse(self.path).path.startswith(("/api", "/mcp")):
             self.send_header(
-            "Content-Security-Policy",
-            "default-src 'self'; connect-src 'self'; img-src 'self' data:; "
-            "style-src 'self' 'unsafe-inline'; script-src 'self'",
-        )
+                "Content-Security-Policy",
+                "default-src 'none'; connect-src 'self'",
+            )
         super().end_headers()
 
     def do_OPTIONS(self) -> None:
@@ -110,13 +112,17 @@ class _AdminHandler(BaseHTTPRequestHandler):
             if self._admin_allowed():
                 self._api_get(path)
             return
-        if path in ("/", "/admin", "/admin/"):
+        # Admin HTML removed: console UI lives only in the desk-pet App bundle.
+        if path in ("/", "/admin", "/admin/") or path.startswith("/admin/"):
             if self._admin_allowed():
-                self._serve_static("index.html")
-            return
-        if path.startswith("/admin/"):
-            if self._admin_allowed():
-                self._serve_static(path[len("/admin/") :])
+                self._json(
+                    HTTPStatus.NOT_FOUND,
+                    {
+                        "ok": False,
+                        "error": "admin_ui_removed",
+                        "detail": "Open the desk-pet console window; /admin HTML is not served.",
+                    },
+                )
             return
         self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -228,29 +234,6 @@ class _AdminHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _serve_static(self, relative: str) -> None:
-        value = relative.replace("\\", "/").lstrip("/") or "index.html"
-        if ".." in value.split("/"):
-            self.send_error(HTTPStatus.FORBIDDEN)
-            return
-        path = (_ADMIN_STATIC / value).resolve()
-        try:
-            path.relative_to(_ADMIN_STATIC.resolve())
-        except ValueError:
-            self.send_error(HTTPStatus.FORBIDDEN)
-            return
-        if not path.is_file():
-            self.send_error(HTTPStatus.NOT_FOUND)
-            return
-        data = path.read_bytes()
-        content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-cache")
-        self.end_headers()
-        self.wfile.write(data)
-
     def _json(self, code: int, payload: Any, *, cache: bool = False) -> None:
         self.send_response(code)
         if cache:
@@ -290,7 +273,7 @@ def start_admin_http_server(
     ).start()
     pets, default = list_pets(pets_root)
     logger.info(
-        "Admin local-only at http://127.0.0.1:{}/admin/; pets public ({} packs, default={})",
+        "Admin API loopback http://127.0.0.1:{}/api/; pets public ({} packs, default={})",
         server.server_port,
         len(pets),
         default,

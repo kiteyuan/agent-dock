@@ -4,8 +4,11 @@ Short operational guidance. Not a full threat model.
 
 ## Admin and API
 
-- `/admin/*` and `/api/*` accept **loopback only** (remote → 403).
-- Optional `AGENTDOCK_ADMIN_TOKEN` for non-loopback Admin access when you deliberately expose it (see `.env.example`). Prefer Tailscale / SSH tunnel over opening Admin on `0.0.0.0`.
+- `/api/*` accepts **loopback only** (remote → 403). `/admin/*` HTML is **not served** (404 `admin_ui_removed`).
+- Desk-pet console = External WebView on **`http://127.0.0.1:8767/`** (Dist from `desktop/web/console`) + host `admin_api` invoke with a **strict method/path allowlist** → `http://127.0.0.1:8766/api/v1/...`. Capabilities pin `remote.urls` to that fixed port (no wildcard ports).
+- Optional `AGENTDOCK_ADMIN_TOKEN` for non-loopback Admin API access when you deliberately expose it (see `.env.example`). Prefer Tailscale / SSH tunnel over opening Admin API on `0.0.0.0`.
+- Mutating Admin API calls from browsers still require same-origin / loopback Origin signals; the host proxy (no fetch metadata) is treated like local tooling.
+- Desk pet **owns** the Runtime child when it starts it (`python -m runtime`); exit / tray quit stops only a pet-spawned Runtime. Pre-existing or `AGENTDOCK_EXTERNAL_RUNTIME=1` Runtime is left alone.
 
 ## Device WebSocket
 

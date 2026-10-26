@@ -1,5 +1,5 @@
 import type { JobResult } from "./types";
-import { apiBase } from "./runtimeBase";
+import { apiBase, isTauriHost } from "./runtimeBase";
 
 export class ApiError extends Error {
   constructor(message: string) {
@@ -8,14 +8,57 @@ export class ApiError extends Error {
   }
 }
 
+type AdminApiProxyResult = {
+  status: number;
+  body: string;
+};
+
+type InvokeFn = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
+
+async function resolveInvoke(): Promise<InvokeFn | null> {
+  for (let i = 0; i < 40; i++) {
+    const fn = window.__TAURI__?.core?.invoke;
+    if (typeof fn === "function") return fn.bind(window.__TAURI__!.core);
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return null;
+}
+
+async function apiViaHost(
+  path: string,
+  options: RequestInit,
+): Promise<Response> {
+  const invoke = await resolveInvoke();
+  if (!invoke) {
+    throw new ApiError("桌宠宿主桥接未就绪（__TAURI__/admin_api）");
+  }
+  const method = (options.method || "GET").toUpperCase();
+  let body: string | null = null;
+  if (options.body != null) {
+    body = typeof options.body === "string" ? options.body : String(options.body);
+  }
+  const result = (await invoke("admin_api", {
+    method,
+    path,
+    body,
+  })) as AdminApiProxyResult;
+  return new Response(result.body, {
+    status: result.status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export async function api<T = JobResult>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const response = await fetch(`${apiBase()}${path}`, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
-  });
+  const useHost = isTauriHost() || typeof window.__TAURI__ !== "undefined";
+  const response = useHost
+    ? await apiViaHost(path, options)
+    : await fetch(`${apiBase()}${path}`, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options,
+      });
   const payload = (await response.json().catch(() => ({}))) as JobResult & {
     ok?: boolean;
     detail?: string;

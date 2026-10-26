@@ -15,6 +15,11 @@ export const store = {
   pendingUserText: "",
   /** Stable key for one pet-bubble turn (avoids mid-stream minHeight reset). */
   bubbleTurnKey: "",
+  /**
+   * Inline confirm in the reply-bubble slot (not a modal).
+   * @type {null | { kind: 'new-session' | 'shutdown' | 'dismiss', title: string, hint: string, okLabel: string, danger?: boolean }}
+   */
+  bubbleConfirm: null,
 
   /** @type {Float32Array[]} */
   pcmChunks: [],

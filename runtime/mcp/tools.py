@@ -313,9 +313,9 @@ def _runtime_status(runtime: Any) -> dict[str, Any]:
         "counts": snap.get("counts"),
         "workspace": (snap.get("meta") or {}).get("workspace"),
         "notes_root": str(getattr(runtime, "notes_root", "") or ""),
-        "admin_url": f"http://127.0.0.1:{runtime.assets_port}/admin/",
+        "admin_api_url": f"http://127.0.0.1:{runtime.assets_port}/api/",
         "mcp_url": f"http://127.0.0.1:{runtime.assets_port}/mcp",
-        "hint": "笔记用 notes_search / notes_read / notes_graph；控制面用 set_default / module_lifecycle / session_reset。",
+        "hint": "笔记用 notes_search / notes_read / notes_graph；控制面用 set_default / module_lifecycle / session_reset。控制台仅桌宠 App 窗。",
     }
 
 

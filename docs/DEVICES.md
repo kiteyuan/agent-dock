@@ -16,7 +16,7 @@
 | 能力 | 地址 |
 |------|------|
 | Desktop pet | Tauri：`desktop/`（置顶透明窗）；回退 `http://127.0.0.1:8090/` |
-| Admin | 桌宠第二窗口（`Ctrl+Shift+A`）；HTTP `http://127.0.0.1:8766/admin/` |
+| Admin console | 桌宠第二窗 External `http://127.0.0.1:8767/` + `admin_api`；API `http://127.0.0.1:8766/api/`（无 Web HTML） |
 | Device WS | `ws://127.0.0.1:8765` |
 | Pet assets | `http://127.0.0.1:8766/pets/` |
 

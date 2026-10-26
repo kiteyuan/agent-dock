@@ -1,6 +1,6 @@
 # 自定义角色与音色
 
-权威配置在**主机 Runtime**（`config.yaml` + `assets/pets/` + `assets/voices/` + Admin `:8766/admin/`）。
+权威配置在**主机 Runtime**（`config.yaml` + `assets/pets/` + `assets/voices/` + 桌宠控制台 / `:8766/api/`）。
 客户端是接收壳：只连 WS、录/播、展示；**不配置** TTS / 人物，也**不内置**人物精灵图。
 
 仓库里**没有** `marketplace/`。人物商店若需要，走 Admin 导入 / 远程 URL，而不是再造空目录。

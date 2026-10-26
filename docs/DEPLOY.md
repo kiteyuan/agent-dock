@@ -9,7 +9,7 @@ AgentDock 默认内置 **Pi Coding**（`agents/pi-coding`），不再提供多 C
   agents/pi-coding        ← 首启自动 npm install（需本机 Node/npm）
   Pi gateway :9001        ← 控制台启停；高权限 = 本机用户
   data/vault              ← 默认工作区
-  scripts/start.*         ← 一次拉起 Runtime + 桌宠
+  scripts/start.*         ← 默认启桌宠（pet 拥有 Runtime）；-NoPet 仅 Runtime
 
 远程壳（可选）
   clients/mobile          ← 够不着本机键盘时才需要
@@ -23,7 +23,7 @@ AgentDock 默认内置 **Pi Coding**（`agents/pi-coding`），不再提供多 C
 ## 最短路径
 
 1. 安装 **Python ≥ 3.10** 与 **Node.js LTS**（只要 `npm`）  
-2. `pip install -e .` → `.\scripts\start.ps1` / `./scripts/start.sh`（Runtime **和** 桌宠一起起）  
+2. `pip install -e .` → `.\scripts\start.ps1` / `./scripts/start.sh`（默认启桌宠；pet 拉起 Runtime）  
 3. 桌宠托盘 / `Ctrl+Shift+A` / `-Admin` 打开**控制台窗** → 智能助手 → 填 API Key → 启动  
 4. 对着桌宠说话 / 打字；需要时再装 `clients/mobile` 连 `ws://主机:8765`
 

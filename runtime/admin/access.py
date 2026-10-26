@@ -1,17 +1,18 @@
 """Who may call the Admin API.
 
-Pets stay reachable on the LAN. Admin pages and /api require a localhost Host
-header plus a loopback TCP peer.
+Pets stay reachable on the LAN. Admin `/api` requires a localhost Host header
+plus a loopback TCP peer.
 
 Optional ``AGENTDOCK_ADMIN_TOKEN``: when set, non-loopback peers must also send
 ``X-AgentDock-Admin-Token``.
 
 Mutating Admin requests also require a same-origin browser signal
-(Sec-Fetch-Site / Origin) so a cross-site page cannot CSRF the console
-via no-cors POSTs. Local tooling without those headers remains allowed.
+(Sec-Fetch-Site / Origin) so a cross-site page cannot CSRF the API via
+no-cors POSTs. Local tooling and the desk-pet host proxy (no fetch metadata)
+remain allowed.
 
-The desk-pet console window is a Tauri App origin calling loopback HTTP; that
-cross-site pattern is explicitly allowed when Origin is a known desk-pet host.
+There is no Admin HTML on this server — the console UI is App-only in the
+desk-pet; production calls go through Tauri ``admin_api`` invoke.
 """
 
 from __future__ import annotations
@@ -75,46 +76,31 @@ def _origin_is_loopback(origin: str) -> bool:
     return host in {"localhost", "127.0.0.1", "::1"} or host.startswith("127.")
 
 
-def _origin_is_desk_pet(origin: str) -> bool:
-    """Tauri 2 App webview origins used by the host desk-pet console window."""
-    try:
-        parsed = urlparse(origin)
-    except ValueError:
-        return False
-    host = (parsed.hostname or "").lower()
-    if parsed.scheme in {"tauri", "asset"}:
-        return True
-    if parsed.scheme not in {"http", "https"}:
-        return False
-    return host in {"tauri.localhost", "ipc.localhost"}
-
-
 def cors_allow_origin(headers: object) -> str | None:
-    """Echo Origin for desk-pet / loopback consoles (needed for Tauri App → :8766)."""
+    """Echo Origin for loopback Vite UI dev (:5173 → :8766)."""
     getter = getattr(headers, "get", None)
     if not callable(getter):
         return None
     origin = str(getter("Origin") or "").strip()
     if not origin:
         return None
-    if _origin_is_loopback(origin) or _origin_is_desk_pet(origin):
+    if _origin_is_loopback(origin):
         return origin
     return None
 
 
 def admin_write_allowed(headers: object) -> bool:
-    """Reject hostile cross-site writes; allow same-origin, desk-pet, and local tools."""
+    """Reject hostile cross-site writes; allow same-origin and local tools/proxy."""
     getter = getattr(headers, "get", None)
     if not callable(getter):
         return False
     origin = str(getter("Origin") or "").strip()
     site = str(getter("Sec-Fetch-Site") or "").strip().lower()
     if site in {"cross-site", "same-site"}:
-        # Desk-pet console is App-origin → loopback API (looks cross-site).
-        return bool(origin) and _origin_is_desk_pet(origin)
+        return False
     if site in {"same-origin", "none"}:
         return True
     if origin:
-        return _origin_is_loopback(origin) or _origin_is_desk_pet(origin)
-    # No fetch metadata → curl / scripts on loopback.
+        return _origin_is_loopback(origin)
+    # No fetch metadata → curl / desk-pet host proxy.
     return True
