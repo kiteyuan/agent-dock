@@ -28,7 +28,7 @@
 | Device | 路径 | 说明 |
 |--------|------|------|
 | Mobile (Flutter) | `clients/mobile/` | **远程壳**（手机为主） |
-| CLI | `clients/cli/` | `--chat` / `--text` 调试；`--ui` 已废弃 |
+| CLI | `clients/cli/` | `--chat` / `--text` 调试（桌宠请用 `scripts/start.*`） |
 
 跨网：[`DEPLOY_TAILSCALE.md`](./DEPLOY_TAILSCALE.md) · [`DEPLOY_CLOUDFLARE.md`](./DEPLOY_CLOUDFLARE.md)
 

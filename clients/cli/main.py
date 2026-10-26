@@ -1,11 +1,10 @@
 """
-cli-client — debug CLI (+ deprecated browser pet launcher).
+cli-client — debug CLI for the Device WebSocket (remote-shell style).
 
-Host desktop pet (same machine as Runtime):
-  Prefer: .\\scripts\\start.ps1  /  ./scripts/start.sh
-  Or:     cd desktop && npm run dev
-
-  --ui is deprecated: opens desktop/ browser fallback only; use start.* / Tauri.
+Host desk pet (same machine as Runtime):
+  .\\scripts\\start.ps1  /  ./scripts/start.sh
+  or: cd desktop && npm run dev
+  (--ui removed; do not launch the pet from this CLI.)
 
 CLI (script / debug):
   python main.py --chat [--agent pi] [--tts edge]
@@ -379,21 +378,6 @@ async def _record_until_enter(*, max_seconds: float = 60.0) -> bytes:
     return audio
 
 
-def _launch_web_ui(*, port: int = 8090, no_open: bool = False) -> None:
-    # Host pet lives under repo/desktop/ (not clients/).
-    desktop_root = Path(__file__).resolve().parents[2] / "desktop"
-    serve = desktop_root / "serve.py"
-    if not serve.is_file():
-        print(f"ERROR: desktop pet missing at {desktop_root}", file=sys.stderr)
-        raise SystemExit(1)
-    import runpy
-
-    sys.argv = [str(serve), "--port", str(port)]
-    if no_open:
-        sys.argv.append("--no-open")
-    runpy.run_path(str(serve), run_name="__main__")
-
-
 async def _heartbeat(ws, interval: float = 15.0) -> None:
     try:
         while True:
@@ -490,8 +474,6 @@ def _parse_args(argv: list[str]) -> dict:
         "heartbeat": False,
         "play": True,
         "chat": False,
-        "ui": False,
-        "ui_port": 8090,
         "record_default": 5.0,
     }
     i = 0
@@ -512,11 +494,13 @@ def _parse_args(argv: list[str]) -> dict:
                 i -= 1
         elif a == "--chat":
             out["chat"] = True
-        elif a == "--ui":
-            out["ui"] = True
-        elif a == "--ui-port":
-            i += 1
-            out["ui_port"] = int(argv[i])
+        elif a in ("--ui", "--ui-port"):
+            print(
+                "error: --ui was removed; launch the host desk pet with "
+                ".\\scripts\\start.ps1 / ./scripts/start.sh (or cd desktop && npm run dev).",
+                file=sys.stderr,
+            )
+            sys.exit(2)
         elif a == "--list-agents":
             out["list_agents"] = True
         elif a == "--list-tts":
@@ -560,22 +544,18 @@ if __name__ == "__main__":
     args = _parse_args(sys.argv[1:])
     has_input = (
         args["chat"]
-        or args["ui"]
         or args["list_agents"]
         or args["list_tts"]
         or args["text"] is not None
         or args["wav_path"] is not None
         or args["record_secs"] is not None
     )
-    # No args → deprecated browser pet fallback (prefer scripts/start.* / Tauri).
     if not has_input:
-        args["ui"] = True
-    if args["ui"]:
+        print(__doc__)
         print(
-            "warning: --ui / bare `python main.py` is deprecated; "
-            "prefer .\\scripts\\start.ps1 or ./scripts/start.sh (Tauri desk pet).",
+            "\nerror: pass --chat / --text / --record / --wav "
+            "(desk pet: .\\scripts\\start.ps1 or ./scripts/start.sh).",
             file=sys.stderr,
         )
-        _launch_web_ui(port=int(args["ui_port"]))
-        raise SystemExit(0)
-    asyncio.run(run(**{k: v for k, v in args.items() if k not in ("ui", "ui_port")}))
+        raise SystemExit(2)
+    asyncio.run(run(**args))

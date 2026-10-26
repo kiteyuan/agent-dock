@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../pets/pet_catalog.dart';
+import '../prefs.dart';
 import '../session/client_state.dart';
 import '../session/device_session.dart';
 import 'pixel_bot.dart';
@@ -121,7 +122,8 @@ class _HomePageState extends State<HomePage> {
     await PetCatalog.ensureLoaded();
     final p = await SharedPreferences.getInstance();
     s.url = p.getString('url') ?? s.url;
-    s.token = p.getString('token') ?? '';
+    // Persist device tokens only for loopback hosts (cleartext prefs).
+    s.token = isLoopbackWsUrl(s.url) ? (p.getString('token') ?? '') : '';
     s.loadMessagesJson(p.getString('messages'));
     final legacy = p.getString('reply') ?? '';
     if (s.messages.isEmpty && legacy.isNotEmpty) {
@@ -139,7 +141,11 @@ class _HomePageState extends State<HomePage> {
   Future<void> _savePrefs() async {
     final p = await SharedPreferences.getInstance();
     await p.setString('url', s.url);
-    await p.setString('token', s.token);
+    if (isLoopbackWsUrl(s.url)) {
+      await p.setString('token', s.token);
+    } else {
+      await p.remove('token');
+    }
     await p.setString('messages', s.encodeMessages());
   }
 

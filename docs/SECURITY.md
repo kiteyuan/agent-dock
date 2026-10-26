@@ -19,6 +19,7 @@ Short operational guidance. Not a full threat model.
 | `data/state/agent-secrets.json` | LLM / provider credentials | Windows: DPAPI (current user); Linux/macOS: `0600` file mode |
 | `data/state/device-auth.json` | Device WS token | File permissions; treat like a password |
 | Desk pet `localStorage` (`ad_token`) | Device token copy | **Cleartext in the WebView profile**. Persisted only for loopback WS URLs; LAN/remote URLs keep the token in the form for the session only |
+| Mobile `SharedPreferences` (`token`) | Device token copy | Same rule: persisted **only** for loopback WS URLs |
 | `.env` | Optional env overrides | gitignored; shell env wins over file |
 
 ## Mobile sideload signing

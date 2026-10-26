@@ -6,6 +6,11 @@ from http import HTTPStatus
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from loguru import logger
+
+# Soft sunset for pre-/api/v1 aliases (still served; Admin UI already uses v1).
+_LEGACY_SUNSET = "Sat, 01 Aug 2026 00:00:00 GMT"
+
 
 def api_get(host: Any, path: str) -> None:
     runtime = host._runtime()
@@ -95,8 +100,14 @@ def api_get(host: Any, path: str) -> None:
     if payload is None:
         host._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "not found"})
         return
+    logger.warning(
+        "Admin legacy GET {} — migrate to /api/v1/snapshot (sunset {})",
+        path,
+        _LEGACY_SUNSET,
+    )
     host.send_response(HTTPStatus.OK)
     host.send_header("Deprecation", "true")
+    host.send_header("Sunset", _LEGACY_SUNSET)
     host.send_header("Link", '</api/v1/snapshot>; rel="successor-version"')
     host._write_json_headers(payload)
 
@@ -265,6 +276,11 @@ def api_post(host: Any, path: str, body: dict[str, Any]) -> None:
         return
 
     if path == "/api/v1/pets/import" or path == "/api/pets/import":
+        if path == "/api/pets/import":
+            logger.warning(
+                "Admin legacy POST /api/pets/import — use /api/v1/pets/import (sunset {})",
+                _LEGACY_SUNSET,
+            )
         target = str(body.get("id") or "").strip()
         result = runtime.lifecycle.submit(
             "import_pet",
@@ -280,6 +296,11 @@ def api_post(host: Any, path: str, body: dict[str, Any]) -> None:
     action_target = legacy_action(path, body)
     if action_target:
         action, target = action_target
+        logger.warning(
+            "Admin legacy POST {} — use /api/v1/modules/... (sunset {})",
+            path,
+            _LEGACY_SUNSET,
+        )
         result = runtime.lifecycle.submit(action, target, options=body)
         host._json(
             HTTPStatus.ACCEPTED if result.ok else HTTPStatus.BAD_REQUEST,
