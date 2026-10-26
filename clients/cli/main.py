@@ -1,11 +1,11 @@
 """
-cli-client — debug CLI + optional launcher for the host desktop pet.
+cli-client — debug CLI (+ deprecated browser pet launcher).
 
 Host desktop pet (same machine as Runtime):
-  Prefer: cd desktop && npm run dev
-  Fallback: python main.py --ui   # browser UI
+  Prefer: .\\scripts\\start.ps1  /  ./scripts/start.sh
+  Or:     cd desktop && npm run dev
 
-Prefer scripts/start.* which starts Runtime + pet together.
+  --ui is deprecated: opens desktop/ browser fallback only; use start.* / Tauri.
 
 CLI (script / debug):
   python main.py --chat [--agent pi] [--tts edge]
@@ -567,10 +567,15 @@ if __name__ == "__main__":
         or args["wav_path"] is not None
         or args["record_secs"] is not None
     )
-    # No args → unified Web UI
+    # No args → deprecated browser pet fallback (prefer scripts/start.* / Tauri).
     if not has_input:
         args["ui"] = True
     if args["ui"]:
+        print(
+            "warning: --ui / bare `python main.py` is deprecated; "
+            "prefer .\\scripts\\start.ps1 or ./scripts/start.sh (Tauri desk pet).",
+            file=sys.stderr,
+        )
         _launch_web_ui(port=int(args["ui_port"]))
         raise SystemExit(0)
     asyncio.run(run(**{k: v for k, v in args.items() if k not in ("ui", "ui_port")}))

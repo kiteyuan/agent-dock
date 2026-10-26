@@ -27,8 +27,8 @@
 
 | Device | 路径 | 说明 |
 |--------|------|------|
-| Mobile (Flutter) | `clients/mobile/` | 正式手机壳；CI 另打 Win/mac 安装包 |
-| CLI | `clients/cli/` | `--chat` / `--text` 调试 |
+| Mobile (Flutter) | `clients/mobile/` | **远程壳**（手机为主） |
+| CLI | `clients/cli/` | `--chat` / `--text` 调试；`--ui` 已废弃 |
 
 跨网：[`DEPLOY_TAILSCALE.md`](./DEPLOY_TAILSCALE.md) · [`DEPLOY_CLOUDFLARE.md`](./DEPLOY_CLOUDFLARE.md)
 
@@ -36,7 +36,8 @@
 
 | 产物 | 方式 |
 |------|------|
-| Android / iOS / Win / macOS 壳 | GitHub Actions `build-clients.yml` |
-| 本机桌宠 | `desktop/`（Tauri）；`start.*` 优先 `npm run dev` |
+| Android / iOS 远程壳 | GitHub Actions `build-clients.yml`（push / PR / `client-v*`） |
+| Win / mac 远程壳窗 | 仅 `workflow_dispatch` 或 tag `client-v*`（宿主桌宠是 Tauri，不是 Flutter） |
+| 本机桌宠（本体） | `desktop/` Tauri；`scripts/start.*` |
 
-触发：`main` 推送、tag `client-v*`、或手动 `workflow_dispatch`。
+第三方语音/模型边界见根目录 [`NOTICE`](../NOTICE)。

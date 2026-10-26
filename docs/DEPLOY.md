@@ -34,7 +34,7 @@ GPU STT：`cp config.cuda.example.yaml config.local.yaml`
 ## 可选：引擎容器
 
 ```bash
-docker compose --profile engines up -d   # SoVITS → :9880
+docker compose --profile engines up -d   # SoVITS sidecar publish :9880 (api_v2 internal :19880)
 ```
 
 Runtime **不要**进 Docker 当主路径（无法方便地高权限调用本机 Pi）。  

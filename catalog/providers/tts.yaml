@@ -1,5 +1,8 @@
 schema_version: 2
 
+# Ports (do not conflate):
+#   :9880  — AgentDock speech sidecar (catalog health / Admin spawn); docker publish
+#   :19880 — upstream GPT-SoVITS api_v2 (AGENTDOCK_GPT_SOVITS_API_PORT); sidecar starts it
 sidecars:
   sovits:
     name: GPT-SoVITS Engine

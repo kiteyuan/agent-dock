@@ -87,6 +87,7 @@ class GptSovitsEngine(LazyEngine):
         super().__init__(provider)
         self._proc: subprocess.Popen[Any] | None = None
         self._clients: dict[str, Any] = {}
+        # Upstream api_v2 listen port (internal). Catalog sidecar HTTP is :9880.
         self.api_port = int(os.environ.get("AGENTDOCK_GPT_SOVITS_API_PORT", "19880"))
         self._api_wait_s = 180.0
 

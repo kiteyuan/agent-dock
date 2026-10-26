@@ -71,6 +71,7 @@ def _sovits(provider_id: str, cfg: dict[str, Any]) -> TTSProvider:
         voice_dir=cfg.get("voice_dir")
         or cfg.get("voices_dir")
         or f"assets/voices/{provider_id}",
+        # Direct api_v2 URL when not going through the :9880 catalog sidecar.
         url=cfg.get("url") or "http://127.0.0.1:19880",
         api=cfg.get("api") or "v2",
         text_lang=cfg.get("text_lang") or "auto",
