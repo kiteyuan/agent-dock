@@ -1,3 +1,10 @@
+import {
+  isTauri,
+  secureDeviceTokenClear,
+  secureDeviceTokenGet,
+  secureDeviceTokenSet,
+} from "./tauri.js";
+
 export const PREFS = {
   url: "ad_url",
   token: "ad_token",
@@ -27,7 +34,7 @@ export function stableDeviceId() {
   return id;
 }
 
-/** Persist device tokens only for loopback hosts (cleartext localStorage). */
+/** Browser fallback: persist cleartext tokens only for loopback hosts. */
 export function isLoopbackWsUrl(url) {
   try {
     const u = new URL(String(url || "").trim());
@@ -38,24 +45,51 @@ export function isLoopbackWsUrl(url) {
   }
 }
 
-export function loadConnectionPrefs(urlEl, tokenEl) {
-  const saved = localStorage.getItem(PREFS.url) || "";
-  const url = saved || defaultWsUrl();
-  if (urlEl) urlEl.value = url;
-  if (tokenEl) {
-    tokenEl.value = isLoopbackWsUrl(url)
-      ? localStorage.getItem(PREFS.token) || ""
-      : "";
+async function readStoredToken(url) {
+  if (isTauri()) {
+    const legacy = localStorage.getItem(PREFS.token) || "";
+    if (legacy) {
+      try {
+        await secureDeviceTokenSet(legacy);
+      } catch (_) {}
+      localStorage.removeItem(PREFS.token);
+    }
+    try {
+      return (await secureDeviceTokenGet()) || "";
+    } catch (_) {
+      return "";
+    }
+  }
+  if (!isLoopbackWsUrl(url)) return "";
+  return localStorage.getItem(PREFS.token) || "";
+}
+
+async function writeStoredToken(url, token) {
+  const value = String(token || "");
+  if (isTauri()) {
+    localStorage.removeItem(PREFS.token);
+    try {
+      if (value) await secureDeviceTokenSet(value);
+      else await secureDeviceTokenClear();
+    } catch (_) {}
+    return;
+  }
+  if (isLoopbackWsUrl(url)) {
+    localStorage.setItem(PREFS.token, value);
+  } else {
+    localStorage.removeItem(PREFS.token);
   }
 }
 
-export function saveConnectionPrefs(url, token) {
+export async function loadConnectionPrefs(urlEl, tokenEl) {
+  const saved = localStorage.getItem(PREFS.url) || "";
+  const url = saved || defaultWsUrl();
+  if (urlEl) urlEl.value = url;
+  if (tokenEl) tokenEl.value = await readStoredToken(url);
+}
+
+export async function saveConnectionPrefs(url, token) {
   const trimmed = String(url || "").trim();
   localStorage.setItem(PREFS.url, trimmed);
-  if (isLoopbackWsUrl(trimmed)) {
-    localStorage.setItem(PREFS.token, String(token || ""));
-  } else {
-    // LAN / remote: keep token in the form for this session only.
-    localStorage.removeItem(PREFS.token);
-  }
+  await writeStoredToken(trimmed, token);
 }

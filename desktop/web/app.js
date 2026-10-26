@@ -16,11 +16,11 @@ document.documentElement.classList.add("pet-mode");
 
 wireSessionHooks();
 bindChrome();
-loadConnectionPrefs($("url"), $("token"));
 loadChromeCompactPref();
 loadMessages();
 
 (async () => {
+  await loadConnectionPrefs($("url"), $("token"));
   await bootPets();
   setMood("offline");
   renderTranscript();

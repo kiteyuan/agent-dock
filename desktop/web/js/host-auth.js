@@ -25,6 +25,6 @@ export async function ensureHostAuth() {
     token = (await readLocalDeviceToken()) || "";
   }
   if (tokenEl && token) tokenEl.value = token;
-  if (token) saveConnectionPrefs(url, token);
+  if (token) await saveConnectionPrefs(url, token);
   return { url, token, local: isLocalRuntimeUrl(url) };
 }

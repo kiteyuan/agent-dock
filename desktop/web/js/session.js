@@ -411,7 +411,7 @@ export function connect() {
 
 async function connectAsync() {
   await ensureHostAuth();
-  saveConnectionPrefs($("url").value, $("token").value);
+  await saveConnectionPrefs($("url").value, $("token").value);
   const url = $("url").value.trim();
   if (!url) return;
   setMood("connecting");

@@ -12,3 +12,12 @@ commands.allow = ["fit_pet_window"]
 identifier = "allow-open-admin-panel"
 description = "Open the Runtime Admin console in a second window"
 commands.allow = ["open_admin_panel"]
+
+[[permission]]
+identifier = "allow-secure-device-token"
+description = "Read/write device WS token in the OS keyring"
+commands.allow = [
+  "secure_device_token_get",
+  "secure_device_token_set",
+  "secure_device_token_clear",
+]

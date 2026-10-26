@@ -31,6 +31,23 @@ export async function readLocalDeviceToken() {
   }
 }
 
+export async function secureDeviceTokenGet() {
+  try {
+    const token = await invoke("secure_device_token_get");
+    return typeof token === "string" && token ? token : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function secureDeviceTokenSet(token) {
+  await invoke("secure_device_token_set", { token: String(token || "") });
+}
+
+export async function secureDeviceTokenClear() {
+  await invoke("secure_device_token_clear");
+}
+
 export async function fitPetWindow(width, height) {
   try {
     await invoke("fit_pet_window", { width, height });

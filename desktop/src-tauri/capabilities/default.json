@@ -12,6 +12,7 @@
     "opener:default",
     "allow-local-device-token",
     "allow-fit-pet-window",
-    "allow-open-admin-panel"
+    "allow-open-admin-panel",
+    "allow-secure-device-token"
   ]
 }

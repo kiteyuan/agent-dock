@@ -43,6 +43,49 @@ fn local_device_token() -> Result<Option<String>, String> {
     Ok(None)
 }
 
+const KEYRING_SERVICE: &str = "com.agentdock.pet";
+const KEYRING_ACCOUNT: &str = "device_token";
+
+fn token_entry() -> Result<keyring::Entry, String> {
+    keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn secure_device_token_get() -> Result<Option<String>, String> {
+    match token_entry()?.get_password() {
+        Ok(p) => {
+            let t = p.trim();
+            if t.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(t.to_string()))
+            }
+        }
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+fn secure_device_token_set(token: String) -> Result<(), String> {
+    let t = token.trim();
+    if t.is_empty() {
+        return secure_device_token_clear();
+    }
+    token_entry()?
+        .set_password(t)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn secure_device_token_clear() -> Result<(), String> {
+    match token_entry()?.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// Resize while keeping the **bottom edge** fixed (grow/shrink upward).
 #[tauri::command]
 fn fit_pet_window(window: tauri::WebviewWindow, width: u32, height: u32) -> Result<(), String> {
@@ -156,6 +199,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             local_device_token,
+            secure_device_token_get,
+            secure_device_token_set,
+            secure_device_token_clear,
             fit_pet_window,
             open_admin_panel
         ])
