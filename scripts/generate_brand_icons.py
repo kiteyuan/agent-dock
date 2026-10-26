@@ -85,7 +85,8 @@ def main() -> None:
     print(f"brand icons generated from {src.name}")
     print(f"  {BRAND}")
     print(f"  {admin_brand}")
-    print(f"  {DESKTOP_WEB}")    print(f"  {mobile_brand}")
+    print(f"  {DESKTOP_WEB}")
+    print(f"  {mobile_brand}")
 
 
 if __name__ == "__main__":
