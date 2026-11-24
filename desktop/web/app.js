@@ -8,10 +8,11 @@ import { bootPets } from "./js/pets.js";
 import { setMood, syncControls } from "./js/mood.js";
 import { loadMessages, renderTranscript } from "./js/transcript.js";
 import { connect, wireSessionHooks } from "./js/session.js";
+import { bindPetReplyLayout } from "./js/pet-reply-layout.js";
 import { bindChrome } from "./js/chrome.js";
 import { ensureHostAuth } from "./js/host-auth.js";
 import {
-  scheduleFitPetWindow,
+  fitInitialPetWindow,
   loadChromeCompactPref,
   bindPetHitRects,
 } from "./js/pet-chrome.js";
@@ -20,6 +21,7 @@ document.documentElement.classList.add("pet-mode");
 
 wireSessionHooks();
 bindChrome();
+bindPetReplyLayout();
 loadChromeCompactPref();
 loadMessages();
 
@@ -30,7 +32,7 @@ loadMessages();
   renderTranscript();
   store.turnLocked = true;
   syncControls();
-  await scheduleFitPetWindow({ immediate: true, force: true });
+  await fitInitialPetWindow();
   bindPetHitRects();
 
   const { local } = await ensureHostAuth();

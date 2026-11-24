@@ -7,7 +7,7 @@
   <link rel="icon" href="./favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" href="./favicon-32.png" sizes="32x32" />
   <meta name="theme-color" content="#00000000" />
-  <link rel="stylesheet" href="./styles.css?v=145" />
+  <link rel="stylesheet" href="./styles.css?v=146" />
 </head>
 <body>
   <div class="app pet-shell" id="stage" data-mood="offline">
@@ -21,7 +21,12 @@
         <div class="pet-bubble-slot">
           <div id="petBubble" class="pet-bubble" hidden>
             <div id="petBubbleReply" class="pet-bubble-reply">
-              <div id="petBubbleBody" class="pet-bubble-body"></div>
+              <div class="pet-page-viewport"><div id="petBubbleBody" class="pet-bubble-body"></div></div>
+              <div id="petPages" class="pet-pages" hidden>
+                <button id="petPagePrev" type="button" aria-label="上一页">‹</button>
+                <span id="petPageCount"></span>
+                <button id="petPageNext" type="button" aria-label="下一页">›</button>
+              </div>
               <p id="processLine" class="pet-bubble-foot" hidden></p>
               <button type="button" id="btnBubbleMute" class="pet-bubble-mute" hidden
                 aria-label="播报" title="播报">
@@ -120,6 +125,6 @@
   </dialog>
 
   <script src="./pixel-bot.js?v=7"></script>
-  <script type="module" src="./app.js?v=145"></script>
+  <script type="module" src="./app.js?v=146"></script>
 </body>
 </html>

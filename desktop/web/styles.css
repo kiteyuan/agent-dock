@@ -114,12 +114,9 @@ html.pet-mode .pet-main {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  flex: 0 0 auto !important;
-  /* .main { height:100%; max-height:100% } would fill the webview and leave a
-     transparent band. Pet chrome is content-sized; the OS window follows it. */
-  height: auto !important;
-  max-height: none !important;
-  min-height: 0 !important;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
   --composer-space: 0;
 }
 /* Author `display:flex` overrides the hidden attribute — don't let it flex-grow. */
@@ -136,13 +133,14 @@ html.pet-mode .pet-stage {
   align-items: center;
   justify-content: flex-end;
   gap: 0.15rem;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 0.25rem 0.35rem 0.35rem;
   pointer-events: none;
 }
 /* Hugs the bubble; empty slot collapses to zero height. */
 html.pet-mode .pet-bubble-slot {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   width: 100%;
   max-width: 100%;
   min-height: 0;
@@ -156,11 +154,15 @@ html.pet-mode .pet-bubble-slot {
 }
 html.pet-mode .pet-bubble-slot > * {
   pointer-events: auto;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-height: 0;
   align-self: center;
 }
 html.pet-mode .pet-stage > * {
   pointer-events: auto;
+}
+html.pet-mode .pet-stage > :not(.pet-bubble-slot) {
+  flex: none;
 }
 html.pet-mode .composer-dock,
 html.pet-mode .pet-stage .composer-pet-stack {
@@ -277,12 +279,6 @@ html.pet-mode .status-tag,
 html.pet-mode .status-tag[hidden] {
   display: none !important;
 }
-/* While the window catches up to a taller bubble/confirm — keep layout for
-   measure, but don't paint the clipped frame. */
-html.pet-mode.chrome-growing .pet-bubble-slot {
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
 /* Compact: CSS only (window size unchanged). Bubble slot leaves the flow;
    composer/flanks stay visibility-hidden so the bottom-pinned pet keeps its spot. */
 html.pet-mode.chrome-compact .pet-bubble-slot {
@@ -303,9 +299,7 @@ html.pet-mode .pet-bubble {
   width: fit-content;
   max-width: min(var(--pet-bubble-max), 100%);
   min-width: 0;
-  /* Full reply text — no inner scrollbar; window may grow in height only. */
-  max-height: none;
-  overflow: visible;
+  overflow: hidden;
   padding: 0.55rem 0.75rem 0.45rem;
   border-radius: 14px;
   border: 1px solid var(--pet-border);
@@ -368,12 +362,45 @@ html.pet-mode .pet-bubble-mute .ico[hidden] {
 html.pet-mode .pet-bubble[hidden] {
   display: none !important;
 }
-html.pet-mode .pet-bubble-reply {
+html.pet-mode .pet-bubble-reply:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   min-width: 0;
+}
+html.pet-mode .pet-page-viewport {
+  min-height: 0;
+  overflow: clip;
 }
 html.pet-mode .pet-bubble-body {
-  min-width: 0;
+  overflow-wrap: anywhere;
 }
+html.pet-mode .pet-bubble .md-pre {
+  overflow: visible;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+html.pet-mode .pet-bubble-body.is-paged {
+  height: 100%;
+  column-count: 1;
+  column-fill: auto;
+  column-gap: 0;
+}
+html.pet-mode .pet-pages:not([hidden]) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex: none;
+  color: var(--pet-muted);
+}
+html.pet-mode .pet-pages button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+html.pet-mode .pet-pages button:disabled { opacity: 0.35; }
 /* Confirm: same hug-content rule — never 100% of the window/slot. */
 html.pet-mode .pet-bubble.is-confirm {
   width: fit-content;

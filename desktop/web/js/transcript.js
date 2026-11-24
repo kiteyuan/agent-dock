@@ -8,8 +8,8 @@ import {
   captionSep,
   clipProcess,
 } from "./text.js";
+import { layoutPetReply } from "./pet-reply-layout.js";
 import { syncReplayHint } from "./mood.js";
-import { contentNeedsWindowGrow, fitPetChromeGrowing } from "./pet-chrome.js";
 
 function isPetMode() {
   return document.documentElement.classList.contains("pet-mode");
@@ -31,6 +31,8 @@ function applyBubbleConfirmUi() {
     return false;
   }
   bubble.hidden = false;
+  bubble.style.width = "";
+  bubble.style.removeProperty("--pet-bubble-max");
   bubble.classList.add("is-confirm");
   bubble.classList.toggle("is-confirm-danger", !!spec.danger);
   bubble.classList.remove("is-typing", "is-prompt", "is-status", "is-wide", "has-tts-ctrl", "is-err");
@@ -45,16 +47,7 @@ function applyBubbleConfirmUi() {
   }
   const mute = $("btnBubbleMute");
   if (mute) mute.hidden = true;
-  fitBubbleWindow();
   return true;
-}
-
-/** Window is a fixed canvas; only grow (veiled) when the chrome no longer fits. */
-function fitBubbleWindow() {
-  if (contentNeedsWindowGrow()) {
-    document.documentElement.classList.add("chrome-growing");
-    void fitPetChromeGrowing();
-  }
 }
 
 function syncPetBubble() {
@@ -152,10 +145,7 @@ function syncPetBubble() {
   }
 
   const turnKey = asStatus ? `status:${mood}` : store.bubbleTurnKey || "idle";
-  if (bubble.dataset.turnKey !== turnKey) {
-    bubble.dataset.turnKey = turnKey;
-    bubble.style.minHeight = "";
-  }
+  bubble.dataset.turnKey = turnKey;
 
   bubble.hidden = false;
   bubble.classList.toggle("is-prompt", asUserPrompt);
@@ -217,7 +207,7 @@ function syncPetBubble() {
     }
   }
 
-  fitBubbleWindow();
+  layoutPetReply();
 }
 
 function nextMsgId() {

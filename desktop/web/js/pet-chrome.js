@@ -1,30 +1,11 @@
-/**
- * Pet window sizing — the OS window is a fixed, tall, transparent canvas.
- *
- * Resizing a WebView2 window is asynchronous: the HWND moves/grows first and the
- * page catches up a frame or more later, so anything that resizes on bubble open
- * makes the pet jump. Instead the window keeps one height (grow-only, for very
- * long replies), chrome is bottom-pinned by CSS, and the transparent area is
- * made click-through by reporting hit rects to Rust (`set_pet_hit_rects`).
- */
-
+/** Fixed canvas with bottom-pinned controls and room for wide replies. */
 import { $ } from "./dom.js";
+import { MAX_REPLY_WIDTH } from "./pet-reply-layout.js";
 import { PREFS } from "./prefs.js";
 import { fitPetWindow, setPetHitRects } from "./tauri.js";
 
-/** Default canvas height — fits pet + composer + a typical bubble without resizing. */
-const PET_WINDOW_MIN_H = 600;
+const PET_WINDOW_HEIGHT = 700;
 const HIT_PAD = 4;
-
-let _fitTimer = null;
-let _fitRunning = false;
-let _fitQueued = false;
-let _fitQueuedForce = false;
-let _fitWaiters = [];
-let _lastFitW = 0;
-let _lastFitH = 0;
-/** Width locks after the first successful fit. */
-let _widthLocked = false;
 
 let _hitSuspended = false;
 let _hitRaf = 0;
@@ -37,26 +18,6 @@ export function focusComposer() {
 
 export function isChromeCompact() {
   return document.documentElement.classList.contains("chrome-compact");
-}
-
-function waitFrames(n = 2) {
-  return new Promise((resolve) => {
-    const step = () => {
-      if (--n <= 0) resolve();
-      else requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  });
-}
-
-/** Wait until the webview's innerHeight has caught up to a fit (or timeout). */
-async function waitForInnerHeight(targetH, timeoutMs = 500) {
-  const floor = Math.max(0, targetH - 16);
-  const start = performance.now();
-  while (performance.now() - start < timeoutMs) {
-    if (window.innerHeight >= floor) return;
-    await waitFrames(1);
-  }
 }
 
 export function setChromeCompact(on) {
@@ -104,153 +65,8 @@ export function syncStatusVisibility(_mood) {
   tag.setAttribute("aria-hidden", "true");
 }
 
-function petBubbleMaxPx() {
-  const raw = getComputedStyle(document.documentElement)
-    .getPropertyValue("--pet-bubble-max")
-    .trim();
-  const n = parseFloat(raw);
-  return Number.isFinite(n) && n > 0 ? n : 480;
-}
-
-/** Intrinsic content size — independent of the current window height. */
-function chromeBounds(petStage) {
-  const cs = getComputedStyle(petStage);
-  const padX =
-    (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
-  const padY =
-    (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
-  const gap = parseFloat(cs.rowGap || cs.gap) || 0;
-
-  let contentW = 0;
-  let contentH = 0;
-  let n = 0;
-  for (const el of petStage.children) {
-    if (el.hidden) continue;
-    const st = getComputedStyle(el);
-    if (st.display === "none") continue;
-    const w = Math.max(el.offsetWidth, el.scrollWidth);
-    const h = Math.max(el.offsetHeight, el.scrollHeight);
-    if (w < 1 && h < 1) continue;
-    contentW = Math.max(contentW, w);
-    contentH += h;
-    n += 1;
-  }
-
-  if (n === 0) {
-    const r = petStage.getBoundingClientRect();
-    return { width: r.width, height: r.height };
-  }
-  if (n > 1) contentH += gap * (n - 1);
-  return { width: contentW + padX, height: contentH + padY };
-}
-
-function neededWindowHeight(petStage) {
-  return Math.max(PET_WINDOW_MIN_H, Math.ceil(chromeBounds(petStage).height) + 12);
-}
-
-async function applyFitPetWindow(force = false) {
-  const stage = $("stage");
-  const petStage = stage?.querySelector(".pet-stage");
-  if (!stage || !petStage) return;
-  await waitFrames(2);
-
-  let w = _lastFitW;
-  if (!_widthLocked || _lastFitW <= 0) {
-    const cardCap = Math.ceil(petBubbleMaxPx()) + 24;
-    w = Math.max(Math.ceil(chromeBounds(petStage).width) + 16, cardCap);
-    _widthLocked = true;
-    // Height must be measured at the final width — a narrower window wraps the
-    // bubble taller, and grow-only would keep that inflated height forever.
-    if (Math.abs(window.innerWidth - w) > 2) {
-      await fitPetWindow(w, Math.max(window.innerHeight, PET_WINDOW_MIN_H));
-      const start = performance.now();
-      while (Math.abs(window.innerWidth - w) > 2 && performance.now() - start < 500) {
-        await waitFrames(1);
-      }
-      await waitFrames(1);
-    }
-  }
-  // Grow-only: shrinking would resize on every bubble close, and the transparent
-  // area is click-through anyway.
-  const h = Math.max(neededWindowHeight(petStage), _lastFitH);
-
-  if (!force && Math.abs(w - _lastFitW) < 2 && Math.abs(h - _lastFitH) < 2) {
-    return;
-  }
-  _lastFitW = w;
-  _lastFitH = h;
-  await fitPetWindow(w, h);
-  scheduleHitRectSync();
-}
-
-/**
- * @param {{ immediate?: boolean, debounceMs?: number, force?: boolean }} [opts]
- */
-export async function scheduleFitPetWindow(opts = {}) {
-  const force = !!opts.force;
-  const immediate = !!opts.immediate || force;
-  const debounceMs = opts.debounceMs ?? (immediate ? 0 : 100);
-
-  if (!(immediate && debounceMs <= 0)) {
-    if (_fitTimer) clearTimeout(_fitTimer);
-    return new Promise((resolve) => {
-      _fitTimer = setTimeout(() => {
-        _fitTimer = null;
-        void scheduleFitPetWindow({ immediate: true, force }).then(resolve);
-      }, debounceMs);
-    });
-  }
-
-  if (_fitTimer) {
-    clearTimeout(_fitTimer);
-    _fitTimer = null;
-  }
-
-  if (_fitRunning) {
-    _fitQueued = true;
-    _fitQueuedForce = _fitQueuedForce || force;
-    return new Promise((resolve) => {
-      _fitWaiters.push(resolve);
-    });
-  }
-
-  _fitRunning = true;
-  try {
-    await applyFitPetWindow(force);
-  } finally {
-    _fitRunning = false;
-    if (_fitQueued) {
-      _fitQueued = false;
-      const f = _fitQueuedForce;
-      _fitQueuedForce = false;
-      await scheduleFitPetWindow({ immediate: true, force: f });
-    }
-    const waiters = _fitWaiters.splice(0);
-    for (const w of waiters) w();
-  }
-}
-
-/** True when the chrome no longer fits the current (fixed) window height. */
-export function contentNeedsWindowGrow() {
-  const petStage = document.querySelector(".pet-stage");
-  if (!petStage) return false;
-  return neededWindowHeight(petStage) > window.innerHeight + 2;
-}
-
-/**
- * Rare path (very long reply): veil the bubble slot while the window grows so the
- * clipped frame isn't painted. The pet itself stays visible.
- */
-export async function fitPetChromeGrowing() {
-  const root = document.documentElement;
-  root.classList.add("chrome-growing");
-  try {
-    await scheduleFitPetWindow({ immediate: true });
-    await waitForInnerHeight(_lastFitH);
-    await waitFrames(1);
-  } finally {
-    root.classList.remove("chrome-growing");
-  }
+export async function fitInitialPetWindow() {
+  await fitPetWindow(MAX_REPLY_WIDTH + 24, PET_WINDOW_HEIGHT);
 }
 
 // —— Click-through hit rects ——
@@ -277,7 +93,7 @@ function collectHitRects() {
   if (!root.classList.contains("chrome-compact")) {
     pushRect(out, $("composerForm"));
     document.querySelectorAll(".pet-flank-btn").forEach((el) => pushRect(out, el));
-    if (!root.classList.contains("chrome-growing")) pushRect(out, $("petBubble"));
+    pushRect(out, $("petBubble"));
   }
   return out;
 }
